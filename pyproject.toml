@@ -36,6 +36,7 @@ dependencies = [
 "sphinx-rtd-theme",
 "sphinx-click",
 "myst-parser",
+"sphinx-autodoc-typehints",
 ]
 [project.scripts]
 mpip = "mbpy.cli:cli"
