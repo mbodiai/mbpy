@@ -291,13 +291,14 @@ def info_command(package, detailed) -> None:
 @click.option("--deps", default=None, help="Dependencies separated by commas")
 @click.option("--python-version", default="3.10", help="Python version to use")
 @click.option("--no-cli", is_flag=True, help="Do not add a CLI")
-def create_command(project_name, author, description, deps, python_version="3.10", no_cli=False) -> None:
+@click.option("--doc-type", type=click.Choice(['sphinx', 'mkdocs']), default='sphinx', help="Documentation type to use")
+def create_command(project_name, author, description, deps, python_version="3.10", no_cli=False, doc_type='sphinx') -> None:
     """Create a new Python project. Optionally add dependencies and a CLI."""
     try:
         if deps:
             deps = deps.split(",")
-        create_project(project_name, author, description, deps, python_version, not no_cli)
-        click.echo(f"Project {project_name} created successfully.")
+        create_project(project_name, author, description, deps, python_version, not no_cli, doc_type)
+        click.echo(f"Project {project_name} created successfully with {doc_type} documentation.")
     except Exception as e:
         traceback.print_exc()
         sys.exit(1)
