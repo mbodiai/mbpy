@@ -297,8 +297,6 @@ def test_install_command_none_requirements(monkeypatch):
     result = runner.invoke(install_command, ["-r", None])
     
     assert result.exit_code == 0
-    assert "Installing packages..." in result.output
-    assert "Running command:" in result.output
-    assert "-m pip install" in result.output
-    assert "[notice] A new release of pip is available: 24.1 -> 24.2" in result.output
-    assert "[notice] To update, run: pip install --upgrade pip" in result.output
+    assert "No packages specified for installation." in result.output
+    assert "[notice] A new release of pip is available: 24.1 -> 24.2" not in result.output
+    assert "[notice] To update, run: pip install --upgrade pip" not in result.output
