@@ -1,0 +1,111 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mbpy"
+dynamic = ["version"]
+description = 'Install and manage pyproject.toml with pip commands.'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "apache-2.0"
+keywords = []
+authors = [
+{ name = "Sebastian Peralta", email = "sebastian@mbodi.ai" },
+]
+classifiers = [
+"Development Status :: 4 - Beta",
+"Programming Language :: Python",
+"Programming Language :: Python :: 3.8",
+"Programming Language :: Python :: 3.9",
+"Programming Language :: Python :: 3.10",
+"Programming Language :: Python :: 3.11",
+"Programming Language :: Python :: 3.12",
+"Programming Language :: Python :: Implementation :: CPython",
+"Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+"click==8.1.7",
+"mrender",
+"packaging==24.1",
+"requests==2.32.3",
+"rich==13.7.1",
+"toml==0.10.2",
+"tomlkit==0.13.0",
+]
+[project.scripts]
+mpip = "mbpy.cli:cli"
+
+
+[project.urls]
+Documentation = "https://github.com/mbodiai/mpip#readme"
+Issues = "https://github.com/mbodiai/mpip/issues"
+Source = "https://github.com/mbodiai/mpip"
+
+
+[tool.hatch.version]
+path = "mbpy/__about__.py"
+[tool.hatch.envs.default]
+python = "3.10"
+path = ".mpip/envs/mpip"
+dependencies = [
+"pyclean==3.0.0",
+"pytest",
+]
+[tool.hatch.envs.types]
+extra-dependencies = [
+"mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:mbpy/mpip tests}"
+
+[tool.coverage.run]
+source_pkgs = ["mpip", "tests"]
+branch = true
+parallel = true
+omit = [
+"mbpy/mpip/__about__.py",
+]
+
+[tool.coverage.paths]
+mpip = ["mbpy/mpip", "*/mpip/mbpy/mpip"]
+tests = ["tests", "*/mpip/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+"no cov",
+"if __name__ == .__main__.:",
+"if TYPE_CHECKING:",
+]
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-unsafe-fixes = ["ALL"]
+select = [
+"A", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN", "ASYNC",
+"S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW",
+]
+ignore = [
+"D100", "D101", "D104", "D106", "ANN101", "ANN102", "ANN003", "UP009", "ANN204",
+"B026", "ANN001", "ANN401", "ANN202", "D107", "D102", "D103", "E731", "UP006",
+"UP035", "ANN002", "PLW2901", "D105"
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests,docs}/*" = ["ALL"]
+"**__init__.py" = ["F401"]

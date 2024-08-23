@@ -1,0 +1,8 @@
+click==8.1.7
+packaging==24.1
+requests==2.32.3
+toml==0.10.2
+tomlkit==0.13.0
+markdown2==2.5.0
+rich==13.7.1
+mdstream==0.3.4
