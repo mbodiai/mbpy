@@ -197,106 +197,105 @@ def create_project(
     # Set up documentation
     setup_documentation(project_root, project_name, author, description)
 
-def setup_documentation(project_dir, project_name, author, description):
+def setup_documentation(project_dir, project_name, author, description, doc_type='sphinx'):
     docs_dir = project_dir / "docs"
     docs_dir.mkdir(exist_ok=True)
 
-    # Create conf.py
-    conf_content = f"""
-# Configuration file for the Sphinx documentation builder.
+    if doc_type == 'sphinx':
+        setup_sphinx_docs(docs_dir, project_name, author, description)
+    elif doc_type == 'mkdocs':
+        setup_mkdocs(docs_dir, project_name, author, description)
+    else:
+        raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
-import os
-import sys
-sys.path.insert(0, os.path.abspath('..'))
+def setup_sphinx_docs(docs_dir, project_name, author, description):
+    # [The existing Sphinx setup code goes here]
+    # ...
 
-# Project information
-project = '{project_name}'
-copyright = '2024, {author}'
-author = '{author}'
+def setup_mkdocs(docs_dir, project_name, author, description):
+    # Create mkdocs.yml
+    mkdocs_content = f"""
+site_name: {project_name}
+site_description: {description}
+site_author: {author}
 
-# Extensions
-extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx_autodoc_typehints',
-    'sphinx.ext.viewcode',
-]
+theme:
+  name: material
 
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+nav:
+  - Home: index.md
+  - API: api.md
 
-# The suffix(es) of source filenames.
-source_suffix = '.rst'
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
 
-# The master toctree document.
-master_doc = 'index'
-
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
-
-# -- Options for HTML output -------------------------------------------------
-
-# The theme to use for HTML and HTML Help pages.
-html_theme = 'sphinx_rtd_theme'
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          rendering:
+            show_source: true
 """
-    (docs_dir / "conf.py").write_text(conf_content)
+    (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
 
-    # Create index.rst
+    # Create index.md
     index_content = f"""
-Welcome to {project_name}'s documentation!
-==========================================
+# Welcome to {project_name}
 
 {description}
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+## Installation
 
-   modules
+```bash
+pip install {project_name}
+```
 
-Indices and tables
-==================
+## Usage
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+[Add usage information here]
+
+## API Documentation
+
+For detailed API documentation, please see the [API](api.md) page.
 """
-    (docs_dir / "index.rst").write_text(index_content)
+    (docs_dir / "index.md").write_text(index_content)
 
-    # Create Makefile for documentation
-    makefile_content = """
-# Minimal makefile for Sphinx documentation
+    # Create api.md
+    api_content = f"""
+# API Reference
 
-# You can set these variables from the command line.
-SPHINXOPTS    =
-SPHINXBUILD   = sphinx-build
-SOURCEDIR     = .
-BUILDDIR      = _build
+This page contains the API reference for {project_name}.
 
-# Put it first so that "make" without argument is like "make help".
-help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-
-.PHONY: help Makefile
-
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+::: {project_name}
+    handler: python
+    selection:
+      members:
+        - 
+    rendering:
+      show_root_heading: true
+      show_source: true
 """
-    (docs_dir / "Makefile").write_text(makefile_content)
+    (docs_dir / "api.md").write_text(api_content)
 
-    # Generate API documentation
-    subprocess.run(["sphinx-apidoc", "-o", str(docs_dir), str(project_dir / project_name)], check=True)
+def create_project(
+    project_name,
+    author,
+    description="",
+    deps: list[str] | Literal["local"] | None = None,
+    python_version="3.11",
+    add_cli=True,
+    doc_type='sphinx',
+) -> None:
+    # [Existing code...]
+
+    # Set up documentation
+    setup_documentation(project_root, project_name, author, description, doc_type)
 
 
 def create_pyproject_toml(
