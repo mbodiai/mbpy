@@ -30,6 +30,8 @@ pip install mbpy
 
 ## Usage
 
+For detailed usage instructions, please refer to the [documentation](#documentation).
+
 ```console
 mpip --help
 ```
@@ -48,6 +50,16 @@ Commands:
   show       Show the dependencies from the pyproject.toml file.
   uninstall  Uninstall packages and update requirements.txt and...
 ```
+
+## Documentation
+
+To view the full documentation:
+
+1. Build the docs:
+   ```
+   hatch run docs
+   ```
+2. Open `docs/_build/html/index.html` in your web browser.
 
 ## License
 
