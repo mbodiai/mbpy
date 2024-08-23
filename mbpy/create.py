@@ -209,6 +209,65 @@ def setup_documentation(project_dir, project_name, author, description, doc_type
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
+def setup_mkdocs(docs_dir, project_name, author, description):
+    # Create mkdocs.yml
+    mkdocs_content = f"""
+site_name: {project_name}
+site_description: {description}
+site_author: {author}
+
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - API: api.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          rendering:
+            show_source: true
+"""
+    (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
+
+    # Create index.md
+    index_content = f"""
+# Welcome to {project_name}
+
+{description}
+
+## Installation
+
+For installation instructions, see the [Installation](installation.md) page.
+
+## Usage
+
+For usage information, see the [Usage](usage.md) page.
+
+## API Documentation
+
+For detailed API documentation, please see the [API](api.md) page.
+"""
+    (docs_dir / "index.md").write_text(index_content)
+
+    # Create other necessary files
+    (docs_dir / "installation.md").touch()
+    (docs_dir / "usage.md").touch()
+    (docs_dir / "api.md").touch()
+
 def setup_sphinx_docs(docs_dir, project_name, author, description):
     # [The existing Sphinx setup code goes here]
     # ...
