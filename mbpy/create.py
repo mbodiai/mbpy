@@ -216,6 +216,11 @@ def setup_documentation(project_dir, project_name, author, description, doc_type
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
+def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings):
+    # Placeholder for Sphinx documentation setup
+    # TODO: Implement Sphinx documentation setup
+    pass
+
 def extract_docstrings(project_path):
     docstrings = {}
     for py_file in project_path.glob('**/*.py'):
@@ -318,7 +323,25 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
 ) -> None:
-    # [Existing code...]
+    print(f"Creating project: {project_name}")
+    print(f"Author: {author}")
+    print(f"Description: {description}")
+    print(f"Dependencies: {deps}")
+    print(f"Python version: {python_version}")
+    print(f"Add CLI: {add_cli}")
+
+    if deps is None:
+        deps = []
+    
+    # Create project root directory
+    root = Path(getcwd())
+    project_root = root
+    if root.stem != project_name:
+        project_root = root / project_name
+        print(f"Creating project root directory: {project_root}")
+    project_root.mkdir(exist_ok=True, parents=True)
+    
+    # [Rest of the existing code...]
 
     # Set up documentation
     setup_documentation(project_root, project_name, author, description, doc_type)
