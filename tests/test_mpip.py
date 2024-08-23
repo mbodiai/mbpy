@@ -1,5 +1,6 @@
 import pytest
 import requests
+import sys
 from mbpy.mpip import (
     get_latest_version,
     base_name,
@@ -13,9 +14,11 @@ from mbpy.mpip import (
 
 
 def test_get_latest_version():
+    print("Starting test_get_latest_version", file=sys.stderr)
     assert get_latest_version("pytest") is not None
     # Test with a non-existent package
     assert get_latest_version("non_existent_package_12345") is None
+    print("Finished test_get_latest_version", file=sys.stderr)
 
 
 def test_base_name():
