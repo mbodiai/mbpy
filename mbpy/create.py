@@ -243,6 +243,45 @@ plugins:
             show_source: true
 """
     (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
+
+    # Create index.md
+    index_content = f"""
+# Welcome to {project_name}
+
+{description}
+
+## Installation
+
+```bash
+pip install {project_name}
+```
+
+## Usage
+
+[Add usage information here]
+
+## API Documentation
+
+For detailed API documentation, please see the [API](api.md) page.
+"""
+    (docs_dir / "index.md").write_text(index_content)
+
+    # Create api.md
+    api_content = f"""
+# API Reference
+
+This page contains the API reference for {project_name}.
+
+::: {project_name}
+    handler: python
+    selection:
+      members:
+        - 
+    rendering:
+      show_root_heading: true
+      show_source: true
+"""
+    (docs_dir / "api.md").write_text(api_content)
     (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
