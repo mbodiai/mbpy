@@ -243,6 +243,7 @@ plugins:
             show_source: true
 """
     (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
+    (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
     index_content = f"""
