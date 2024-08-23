@@ -127,6 +127,7 @@ def create_project(
     deps: list[str] | Literal["local"] | None = None,
     python_version="3.11",
     add_cli=True,
+    doc_type='sphinx',
 ) -> None:
     print(f"Creating project: {project_name}")
     print(f"Author: {author}")
@@ -195,7 +196,7 @@ def create_project(
     (workflows / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
 
     # Set up documentation
-    setup_documentation(project_root, project_name, author, description)
+    setup_documentation(project_root, project_name, author, description, doc_type)
 
 def setup_documentation(project_dir, project_name, author, description, doc_type='sphinx'):
     docs_dir = project_dir / "docs"
