@@ -117,6 +117,9 @@ jobs:
           hatch run test"""
 
 
+import os
+import subprocess
+
 def create_project(
     project_name,
     author,
@@ -190,6 +193,110 @@ def create_project(
     # Create workflow files
     (workflows / "macos.yml").write_text(WORKFLOW_MAC)
     (workflows / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
+
+    # Set up documentation
+    setup_documentation(project_root, project_name, author, description)
+
+def setup_documentation(project_dir, project_name, author, description):
+    docs_dir = project_dir / "docs"
+    docs_dir.mkdir(exist_ok=True)
+
+    # Create conf.py
+    conf_content = f"""
+# Configuration file for the Sphinx documentation builder.
+
+import os
+import sys
+sys.path.insert(0, os.path.abspath('..'))
+
+# Project information
+project = '{project_name}'
+copyright = '2024, {author}'
+author = '{author}'
+
+# Extensions
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',
+    'sphinx_autodoc_typehints',
+    'sphinx.ext.viewcode',
+]
+
+# Add any paths that contain templates here, relative to this directory.
+templates_path = ['_templates']
+
+# The suffix(es) of source filenames.
+source_suffix = '.rst'
+
+# The master toctree document.
+master_doc = 'index'
+
+# List of patterns, relative to source directory, that match files and
+# directories to ignore when looking for source files.
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+
+# The name of the Pygments (syntax highlighting) style to use.
+pygments_style = 'sphinx'
+
+# -- Options for HTML output -------------------------------------------------
+
+# The theme to use for HTML and HTML Help pages.
+html_theme = 'sphinx_rtd_theme'
+
+# Add any paths that contain custom static files (such as style sheets) here,
+# relative to this directory. They are copied after the builtin static files,
+# so a file named "default.css" will overwrite the builtin "default.css".
+html_static_path = ['_static']
+"""
+    (docs_dir / "conf.py").write_text(conf_content)
+
+    # Create index.rst
+    index_content = f"""
+Welcome to {project_name}'s documentation!
+==========================================
+
+{description}
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   modules
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+"""
+    (docs_dir / "index.rst").write_text(index_content)
+
+    # Create Makefile for documentation
+    makefile_content = """
+# Minimal makefile for Sphinx documentation
+
+# You can set these variables from the command line.
+SPHINXOPTS    =
+SPHINXBUILD   = sphinx-build
+SOURCEDIR     = .
+BUILDDIR      = _build
+
+# Put it first so that "make" without argument is like "make help".
+help:
+	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+.PHONY: help Makefile
+
+# Catch-all target: route all unknown targets to Sphinx using the new
+# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
+%: Makefile
+	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+"""
+    (docs_dir / "Makefile").write_text(makefile_content)
+
+    # Generate API documentation
+    subprocess.run(["sphinx-apidoc", "-o", str(docs_dir), str(project_dir / project_name)], check=True)
 
 
 def create_pyproject_toml(
