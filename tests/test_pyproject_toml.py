@@ -273,3 +273,30 @@ def test_install_requirements_txt_error(monkeypatch, tmp_path):
     assert "HINT: You are attempting to install a package literally named \"requirements.txt\"" in result.output
     assert "ERROR: Could not find a version that satisfies the requirement requirements.txt" in result.output
     assert "ERROR: No matching distribution found for requirements.txt" in result.output
+
+def test_install_command_none_requirements(monkeypatch):
+    def mock_subprocess_popen(*args, **kwargs):
+        class MockProcess:
+            def communicate(self, timeout=None):
+                return (
+                    "[notice] A new release of pip is available: 24.1 -> 24.2\n"
+                    "[notice] To update, run: pip install --upgrade pip\n",
+                    ""
+                )
+            
+            @property
+            def returncode(self):
+                return 0
+
+        return MockProcess()
+
+    monkeypatch.setattr(subprocess, "Popen", mock_subprocess_popen)
+    
+    from mbpy.cli import install_command
+    runner = click.testing.CliRunner()
+    result = runner.invoke(install_command, ["-r", None])
+    
+    assert result.exit_code != 0
+    assert "TypeError: expected str, bytes or os.PathLike object, not NoneType" in result.output
+    assert "[notice] A new release of pip is available: 24.1 -> 24.2" in result.output
+    assert "[notice] To update, run: pip install --upgrade pip" in result.output
