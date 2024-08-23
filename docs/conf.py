@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
-project = 'mbpy'
+project = 'mpip'
 copyright = '2024, Sebastian Peralta'
 author = 'Sebastian Peralta'
 
@@ -26,3 +26,4 @@ html_static_path = ['_static']
 
 # -- Extension configuration -------------------------------------------------
 autodoc_typehints = 'description'
+autodoc_member_order = 'bysource'

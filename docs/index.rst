@@ -1,4 +1,4 @@
-Welcome to mbpy's documentation!
+Welcome to mpip's documentation!
 ================================
 
 .. toctree::
@@ -7,7 +7,7 @@ Welcome to mbpy's documentation!
 
    installation
    usage
-   modules
+   api
 
 Indices and tables
 ==================
