@@ -198,16 +198,38 @@ def create_project(
     # Set up documentation
     setup_documentation(project_root, project_name, author, description, doc_type)
 
+import ast
+import importlib
+import inspect
+
 def setup_documentation(project_dir, project_name, author, description, doc_type='sphinx'):
     docs_dir = project_dir / "docs"
     docs_dir.mkdir(exist_ok=True)
 
+    # Extract docstrings
+    docstrings = extract_docstrings(project_dir / project_name)
+
     if doc_type == 'sphinx':
-        setup_sphinx_docs(docs_dir, project_name, author, description)
+        setup_sphinx_docs(docs_dir, project_name, author, description, docstrings)
     elif doc_type == 'mkdocs':
-        setup_mkdocs(docs_dir, project_name, author, description)
+        setup_mkdocs(docs_dir, project_name, author, description, docstrings)
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
+
+def extract_docstrings(project_path):
+    docstrings = {}
+    for py_file in project_path.glob('**/*.py'):
+        module_name = '.'.join(py_file.relative_to(project_path.parent).with_suffix('').parts)
+        try:
+            module = importlib.import_module(module_name)
+            for name, obj in inspect.getmembers(module):
+                if inspect.isclass(obj) or inspect.isfunction(obj):
+                    docstring = inspect.getdoc(obj)
+                    if docstring:
+                        docstrings[f"{module_name}.{name}"] = docstring
+        except ImportError:
+            print(f"Warning: Unable to import {module_name}")
+    return docstrings
 
 def setup_mkdocs(docs_dir, project_name, author, description):
     # Create mkdocs.yml
@@ -272,7 +294,7 @@ def setup_sphinx_docs(docs_dir, project_name, author, description):
     # [The existing Sphinx setup code goes here]
     # ...
 
-def setup_mkdocs(docs_dir, project_name, author, description):
+def setup_mkdocs(docs_dir, project_name, author, description, docstrings):
     # Create mkdocs.yml
     mkdocs_content = f"""
 site_name: {project_name}
@@ -326,21 +348,28 @@ For detailed API documentation, please see the [API](api.md) page.
 """
     (docs_dir / "index.md").write_text(index_content)
 
-    # Create api.md
+    # Create api.md with extracted docstrings
     api_content = f"""
 # API Reference
 
 This page contains the API reference for {project_name}.
 
-::: {project_name}
-    handler: python
-    selection:
-      members:
-        - 
-    rendering:
-      show_root_heading: true
-      show_source: true
 """
+    for full_name, docstring in docstrings.items():
+        module_name, obj_name = full_name.rsplit('.', 1)
+        api_content += f"""
+## {obj_name}
+
+```python
+from {module_name} import {obj_name}
+```
+
+{docstring}
+
+---
+
+"""
+
     (docs_dir / "api.md").write_text(api_content)
     (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
 
