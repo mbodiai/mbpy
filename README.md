@@ -1,7 +1,7 @@
-# pyproject-pip (WIP)
+# mbpy (WIP)
 
-[![PyPI - Version](https://img.shields.io/pypi/v/pyproject-pip.svg)](https://pypi.org/project/pyproject-pip)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyproject-pip.svg)](https://pypi.org/project/pyproject-pip)
+[![PyPI - Version](https://img.shields.io/pypi/v/mbpy.svg)](https://pypi.org/project/mbpy)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mbpy.svg)](https://pypi.org/project/mbpy)
 
 -----
 
@@ -16,7 +16,7 @@ mpypip --help
 
 ## Table of Contents
 
-- [pyproject-pip (WIP)](#pyproject-pip-wip)
+- [mbpy (WIP)](#mbpy-wip)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
   - [Usage](#usage)
@@ -25,17 +25,17 @@ mpypip --help
 ## Installation
 
 ```console
-pip install pyproject-pip
+pip install mbpy
 ```
 
 ## Usage
 
 ```console
-pypip --help
+mpip --help
 ```
 
 ```
-Usage: pypip [OPTIONS] COMMAND [ARGS]...
+Usage: mpip [OPTIONS] COMMAND [ARGS]...
 
 Options:
   -v, --hatch-env TEXT  Specify the Hatch environment to use
@@ -51,4 +51,4 @@ Commands:
 
 ## License
 
-`pyproject-pip` is distributed under the terms of the [apache-2.0](https://spdx.org/licenses/apache-2.0.html) license.
+`mbpy` is distributed under the terms of the [apache-2.0](https://spdx.org/licenses/apache-2.0.html) license.
