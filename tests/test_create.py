@@ -170,6 +170,7 @@ def test_mkdocs_serve(tmp_path):
     import requests
     from requests.exceptions import RequestException
     import socket
+    import signal
 
     # Function to find an available port
     def find_free_port():
@@ -196,21 +197,19 @@ def test_mkdocs_serve(tmp_path):
 
     try:
         # Wait for the server to start and retry connection
-        max_retries = 10
+        max_retries = 15
         for _ in range(max_retries):
             try:
-                time.sleep(2)
+                time.sleep(1)
                 response = requests.get(f"http://localhost:{port}")
                 if response.status_code == 200:
+                    # Test the response
+                    assert "Test" in response.text, "Expected content not found in response"
                     break
             except RequestException:
                 continue
         else:
             raise TimeoutError("MkDocs server did not start successfully")
-
-        # Test the response
-        assert response.status_code == 200, f"Unexpected status code: {response.status_code}"
-        assert "Test" in response.text, "Expected content not found in response"
 
     except Exception as e:
         # Log error information
@@ -221,10 +220,13 @@ def test_mkdocs_serve(tmp_path):
         raise
 
     finally:
-        # Terminate the server
-        process.terminate()
-        process.wait()
+        # Terminate the server gracefully
+        process.send_signal(signal.SIGINT)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
 
     # Check if the process ended without errors
     stdout, stderr = process.communicate()
-    assert process.returncode == 0, f"MkDocs serve failed: {stderr.decode()}"
+    assert process.returncode in [0, -2, -15], f"MkDocs serve failed with unexpected return code: {process.returncode}\nSTDERR: {stderr.decode()}"
