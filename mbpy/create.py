@@ -446,15 +446,11 @@ def create_project(
     project_root.mkdir(exist_ok=True, parents=True)
     
     # Create main directories
-    dirs = ["assets", "docs", "tests", "resources", project_name, ".github/workflows"]
+    dirs = ["assets", "docs", "tests", "resources", project_name, ".github", ".github/workflows"]
     for dir in dirs:
         (project_root / dir).mkdir(exist_ok=True, parents=True)
-        if dir not in [project_name, ".github/workflows"]:
+        if dir not in [project_name, ".github", ".github/workflows"]:
             (project_root / dir / ".gitkeep").touch(exist_ok=True)
-
-    # Ensure all .gitkeep files are created
-    for dir in ["assets", "docs", "tests", "resources"]:
-        (project_root / dir / ".gitkeep").touch(exist_ok=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
