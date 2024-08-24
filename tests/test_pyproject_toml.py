@@ -304,8 +304,8 @@ def test_install_command_none_requirements(monkeypatch):
 def test_create_pyproject_toml_existing_directory(tmp_path, monkeypatch):
     project_name = "test_project"
     author = "Test Author"
-    project_dir = tmp_path / project_name
-    project_dir.mkdir()
+    project_dir = tmp_path
+    src_dir = project_dir / project_name
     
     initial_pyproject = """
 [project]
@@ -326,16 +326,17 @@ dependencies = [
     (project_dir / "pyproject.toml").write_text(initial_pyproject)
     
     def mock_input(prompt):
-        return 'y' if "__about__.py" in prompt else 'n'
+        return 'y'
     
     monkeypatch.setattr('builtins.input', mock_input)
+    monkeypatch.setattr('mbpy.create.getcwd', lambda: tmp_path)
     
     from mbpy.create import create_project
     
-    create_project(project_name, author, project_root=tmp_path)
+    create_project(project_name, author)
     
-    assert (project_dir / "__about__.py").exists()
-    assert (project_dir / "__about__.py").read_text() == '__version__ = "0.0.1"'
+    assert (src_dir / "__about__.py").exists()
+    assert (src_dir / "__about__.py").read_text() == '__version__ = "0.0.1"'
     
     new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
     assert "altair==5.3.0" in new_pyproject["project"]["dependencies"]

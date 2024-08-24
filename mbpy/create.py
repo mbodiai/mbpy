@@ -423,7 +423,6 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
-    project_root: Path = None,
 ) -> None:
     print(f"Creating project: {project_name}")
     print(f"Author: {author}")
@@ -436,58 +435,44 @@ def create_project(
         deps = []
     
     # Set project root directory
-    if project_root is None:
-        project_root = Path(getcwd())
-    project_path = project_root / project_name
-    if project_path.exists():
-        overwrite = input(f"Project directory {project_path.absolute()} already exists. Overwrite? (y/n): ").lower()
+    project_root = Path(getcwd())
+    src_path = project_root / project_name
+    if src_path.exists():
+        overwrite = input(f"Project source directory {src_path.absolute()} already exists. Overwrite? (y/n): ").lower()
         if overwrite != 'y':
             print("Project creation aborted.")
             return
-    print(f"Creating project root directory: {project_path}")
-    project_path.mkdir(exist_ok=True, parents=True)
+    print(f"Creating project source directory: {src_path}")
+    src_path.mkdir(exist_ok=True, parents=True)
     
-    # Create all necessary directories (17 in total)
+    # Create necessary directories in the current directory
     dirs = [
         "assets",
         "docs",
         "tests",
         "resources",
-        project_name,
         ".github/workflows",
-        f"{project_name}/resources",
-        f"{project_name}/tests",
-        "docs/api",
-        f"{project_name}/src"
     ]
     for dir in dirs:
-        dir_path = project_path / dir
-        dir_path.mkdir(exist_ok=True, parents=True)
+        dir_path = project_root / dir
+        if not dir_path.exists():
+            print(f"Creating directory: {dir_path}")
+            dir_path.mkdir(parents=True)
+            (dir_path / ".gitkeep").touch()
 
-    # Create .gitkeep files
-    gitkeep_dirs = ["assets", "docs", "tests", "resources"]
-    for dir in gitkeep_dirs:
-        gitkeep_path = project_path / dir / ".gitkeep"
-        gitkeep_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directory exists
-        gitkeep_path.touch(exist_ok=True)
-
-    # Ensure all directories are created
-    for dir in dirs:
-        (project_path / dir).mkdir(parents=True, exist_ok=True)
-    
-    # Create __about__.py in project directory
-    about_file = project_path / "__about__.py"
+    # Create __about__.py in src directory
+    about_file = src_path / "__about__.py"
     about_content = '__version__ = "0.0.1"'
     about_file.write_text(about_content)
 
-    # Create __init__.py and main.py in project directory if add_cli is True
+    # Create __init__.py and main.py in src directory if add_cli is True
     if add_cli:
         init_content = "from .main import cli\n\n__all__ = ['cli']"
         main_content = "from click import command\n\n@command()\ndef cli() -> None:\n    pass\n\nif __name__ == '__main__':\n    cli()"
-        (project_root / project_name / "__init__.py").write_text(init_content)
-        (project_root / project_name / "main.py").write_text(main_content)
+        (src_path / "__init__.py").write_text(init_content)
+        (src_path / "main.py").write_text(main_content)
     else:
-        (project_root / project_name / "__init__.py").touch(exist_ok=True, parents=True)
+        (src_path / "__init__.py").touch()
 
     # Create pyproject.toml content
     print("Calling create_pyproject_toml...")
@@ -506,6 +491,11 @@ def create_project(
     ]
     for file, content in files:
         file_path = project_root / file
+        if file_path.exists():
+            overwrite = input(f"{file} already exists. Overwrite? (y/n): ").lower()
+            if overwrite != 'y':
+                print(f"Skipping {file}")
+                continue
         file_path.write_text(content)
 
     # Create workflow files
@@ -515,9 +505,9 @@ def create_project(
     (workflows_dir / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
 
     # Set up documentation
-    docs_dir = project_path / "docs"
+    docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
-    setup_documentation(project_path, project_name, author, description, doc_type, docstrings or {})
+    setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
 
 
 def create_pyproject_toml(
