@@ -164,6 +164,9 @@ class TestClass:
             "test_module.TestClass": "This is a test class docstring.",
         }
 
+import pytest
+
+@pytest.mark.network
 def test_mkdocs_serve(tmp_path):
     import subprocess
     import time
