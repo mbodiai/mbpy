@@ -119,6 +119,7 @@ jobs:
 
 import os
 import subprocess
+import ast
 
 def create_project(
     project_name,
@@ -258,16 +259,17 @@ def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings):
 def extract_docstrings(project_path):
     docstrings = {}
     for py_file in project_path.glob('**/*.py'):
-        module_name = '.'.join(py_file.relative_to(project_path.parent).with_suffix('').parts)
+        module_name = '.'.join(py_file.relative_to(project_path).with_suffix('').parts)
         try:
-            module = importlib.import_module(module_name)
-            for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) or inspect.isfunction(obj):
-                    docstring = inspect.getdoc(obj)
+            with open(py_file, 'r') as file:
+                tree = ast.parse(file.read())
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                    docstring = ast.get_docstring(node)
                     if docstring:
-                        docstrings[f"{module_name}.{name}"] = docstring
-        except ImportError:
-            print(f"Warning: Unable to import {module_name}")
+                        docstrings[f"{module_name}.{node.name}"] = docstring.strip()
+        except Exception as e:
+            print(f"Warning: Unable to parse {py_file}: {e}")
     return docstrings
 
 def setup_mkdocs(docs_dir, project_name, author, description, docstrings):
