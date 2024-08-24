@@ -32,11 +32,28 @@ dependencies = [
 "rich==13.7.1",
 "toml==0.10.2",
 "tomlkit==0.13.0",
+]
+
+[project.optional-dependencies]
+sphinx = [
 "sphinx",
 "sphinx-rtd-theme",
 "sphinx-click",
 "myst-parser",
 "sphinx-autodoc-typehints",
+]
+mkdocs = [
+"mkdocs",
+"mkdocs-material",
+]
+docs = [
+"sphinx",
+"sphinx-rtd-theme",
+"sphinx-click",
+"myst-parser",
+"sphinx-autodoc-typehints",
+"mkdocs",
+"mkdocs-material",
 ]
 [project.scripts]
 mpip = "mbpy.cli:cli"
