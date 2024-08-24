@@ -192,17 +192,6 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
     
     project_path = tmp_path / project_name
     
-    # Add a Python file with a docstring
-    (project_path / project_name / "main.py").write_text('''
-def test_function():
-    """This is a test docstring."""
-    pass
-''')
-    
-    # Update index.md to include the docstring
-    docs_dir = project_path / "docs"
-    (docs_dir / "index.md").write_text(f"# {project_name}\n\n{description}\n\n```python\nfrom {project_name}.main import test_function\n```\n")
-
     # Find an available port
     port = find_free_port()
 
@@ -225,6 +214,7 @@ def test_function():
                     # Test the response
                     assert project_name in response.text, "Project name not found in response"
                     assert description in response.text, "Project description not found in response"
+                    assert "def test_function():" in response.text, "Function definition not found in response"
                     assert "This is a test docstring." in response.text, "Docstring not found in response"
                     break
             except RequestException:
