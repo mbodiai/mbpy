@@ -506,9 +506,9 @@ def create_project(
     (project_root / ".github" / "workflows" / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
 
     # Set up documentation
-    docs_dir = project_root / "docs"
+    docs_dir = project_path / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
-    setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
+    setup_documentation(project_path, project_name, author, description, doc_type, docstrings or {})
 
 
 def create_pyproject_toml(
