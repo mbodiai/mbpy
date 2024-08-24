@@ -28,7 +28,7 @@ def test_create_project(mock_cwd):
         create_project(project_name, author, description, deps)
 
         # Check if directories were created
-        assert mock_mkdir.call_count == 9  # Updated count to match actual behavior
+        assert mock_mkdir.call_count == 10  # Updated count to include project root creation
         for call_args in mock_mkdir.call_args_list:
             assert call_args == call(exist_ok=True, parents=True), f"Unexpected mkdir call: {call_args}"
 

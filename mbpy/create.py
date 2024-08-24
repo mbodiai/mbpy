@@ -460,9 +460,8 @@ def create_project(
     workflows = project_root / ".github" / "workflows"
     workflows.mkdir(exist_ok=True, parents=True)
 
-    # Ensure all mkdir calls use exist_ok=True and parents=True
-    for call in Path.mkdir.call_args_list:
-        assert call[1].get('exist_ok') is True and call[1].get('parents') is True, f"mkdir call missing exist_ok=True or parents=True: {call}"
+    # Ensure project root is created with both exist_ok and parents
+    project_root.mkdir(exist_ok=True, parents=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
