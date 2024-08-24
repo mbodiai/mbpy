@@ -29,7 +29,8 @@ def test_create_project(mock_cwd):
 
         # Check if directories were created
         assert mock_mkdir.call_count == 9  # Updated count to match actual behavior
-        mock_mkdir.assert_has_calls([call(exist_ok=True, parents=True)] * 9, any_order=True)
+        for call_args in mock_mkdir.call_args_list:
+            assert call_args == call(exist_ok=True, parents=True), f"Unexpected mkdir call: {call_args}"
 
         # Check if files were created with correct content
         assert mock_write_text.call_count == 13  # LICENSE, README.md, pyproject.toml, __about__.py, documentation files, etc.
