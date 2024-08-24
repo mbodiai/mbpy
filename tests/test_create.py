@@ -29,7 +29,7 @@ def test_create_project(mock_cwd):
 
         # Check if directories were created
         assert mock_mkdir.call_count == 9  # Updated count to match actual behavior
-        mock_mkdir.assert_has_calls([call(exist_ok=True, parents=True) for _ in range(9)], any_order=True)
+        mock_mkdir.assert_has_calls([call(exist_ok=True, parents=True)] * 9, any_order=True)
 
         # Check if files were created with correct content
         assert mock_write_text.call_count == 13  # LICENSE, README.md, pyproject.toml, __about__.py, documentation files, etc.
