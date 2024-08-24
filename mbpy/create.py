@@ -217,8 +217,11 @@ def create_project(
     (workflows / "macos.yml").write_text(WORKFLOW_MAC)
     (workflows / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
 
+    # Extract docstrings
+    docstrings = extract_docstrings(project_root / project_name)
+
     # Set up documentation
-    setup_documentation(project_root, project_name, author, description, doc_type)
+    setup_documentation(project_root, project_name, author, description, doc_type, docstrings)
 
     # Check for import errors
     import_errors = []
@@ -237,12 +240,9 @@ import ast
 import importlib
 import inspect
 
-def setup_documentation(project_dir, project_name, author, description, doc_type='sphinx'):
+def setup_documentation(project_dir, project_name, author, description, doc_type='sphinx', docstrings=None):
     docs_dir = project_dir / "docs"
     docs_dir.mkdir(exist_ok=True)
-
-    # Extract docstrings
-    docstrings = extract_docstrings(project_dir / project_name)
 
     if doc_type == 'sphinx':
         setup_sphinx_docs(docs_dir, project_name, author, description, docstrings)
@@ -252,9 +252,79 @@ def setup_documentation(project_dir, project_name, author, description, doc_type
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
 def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings):
-    # Placeholder for Sphinx documentation setup
-    # TODO: Implement Sphinx documentation setup
-    pass
+    # Create conf.py
+    conf_content = f"""
+# Configuration file for the Sphinx documentation builder.
+
+project = '{project_name}'
+copyright = '2024, {author}'
+author = '{author}'
+
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',
+]
+
+templates_path = ['_templates']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+
+html_theme = 'alabaster'
+html_static_path = ['_static']
+"""
+    (docs_dir / "conf.py").write_text(conf_content)
+
+    # Create index.rst
+    index_content = f"""
+Welcome to {project_name}'s documentation!
+==========================================
+
+{description}
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   api
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+"""
+    (docs_dir / "index.rst").write_text(index_content)
+
+    # Create api.rst
+    api_content = """
+API Reference
+=============
+
+.. automodule:: {project_name}
+   :members:
+   :undoc-members:
+   :show-inheritance:
+"""
+    (docs_dir / "api.rst").write_text(api_content)
+
+    # Create Makefile
+    makefile_content = """
+# Minimal makefile for Sphinx documentation
+
+SPHINXOPTS    ?=
+SPHINXBUILD   ?= sphinx-build
+SOURCEDIR     = .
+BUILDDIR      = _build
+
+help:
+	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+.PHONY: help Makefile
+
+%: Makefile
+	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+"""
+    (docs_dir / "Makefile").write_text(makefile_content)
 
 def extract_docstrings(project_path):
     docstrings = {}
@@ -505,7 +575,7 @@ def create_pyproject_toml(
     default_env = hatch_envs.setdefault("default", {})
     default_env["python"] = python_version
     default_env["path"] = f".envs/{project_name}"
-    default_env["dependencies"] = ["pytest", "pytest-mock", "pytest-asyncio", "requests"]
+    default_env["dependencies"] = ["pytest", "pytest-mock", "pytest-asyncio", "requests", "sphinx"]
     default_env["scripts"] = {
         "test": f"pytest -vv -m 'not network' --ignore third_party {{args:tests}}",
         "test-all": f"pytest -vv --ignore third_party {{args:tests}}",
