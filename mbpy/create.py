@@ -328,18 +328,62 @@ def create_project(
     print(f"Python version: {python_version}")
     print(f"Add CLI: {add_cli}")
 
-    if deps is None:
+    if deps is None or deps == "local":
         deps = []
     
     # Create project root directory
     root = Path(getcwd())
-    project_root = root
-    if root.stem != project_name:
-        project_root = root / project_name
-        print(f"Creating project root directory: {project_root}")
+    project_root = root / project_name
+    print(f"Creating project root directory: {project_root}")
     project_root.mkdir(exist_ok=True, parents=True)
     
-    # [Rest of the existing code...]
+    # Create main directories
+    dirs = ["assets", "docs", "tests", project_name, "resources"]
+    for dir in dirs:
+        (project_root / dir).mkdir(exist_ok=True, parents=True)
+        if dir != project_name:
+            (project_root / dir / ".gitkeep").touch(exist_ok=True)
+    
+    # Create workflows directory
+    workflows = project_root / ".github" / "workflows"
+    workflows.mkdir(exist_ok=True, parents=True)
+    
+    # Create __about__.py in project directory
+    about_file = project_root / project_name / "__about__.py"
+    about_content = '__version__ = "0.0.1"'
+    about_file.write_text(about_content)
+
+    # Create __init__.py and main.py in project directory if add_cli is True
+    if add_cli:
+        init_content = "from .main import cli\n\n__all__ = ['cli']"
+        main_content = "from click import command\n\n@command()\ndef cli() -> None:\n    pass\n\nif __name__ == '__main__':\n    cli()"
+        (project_root / project_name / "__init__.py").write_text(init_content)
+        (project_root / project_name / "main.py").write_text(main_content)
+    else:
+        (project_root / project_name / "__init__.py").touch()
+
+    # Create pyproject.toml content
+    print("Calling create_pyproject_toml...")
+    pyproject_content = create_pyproject_toml(project_name, author, description, deps, python_version=python_version, add_cli=add_cli)
+    print("create_pyproject_toml called successfully")
+
+    # Create files in root
+    files = [
+        ("LICENSE", ""),
+        (
+            "README.md",
+            f"# {project_name}\n\n{description}\n\n## Installation\n\n```bash\npip install {project_name}\n```\n",
+        ),
+        ("pyproject.toml", pyproject_content),
+        ("requirements.txt", "click" if add_cli else ""),
+    ]
+    for file, content in files:
+        file_path = project_root / file
+        file_path.write_text(content)
+
+    # Create workflow files
+    (workflows / "macos.yml").write_text(WORKFLOW_MAC)
+    (workflows / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
 
     # Set up documentation
     setup_documentation(project_root, project_name, author, description, doc_type)
