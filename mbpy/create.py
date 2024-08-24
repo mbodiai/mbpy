@@ -468,6 +468,7 @@ def create_project(
     gitkeep_dirs = ["assets", "docs", "tests", "resources"]
     for dir in gitkeep_dirs:
         gitkeep_path = project_path / dir / ".gitkeep"
+        gitkeep_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directory exists
         gitkeep_path.touch(exist_ok=True)
     
     # Create __about__.py in project directory
