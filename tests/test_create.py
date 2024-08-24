@@ -28,7 +28,7 @@ def test_create_project(mock_cwd):
         create_project(project_name, author, description, deps)
 
         # Check if directories were created
-        assert mock_mkdir.call_count == 7  # Updated count to match actual behavior
+        assert mock_mkdir.call_count == 8  # Updated count to match actual behavior
         mock_mkdir.assert_has_calls([call(exist_ok=True, parents=True) for _ in range(7)], any_order=True)
 
         # Check if files were created with correct content

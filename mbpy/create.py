@@ -148,9 +148,11 @@ def create_project(
     # Create main directories
     dirs = ["assets", "docs", "tests", project_name, "resources"]
     for dir in dirs:
-        (project_root / dir).mkdir(exist_ok=True, parents=True)
+        dir_path = project_root / dir
+        print(f"Creating directory: {dir_path}")
+        dir_path.mkdir(exist_ok=True, parents=True)
         if dir != project_name:
-            (project_root / dir / ".gitkeep").touch(exist_ok=True)
+            (dir_path / ".gitkeep").touch(exist_ok=True)
     
     # Create workflows directory
     workflows = project_root / ".github" / "workflows"
