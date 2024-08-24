@@ -1,6 +1,6 @@
 site_name: mbpy
 theme:
-  name: material
+  name: mkdocs
 nav:
   - Home: index.md
   - API: api.md
