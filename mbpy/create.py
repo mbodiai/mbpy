@@ -461,7 +461,7 @@ def create_project(
     for dir in dirs:
         (project_root / dir).mkdir(exist_ok=True, parents=True)
         if dir not in [project_name, ".github/workflows", f"{project_name}/resources", f"{project_name}/tests", "docs/api", f"{project_name}/src"]:
-            (project_root / dir / ".gitkeep").touch(exist_ok=True)
+            (project_root / dir / ".gitkeep").touch(exist_ok=True, parents=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
@@ -475,7 +475,7 @@ def create_project(
         (project_root / project_name / "__init__.py").write_text(init_content)
         (project_root / project_name / "main.py").write_text(main_content)
     else:
-        (project_root / project_name / "__init__.py").touch(exist_ok=True)
+        (project_root / project_name / "__init__.py").touch(exist_ok=True, parents=True)
 
     # Create pyproject.toml content
     print("Calling create_pyproject_toml...")
