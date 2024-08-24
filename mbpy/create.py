@@ -140,17 +140,9 @@ def create_project(
     if deps is None or deps == "local":
         deps = []
     
-    # Check for existing pyproject.toml in parent directory
+    # Set project root directory
     root = Path(getcwd())
-    parent_pyproject = root / "pyproject.toml"
-    if parent_pyproject.exists():
-        use_parent = input(f"Found pyproject.toml in {root}. Use it? (y/n): ").lower() == 'y'
-        if use_parent:
-            project_root = root
-        else:
-            project_root = root / project_name
-    else:
-        project_root = root / project_name
+    project_root = root / project_name
 
     # Check if project directory already exists
     if project_root.exists():
