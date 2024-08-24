@@ -28,7 +28,7 @@ def test_create_project(mock_cwd):
         create_project(project_name, author, description, deps)
 
         # Check if directories were created
-        assert mock_mkdir.call_count == 9  # Confirm 9 mkdir calls
+        assert mock_mkdir.call_count == 13  # Confirm 13 mkdir calls
         expected_call = call(exist_ok=True, parents=True)
         assert all(call == expected_call for call in mock_mkdir.call_args_list), \
             f"Not all mkdir calls used both exist_ok=True and parents=True. Actual calls: {mock_mkdir.call_args_list}"
