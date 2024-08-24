@@ -167,6 +167,7 @@ def create_project(
     # Create workflows directory
     workflows = project_root / ".github" / "workflows"
     workflows.mkdir(exist_ok=True, parents=True)
+    (workflows / ".gitkeep").touch(exist_ok=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
@@ -234,8 +235,8 @@ import ast
 import importlib
 import inspect
 
-def setup_documentation(project_dir, project_name, author, description, doc_type='sphinx', docstrings=None):
-    docs_dir = project_dir / "docs"
+def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None):
+    docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
 
     if doc_type == 'sphinx':
@@ -537,6 +538,9 @@ def create_pyproject_toml(
     else:
         pyproject = tomlkit.document()
 
+    # Preserve existing dependencies if any
+    existing_deps = pyproject.get("project", {}).get("dependencies", [])
+
     # Update build-system
     build_system = pyproject.setdefault("build-system", {})
     build_system["requires"] = ["hatchling"]
@@ -566,7 +570,6 @@ def create_pyproject_toml(
     project["classifiers"] = classifiers
 
     # Update dependencies
-    existing_deps = project.get("dependencies", [])
     new_deps = deps or []
     all_deps = list(set(existing_deps + new_deps))
     all_deps.sort(key=lambda x: x.lower())
