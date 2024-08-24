@@ -209,8 +209,9 @@ def create_project(
     (workflows / "macos.yml").write_text(WORKFLOW_MAC)
     (workflows / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
 
-    # Extract docstrings
-    docstrings = extract_docstrings(project_root / project_name)
+    # Extract docstrings if not provided
+    if docstrings is None:
+        docstrings = extract_docstrings(project_root / project_name)
 
     # Set up documentation
     setup_documentation(project_root.absolute(), project_name, author, description, doc_type, docstrings or {})
