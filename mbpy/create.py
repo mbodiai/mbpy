@@ -456,6 +456,23 @@ def create_project(
     additional_dirs = [project_name + "/resources", project_name + "/tests", "docs/api"]
     for dir in additional_dirs:
         (project_root / dir).mkdir(exist_ok=True, parents=True)
+
+    # Ensure all directories are created with both exist_ok=True and parents=True
+    all_dirs = [
+        project_root,
+        project_root / "assets",
+        project_root / "docs",
+        project_root / "tests",
+        project_root / "resources",
+        project_root / project_name,
+        project_root / ".github",
+        project_root / ".github" / "workflows",
+        project_root / project_name / "resources",
+        project_root / project_name / "tests",
+        project_root / "docs" / "api",
+    ]
+    for dir in all_dirs:
+        dir.mkdir(exist_ok=True, parents=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
