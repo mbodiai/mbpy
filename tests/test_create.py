@@ -172,6 +172,7 @@ def test_create_project_with_documentation(mock_cwd):
         patch("mbpy.create.Path.touch"),
         patch("mbpy.create.create_pyproject_toml"),
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
+        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
         create_project("doc_project", "Doc Author", doc_type="sphinx")
         mock_setup_docs.assert_called_once_with((mock_cwd / "doc_project").absolute(), "doc_project", "Doc Author", "", "sphinx", {})
