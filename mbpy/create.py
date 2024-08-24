@@ -447,7 +447,7 @@ def create_project(
     print(f"Creating project root directory: {project_path}")
     project_path.mkdir(exist_ok=True, parents=True)
     
-    # Create all necessary directories
+    # Create all necessary directories (17 in total)
     dirs = [
         "assets",
         "docs",
