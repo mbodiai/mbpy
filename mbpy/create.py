@@ -502,7 +502,7 @@ def create_project(
 
     # Set up documentation
     docs_dir = project_root / "docs"
-    docs_dir.mkdir(exist_ok=True, parents=True)
+    docs_dir.mkdir(parents=True, exist_ok=True)
     (docs_dir / "index.md").write_text(f"# Welcome to {project_name}\n\n{description}")
     setup_documentation(project_root, project_name, author, description, doc_type)
 
