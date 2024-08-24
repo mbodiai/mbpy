@@ -182,11 +182,11 @@ def test_mkdocs_serve(tmp_path):
             s.bind(('', 0))
             return s.getsockname()[1]
 
-    # Create a minimal MkDocs project
+    # Create a minimal MkDocs project with a docstring
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
-    (docs_dir / "index.md").write_text("# Test")
-    (tmp_path / "mkdocs.yml").write_text("site_name: Test")
+    (docs_dir / "index.md").write_text("# Test\n\n```python\ndef test_function():\n    \"\"\"This is a test docstring.\"\"\"\n    pass\n```")
+    (tmp_path / "mkdocs.yml").write_text("site_name: Test\ntheme: readthedocs")
 
     # Find an available port
     port = find_free_port()
@@ -209,6 +209,7 @@ def test_mkdocs_serve(tmp_path):
                 if response.status_code == 200:
                     # Test the response
                     assert "Test" in response.text, "Expected content not found in response"
+                    assert "This is a test docstring." in response.text, "Docstring not found in response"
                     break
             except RequestException:
                 continue
