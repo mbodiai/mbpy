@@ -171,7 +171,9 @@ def create_project(
         (project_root / project_name / "__init__.py").touch()
 
     # Create pyproject.toml content
+    print("Calling create_pyproject_toml...")
     pyproject_content = create_pyproject_toml(project_name, author, description, deps, python_version=python_version, add_cli=add_cli)
+    print("create_pyproject_toml called successfully")
 
     # Create files in root
     files = [
