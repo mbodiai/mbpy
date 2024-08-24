@@ -203,23 +203,28 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
         stderr=subprocess.PIPE,
     )
 
-    # Wait for the server to start and retry connection
-    max_retries = 15
-    for _ in range(max_retries):
-        time.sleep(1)
-        try:
-            response = requests.get(f"http://localhost:{port}")
-            if response.status_code == 200:
-                # Test the response
-                assert project_name in response.text, "Project name not found in response"
-                assert description in response.text, "Project description not found in response"
-                assert "def test_function():" in response.text, "Function definition not found in response"
-                assert "This is a test docstring." in response.text, "Docstring not found in response"
-                break
-        except requests.ConnectionError:
-            continue
-    else:
-        raise TimeoutError("MkDocs server did not start successfully")
+    try:
+        # Wait for the server to start and retry connection
+        max_retries = 15
+        for _ in range(max_retries):
+            time.sleep(1)
+            try:
+                response = requests.get(f"http://localhost:{port}")
+                if response.status_code == 200:
+                    # Test the response
+                    assert project_name in response.text, "Project name not found in response"
+                    assert description in response.text, "Project description not found in response"
+                    assert "def test_function():" in response.text, "Function definition not found in response"
+                    assert "This is a test docstring." in response.text, "Docstring not found in response"
+                    break
+            except requests.ConnectionError:
+                continue
+        else:
+            raise TimeoutError("MkDocs server did not start successfully")
+
+        # Check if the process ended without errors
+        stdout, stderr = process.communicate()
+        assert process.returncode in [0, -2, -15], f"MkDocs serve failed with unexpected return code: {process.returncode}\nSTDERR: {stderr.decode()}"
 
     except Exception as e:
         # Log error information
@@ -236,10 +241,6 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill()
-
-    # Check if the process ended without errors
-    stdout, stderr = process.communicate()
-    assert process.returncode in [0, -2, -15], f"MkDocs serve failed with unexpected return code: {process.returncode}\nSTDERR: {stderr.decode()}"
 
 def test_setup_documentation(tmp_path):
     project_name = "test_docs"
