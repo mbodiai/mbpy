@@ -25,6 +25,7 @@ def test_create_project(mock_cwd):
             return_value="mock_pyproject_content",
         ) as mock_create_pyproject,
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
+        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
         create_project(project_name, author, description, deps)
 
@@ -182,6 +183,7 @@ def test_create_project_with_mkdocs(mock_cwd):
         patch("mbpy.create.Path.touch"),
         patch("mbpy.create.create_pyproject_toml"),
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
+        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
         create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
         mock_setup_docs.assert_called_once_with((mock_cwd / "mkdocs_project").absolute(), "mkdocs_project", "MkDocs Author", "", "mkdocs", {})

@@ -432,7 +432,7 @@ def create_project(
         deps = []
     
     # Set project root directory
-    project_root = getcwd() / project_name
+    project_root = Path(getcwd()) / project_name
     if project_root.exists():
         overwrite = input(f"Project directory {project_root.absolute()} already exists. Overwrite? (y/n): ").lower()
         if overwrite != 'y':
