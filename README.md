@@ -1,27 +1,26 @@
-# mbpy (WIP)
+# mbpy - Manage Python Projects with Ease
 
 [![PyPI - Version](https://img.shields.io/pypi/v/mbpy.svg)](https://pypi.org/project/mbpy)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mbpy.svg)](https://pypi.org/project/mbpy)
 
 -----
 
-Install and manage pyproject.toml with pip commands.
+`mbpy` is a powerful tool for creating, managing, and documenting Python projects. It simplifies the process of setting up project structures, managing dependencies, and generating documentation.
 
-See usage:
+## Features
 
-```
-mpypip --help
-```
-
+- Create new Python projects with customizable structures
+- Manage project dependencies using pyproject.toml
+- Set up documentation using Sphinx or MkDocs
+- Generate GitHub Actions workflows for CI/CD
+- Simplify package installation and management with pip-like commands
 
 ## Table of Contents
 
-- [mbpy (WIP)](#mbpy-wip)
-  - [Table of Contents](#table-of-contents)
-  - [Installation](#installation)
-  - [Usage](#usage)
-  - [Documentation](#documentation)
-  - [License](#license)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Documentation](#documentation)
+- [License](#license)
 
 ## Installation
 
@@ -31,25 +30,30 @@ pip install mbpy
 
 ## Usage
 
-For detailed usage instructions, please refer to the [documentation](#documentation).
+To create a new project:
+
+```console
+mbpy create <project_name> --author "<Your Name>" --description "<Project Description>"
+```
+
+To manage dependencies:
+
+```console
+mpip install <package_name>
+mpip uninstall <package_name>
+mpip show
+```
+
+For more detailed usage instructions, run:
+
+```console
+mbpy --help
+```
+
+or
 
 ```console
 mpip --help
-```
-
-```
-Usage: mpip [OPTIONS] COMMAND [ARGS]...
-
-Options:
-  -v, --hatch-env TEXT  Specify the Hatch environment to use
-  --help                Show this message and exit.
-
-Commands:
-  find       Find a package on PyPI and optionally sort the results.
-  info       Get information about a package from PyPI.
-  install    Install packages and update requirements.txt and...
-  show       Show the dependencies from the pyproject.toml file.
-  uninstall  Uninstall packages and update requirements.txt and...
 ```
 
 ## Documentation
@@ -78,4 +82,4 @@ To view the full documentation, you have two options:
 
 ## License
 
-`mbpy` is distributed under the terms of the [apache-2.0](https://spdx.org/licenses/apache-2.0.html) license.
+`mbpy` is distributed under the terms of the [MIT License](LICENSE).
