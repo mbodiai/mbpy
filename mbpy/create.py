@@ -505,12 +505,15 @@ def create_pyproject_toml(
     default_env = hatch_envs.setdefault("default", {})
     default_env["python"] = python_version
     default_env["path"] = f".envs/{project_name}"
-    default_env["dependencies"] = ["pytest", "pytest-mock", "pytest-asyncio"]
+    default_env["dependencies"] = ["pytest", "pytest-mock", "pytest-asyncio", "requests"]
     default_env["scripts"] = {
-        "test": f"pytest -vv --ignore third_party {{args:tests}}",
-        "test-cov": "coverage run -m pytest {{args:tests}}",
+        "test": f"pytest -vv -m 'not network' --ignore third_party {{args:tests}}",
+        "test-all": f"pytest -vv --ignore third_party {{args:tests}}",
+        "test-cov": "coverage run -m pytest -m 'not network' {{args:tests}}",
+        "test-cov-all": "coverage run -m pytest {{args:tests}}",
         "cov-report": ["- coverage combine", "coverage report"],
         "cov": ["test-cov", "cov-report"],
+        "cov-all": ["test-cov-all", "cov-report"],
     }
 
     conda_env = hatch_envs.setdefault("conda", {})
