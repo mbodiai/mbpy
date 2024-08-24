@@ -519,15 +519,14 @@ def create_pyproject_toml(
     python_version="3.10",
     add_cli=True,
     existing_content=None,
+    overwrite=True,
     **kwargs
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
     pyproject_path = Path(project_name) / "pyproject.toml"
-    if pyproject_path.exists():
-        overwrite = input(f"pyproject.toml already exists in {pyproject_path.parent}. Overwrite? (y/n): ").lower()
-        if overwrite != 'y':
-            print("Skipping pyproject.toml creation.")
-            return ""
+    if pyproject_path.exists() and not overwrite:
+        print("Skipping pyproject.toml creation.")
+        return ""
 
     if existing_content:
         pyproject = tomlkit.parse(existing_content)

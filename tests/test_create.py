@@ -254,7 +254,11 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
     author = "Test Author"
     description = "Test Description"
     
-    create_project(project_name, author, description, doc_type='mkdocs', project_root=tmp_path)
+    with patch('mbpy.create.create_pyproject_toml', return_value='mock_pyproject_content') as mock_create_pyproject:
+        create_project(project_name, author, description, doc_type='mkdocs', project_root=tmp_path)
+        mock_create_pyproject.assert_called_once_with(
+            project_name, author, description, [], python_version="3.11", add_cli=True, overwrite=True
+        )
     
     project_path = tmp_path / project_name
     
