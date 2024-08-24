@@ -20,4 +20,9 @@ pip install -e .
 # Run the tests
 pytest
 
+# Serve the documentation
+echo "Starting MkDocs server..."
+mkdocs serve &
+
 echo "Project setup complete!"
+echo "Documentation is being served at http://127.0.0.1:8000"
