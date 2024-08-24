@@ -137,7 +137,7 @@ def install_command(
             )
             click.echo(stdout)
             click.echo(stderr, err=True)
-            modify_requirements(package_name, package_version, action="install", requirements=requirements or "requirements.txt")
+            modify_requirements(package_name, package_version, action="install", requirements=requirements if requirements else "requirements.txt")
 
 
     except subprocess.CalledProcessError as e:

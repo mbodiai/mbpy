@@ -590,6 +590,8 @@ def get_requirements_packages(requirements="requirements.txt", as_set=True):
     """
     requirements_path = Path(requirements)
     if not requirements_path.exists():
+        print(f"Warning: Requirements file '{requirements}' not found. Creating an empty one.")
+        requirements_path.touch()
         return set() if as_set else []
     lines = requirements_path.read_text().splitlines()
     lines = [
