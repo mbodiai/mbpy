@@ -24,6 +24,7 @@ def test_create_project(mock_cwd):
             "mbpy.create.create_pyproject_toml",
             return_value="mock_pyproject_content",
         ) as mock_create_pyproject,
+        patch("mbpy.create.setup_documentation") as mock_setup_docs,
     ):
         create_project(project_name, author, description, deps)
 
@@ -35,7 +36,7 @@ def test_create_project(mock_cwd):
             f"Not all mkdir calls used both exist_ok=True and parents=True. Actual calls: {mock_mkdir.call_args_list}"
 
         # Check if files were created with correct content
-        assert mock_write_text.call_count == 13  # LICENSE, README.md, pyproject.toml, __about__.py, documentation files, etc.
+        assert mock_write_text.call_count == 5  # LICENSE, README.md, pyproject.toml, __about__.py, __init__.py
         mock_write_text.assert_has_calls(
             [
                 call(""),  # LICENSE
@@ -44,7 +45,7 @@ def test_create_project(mock_cwd):
                 ),  # README.md
                 call("mock_pyproject_content"),  # pyproject.toml
                 call('__version__ = "0.0.1"'),  # __about__.py
-                # Add assertions for new documentation files if needed
+                call("from .main import cli\n\n__all__ = ['cli']"),  # __init__.py
             ],
             any_order=True,
         )
@@ -54,6 +55,64 @@ def test_create_project(mock_cwd):
 
         # Check if create_pyproject_toml was called with correct arguments
         mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version="3.11", add_cli=True)
+
+        # Check if setup_documentation was called
+        mock_setup_docs.assert_called_once_with(mock_cwd / project_name, project_name, author, description, 'sphinx')
+
+def test_create_project_with_mkdocs(mock_cwd):
+    project_name = "mkdocs_project"
+    author = "MkDocs Author"
+    description = "MkDocs Description"
+    deps = ["pytest"]
+
+    with (
+        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.write_text"),
+        patch("mbpy.create.Path.touch"),
+        patch("mbpy.create.create_pyproject_toml"),
+        patch("mbpy.create.setup_documentation") as mock_setup_docs,
+    ):
+        create_project(project_name, author, description, deps, doc_type='mkdocs')
+
+        # Check if setup_documentation was called with mkdocs
+        mock_setup_docs.assert_called_once_with(mock_cwd / project_name, project_name, author, description, 'mkdocs')
+
+def test_create_project_without_cli(mock_cwd):
+    project_name = "no_cli_project"
+    author = "No CLI Author"
+    description = "No CLI Description"
+    deps = ["pytest"]
+
+    with (
+        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.write_text") as mock_write_text,
+        patch("mbpy.create.Path.touch"),
+        patch("mbpy.create.create_pyproject_toml"),
+        patch("mbpy.create.setup_documentation"),
+    ):
+        create_project(project_name, author, description, deps, add_cli=False)
+
+        # Check if __init__.py was created without cli import
+        mock_write_text.assert_any_call("")  # Empty __init__.py
+
+def test_create_project_custom_python_version(mock_cwd):
+    project_name = "custom_py_project"
+    author = "Custom Py Author"
+    description = "Custom Py Description"
+    deps = ["pytest"]
+    python_version = "3.9"
+
+    with (
+        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.write_text"),
+        patch("mbpy.create.Path.touch"),
+        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
+        patch("mbpy.create.setup_documentation"),
+    ):
+        create_project(project_name, author, description, deps, python_version=python_version)
+
+        # Check if create_pyproject_toml was called with correct python version
+        mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version=python_version, add_cli=True)
 
 
 def test_create_project_with_local_deps(mock_cwd):
