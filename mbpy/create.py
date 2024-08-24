@@ -439,11 +439,17 @@ def create_project(
     src_path = project_root / project_name
     if src_path.exists():
         overwrite = input(f"Project source directory {src_path.absolute()} already exists. Overwrite? (y/n): ").lower()
-        if overwrite != 'y':
-            print("Project creation aborted.")
-            return
-    print(f"Creating project source directory: {src_path}")
-    src_path.mkdir(exist_ok=True, parents=True)
+        if overwrite == 'y':
+            # Create a backup of the current directory
+            legacy_path = src_path.with_name(f"{src_path.name}_legacy")
+            import shutil
+            shutil.copytree(src_path, legacy_path)
+            print(f"Existing project backed up to: {legacy_path}")
+        else:
+            print("Using existing project directory.")
+    else:
+        src_path.mkdir(parents=True, exist_ok=True)
+    print(f"Using project source directory: {src_path}")
     
     # Create necessary directories in the current directory
     dirs = [
