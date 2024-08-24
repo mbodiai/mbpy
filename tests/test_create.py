@@ -11,7 +11,6 @@ def mock_cwd(tmp_path):
 
 
 def test_create_project(mock_cwd):
-    print("Starting test_create_project", file=sys.stderr)
     project_name = "test_project"
     author = "Test Author"
     description = "Test Description"
@@ -51,7 +50,6 @@ def test_create_project(mock_cwd):
 
         # Check if create_pyproject_toml was called with correct arguments
         mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version="3.11", add_cli=True)
-    print("Finished test_create_project", file=sys.stderr)
 
 
 def test_create_project_with_local_deps(mock_cwd):
