@@ -262,7 +262,7 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
         mock_create_pyproject.assert_called_once_with(
             project_name, author, description, [], python_version="3.11", add_cli=True, overwrite=True
         )
-        assert mock_mkdir.call_count >= 17  # At least 17 mkdir calls
+        assert mock_mkdir.call_count >= 27  # At least 27 mkdir calls
         assert mock_write_text.call_count >= 9  # At least 9 write_text calls
         assert mock_touch.call_count >= 4  # At least 4 touch calls for .gitkeep files
     
