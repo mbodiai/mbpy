@@ -442,6 +442,11 @@ def create_project(
     # Set project root directory
     root = Path(getcwd())
     project_root = root / project_name
+    if project_root.exists():
+        overwrite = input(f"Project directory {project_root.absolute()} already exists. Overwrite? (y/n): ").lower()
+        if overwrite != 'y':
+            print("Project creation aborted.")
+            return
     print(f"Creating project root directory: {project_root}")
     project_root.mkdir(exist_ok=True, parents=True)
     
@@ -520,6 +525,13 @@ def create_pyproject_toml(
     **kwargs
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
+    pyproject_path = Path(project_name) / "pyproject.toml"
+    if pyproject_path.exists():
+        overwrite = input(f"pyproject.toml already exists in {pyproject_path.parent}. Overwrite? (y/n): ").lower()
+        if overwrite != 'y':
+            print("Skipping pyproject.toml creation.")
+            return ""
+
     if existing_content:
         pyproject = tomlkit.parse(existing_content)
     else:
