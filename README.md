@@ -20,6 +20,7 @@ mpypip --help
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
   - [Usage](#usage)
+  - [Documentation](#documentation)
   - [License](#license)
 
 ## Installation
@@ -53,13 +54,27 @@ Commands:
 
 ## Documentation
 
-To view the full documentation:
+To view the full documentation, you have two options:
+
+### Sphinx
 
 1. Build the docs:
    ```
    hatch run docs
    ```
 2. Open `docs/_build/html/index.html` in your web browser.
+
+### MkDocs
+
+1. Install MkDocs if you haven't already:
+   ```
+   pip install mkdocs
+   ```
+2. Build and serve the docs:
+   ```
+   mkdocs serve
+   ```
+3. Open your web browser and go to `http://127.0.0.1:8000/`
 
 ## License
 
