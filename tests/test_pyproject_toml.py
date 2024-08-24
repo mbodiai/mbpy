@@ -339,8 +339,9 @@ dependencies = [
     assert (src_dir / "__about__.py").read_text() == '__version__ = "0.0.1"'
     
     new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
-    assert "dependencies" in new_pyproject["project"]
-    assert "altair==5.3.0" in new_pyproject["project"]["dependencies"]
+    assert "dependencies" in new_pyproject["project"], "Dependencies not found in project section"
+    assert "altair==5.3.0" in new_pyproject["project"]["dependencies"], "Original dependency not preserved"
+    assert len(new_pyproject["project"]["dependencies"]) == 11, "Not all original dependencies were preserved"
     assert "uvloop==0.19.0" in new_pyproject["project"]["dependencies"]
     assert new_pyproject["project"]["name"] == project_name
     assert {"name": author} in new_pyproject["project"]["authors"]

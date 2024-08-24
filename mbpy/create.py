@@ -577,6 +577,11 @@ def create_pyproject_toml(
         project["dependencies"] = all_deps
     elif "dependencies" in pyproject.get("project", {}):
         project["dependencies"] = pyproject["project"]["dependencies"]
+    elif existing_content:
+        # If there's existing content but no new deps, preserve the original dependencies
+        existing_pyproject = tomlkit.parse(existing_content)
+        if "dependencies" in existing_pyproject.get("project", {}):
+            project["dependencies"] = existing_pyproject["project"]["dependencies"]
 
     # Update optional dependencies
     optional_deps = project.setdefault("optional-dependencies", {})
