@@ -451,6 +451,11 @@ def create_project(
         (project_root / dir).mkdir(exist_ok=True, parents=True)
         if dir not in [project_name, ".github/workflows"]:
             (project_root / dir / ".gitkeep").touch(exist_ok=True)
+
+    # Ensure all .gitkeep files are created with parents=True
+    for dir in ["assets", "docs", "tests", "resources"]:
+        (project_root / dir).mkdir(exist_ok=True, parents=True)
+        (project_root / dir / ".gitkeep").touch(exist_ok=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
