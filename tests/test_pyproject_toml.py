@@ -300,3 +300,45 @@ def test_install_command_none_requirements(monkeypatch):
     assert "No packages specified for installation." in result.output
     assert "[notice] A new release of pip is available: 24.1 -> 24.2" not in result.output
     assert "[notice] To update, run: pip install --upgrade pip" not in result.output
+
+def test_create_pyproject_toml_existing_directory(tmp_path, monkeypatch):
+    project_name = "test_project"
+    author = "Test Author"
+    project_dir = tmp_path / project_name
+    project_dir.mkdir()
+    
+    initial_pyproject = """
+[project]
+dependencies = [
+"altair==5.3.0",
+"coloredlogs==15.0.1",
+"gradio==4.36.1",
+"idna==3.7",
+"importlib-resources==6.4.0",
+"jsonschema-specifications==2023.12.1",
+"pycparser==2.22",
+"rich==13.7.1",
+"soundfile==0.12.1",
+"starlette==0.37.2",
+"uvloop==0.19.0"
+]
+"""
+    (project_dir / "pyproject.toml").write_text(initial_pyproject)
+    
+    def mock_input(prompt):
+        return 'y' if "__about__.py" in prompt else 'n'
+    
+    monkeypatch.setattr('builtins.input', mock_input)
+    
+    from mbpy.create import create_project
+    
+    create_project(project_name, author, project_root=project_dir)
+    
+    assert (project_dir / "__about__.py").exists()
+    assert (project_dir / "__about__.py").read_text() == '__version__ = "0.0.1"'
+    
+    new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
+    assert "altair==5.3.0" in new_pyproject["project"]["dependencies"]
+    assert "uvloop==0.19.0" in new_pyproject["project"]["dependencies"]
+    assert new_pyproject["project"]["name"] == project_name
+    assert {"name": author} in new_pyproject["project"]["authors"]
