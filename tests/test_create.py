@@ -224,7 +224,8 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
 
         # Check if the process ended without errors
         stdout, stderr = process.communicate()
-        assert process.returncode in [0, -2, -15], f"MkDocs serve failed with unexpected return code: {process.returncode}\nSTDERR: {stderr.decode()}"
+        if process.returncode != 0:
+            raise AssertionError(f"MkDocs serve failed with return code: {process.returncode}\nSTDOUT: {stdout.decode()}\nSTDERR: {stderr.decode()}")
 
     except Exception as e:
         # Log error information
