@@ -163,3 +163,40 @@ class TestClass:
             "test_module.test_function": "This is a test function docstring.",
             "test_module.TestClass": "This is a test class docstring.",
         }
+
+def test_mkdocs_serve(tmp_path):
+    import subprocess
+    import time
+    import requests
+
+    # Create a minimal MkDocs project
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "index.md").write_text("# Test")
+    (tmp_path / "mkdocs.yml").write_text("site_name: Test")
+
+    # Start MkDocs server
+    process = subprocess.Popen(
+        ["mkdocs", "serve", "-a", "localhost:8000"],
+        cwd=str(tmp_path),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    try:
+        # Wait for the server to start
+        time.sleep(5)
+
+        # Test the response
+        response = requests.get("http://localhost:8000")
+        assert response.status_code == 200
+        assert "Test" in response.text
+
+    finally:
+        # Terminate the server
+        process.terminate()
+        process.wait()
+
+    # Check if the process ended without errors
+    stdout, stderr = process.communicate()
+    assert process.returncode == 0, f"MkDocs serve failed: {stderr.decode()}"
