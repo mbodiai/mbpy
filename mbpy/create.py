@@ -439,11 +439,15 @@ def create_project(
     if deps is None or deps == "local":
         deps = []
     
-    # Create project root directory
+    # Set project root directory
     root = Path(getcwd())
-    project_root = root / project_name
-    print(f"Creating project root directory: {project_root}")
-    project_root.mkdir(exist_ok=True, parents=True)
+    project_root = root
+    if not (project_root / project_name).exists():
+        project_root = project_root / project_name
+        print(f"Creating project root directory: {project_root}")
+        project_root.mkdir(exist_ok=True, parents=True)
+    else:
+        print(f"Using existing project directory: {project_root}")
     
     # Create main directories
     dirs = ["assets", "docs", "tests", project_name, "resources"]
