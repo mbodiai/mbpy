@@ -105,6 +105,12 @@ exclude_lines = [
 "if __name__ == .__main__.:",
 "if TYPE_CHECKING:",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "network: marks tests that require network access (deselect with '-m \"not network\"')",
+]
+addopts = "-m 'not network'"
 [tool.ruff]
 line-length = 120
 indent-width = 4
