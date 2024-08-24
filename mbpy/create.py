@@ -455,11 +455,12 @@ def create_project(
         ".github/workflows",
         f"{project_name}/resources",
         f"{project_name}/tests",
-        "docs/api"
+        "docs/api",
+        f"{project_name}/src"  # Add this new directory
     ]
     for dir in dirs:
         (project_root / dir).mkdir(exist_ok=True, parents=True)
-        if dir not in [project_name, ".github/workflows", f"{project_name}/resources", f"{project_name}/tests", "docs/api"]:
+        if dir not in [project_name, ".github/workflows", f"{project_name}/resources", f"{project_name}/tests", "docs/api", f"{project_name}/src"]:
             (project_root / dir / ".gitkeep").touch(exist_ok=True)
     
     # Create __about__.py in project directory
