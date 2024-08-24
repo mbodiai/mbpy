@@ -343,3 +343,4 @@ dependencies = [
     assert "uvloop==0.19.0" in new_pyproject["project"]["dependencies"]
     assert new_pyproject["project"]["name"] == project_name
     assert {"name": author} in new_pyproject["project"]["authors"]
+    assert len(new_pyproject["project"]["dependencies"]) == 11  # Ensure all original dependencies are preserved

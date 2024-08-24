@@ -53,7 +53,7 @@ def test_create_project(mock_cwd):
         # Note: There might be additional files created that we're not explicitly checking here
 
         # Check if .gitkeep files were touched
-        assert mock_touch.call_count == 4
+        assert mock_touch.call_count == 5
 
         # Check if create_pyproject_toml was called with correct arguments
         mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version="3.11", add_cli=True)
