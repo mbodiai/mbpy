@@ -476,7 +476,7 @@ def create_project(
         (project_path / dir).mkdir(parents=True, exist_ok=True)
     
     # Create __about__.py in project directory
-    about_file = project_root / project_name / "__about__.py"
+    about_file = project_path / project_name / "__about__.py"
     about_content = '__version__ = "0.0.1"'
     about_file.write_text(about_content)
 

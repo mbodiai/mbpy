@@ -332,10 +332,10 @@ dependencies = [
     
     from mbpy.create import create_project
     
-    create_project(project_name, author, project_root=project_dir)
+    create_project(project_name, author, project_root=tmp_path)
     
-    assert (project_dir / "__about__.py").exists()
-    assert (project_dir / "__about__.py").read_text() == '__version__ = "0.0.1"'
+    assert (project_dir / project_name / "__about__.py").exists()
+    assert (project_dir / project_name / "__about__.py").read_text() == '__version__ = "0.0.1"'
     
     new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
     assert "altair==5.3.0" in new_pyproject["project"]["dependencies"]
