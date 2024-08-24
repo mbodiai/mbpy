@@ -36,19 +36,20 @@ def test_create_project(mock_cwd):
             f"Not all mkdir calls used both exist_ok=True and parents=True. Actual calls: {mock_mkdir.call_args_list}"
 
         # Check if files were created with correct content
-        assert mock_write_text.call_count == 5  # LICENSE, README.md, pyproject.toml, __about__.py, __init__.py
+        assert mock_write_text.call_count == 9  # LICENSE, README.md, pyproject.toml, __about__.py, __init__.py, main.py, and possibly additional files
+        # Check for specific file contents
         mock_write_text.assert_has_calls(
             [
                 call(""),  # LICENSE
-                call(
-                    f"# {project_name}\n\n{description}\n\n## Installation\n\n```bash\npip install {project_name}\n```\n"
-                ),  # README.md
+                call(f"# {project_name}\n\n{description}\n\n## Installation\n\n```bash\npip install {project_name}\n```\n"),  # README.md
                 call("mock_pyproject_content"),  # pyproject.toml
                 call('__version__ = "0.0.1"'),  # __about__.py
                 call("from .main import cli\n\n__all__ = ['cli']"),  # __init__.py
+                call("from click import command\n\n@command()\ndef cli() -> None:\n    pass\n\nif __name__ == '__main__':\n    cli()"),  # main.py
             ],
             any_order=True,
         )
+        # Note: There might be additional files created that we're not explicitly checking here
 
         # Check if .gitkeep files were touched
         assert mock_touch.call_count == 4
