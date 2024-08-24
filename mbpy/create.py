@@ -486,8 +486,8 @@ def create_project(
         file_path.write_text(content)
 
     # Create workflow files
-    (workflows / "macos.yml").write_text(WORKFLOW_MAC)
-    (workflows / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
+    (project_root / ".github" / "workflows" / "macos.yml").write_text(WORKFLOW_MAC)
+    (project_root / ".github" / "workflows" / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
 
     # Set up documentation
     docs_dir = project_root / "docs"
