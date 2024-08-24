@@ -166,27 +166,42 @@ class TestClass:
         }
 
 import pytest
+import subprocess
+import time
+import requests
+from requests.exceptions import RequestException
+import socket
+import signal
+from pathlib import Path
+from mbpy.create import create_project
 
 @pytest.mark.network
-def test_mkdocs_serve(tmp_path):
-    import subprocess
-    import time
-    import requests
-    from requests.exceptions import RequestException
-    import socket
-    import signal
-
+def test_mpip_create_and_mkdocs_serve(tmp_path):
     # Function to find an available port
     def find_free_port():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(('', 0))
             return s.getsockname()[1]
 
-    # Create a minimal MkDocs project with a docstring
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    (docs_dir / "index.md").write_text("# Test\n\n```python\ndef test_function():\n    \"\"\"This is a test docstring.\"\"\"\n    pass\n```")
-    (tmp_path / "mkdocs.yml").write_text("site_name: Test\ntheme: readthedocs")
+    # Create a new package using mpip create
+    project_name = "test_project"
+    author = "Test Author"
+    description = "Test Description"
+    
+    create_project(project_name, author, description, doc_type='mkdocs')
+    
+    project_path = tmp_path / project_name
+    
+    # Add a Python file with a docstring
+    (project_path / project_name / "main.py").write_text('''
+def test_function():
+    """This is a test docstring."""
+    pass
+''')
+    
+    # Update index.md to include the docstring
+    docs_dir = project_path / "docs"
+    (docs_dir / "index.md").write_text(f"# {project_name}\n\n{description}\n\n```python\nfrom {project_name}.main import test_function\n```\n")
 
     # Find an available port
     port = find_free_port()
@@ -194,7 +209,7 @@ def test_mkdocs_serve(tmp_path):
     # Start MkDocs server
     process = subprocess.Popen(
         ["mkdocs", "serve", "-a", f"localhost:{port}"],
-        cwd=str(tmp_path),
+        cwd=str(project_path),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -208,7 +223,8 @@ def test_mkdocs_serve(tmp_path):
                 response = requests.get(f"http://localhost:{port}")
                 if response.status_code == 200:
                     # Test the response
-                    assert "Test" in response.text, "Expected content not found in response"
+                    assert project_name in response.text, "Project name not found in response"
+                    assert description in response.text, "Project description not found in response"
                     assert "This is a test docstring." in response.text, "Docstring not found in response"
                     break
             except RequestException:
