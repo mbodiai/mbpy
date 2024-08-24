@@ -146,7 +146,7 @@ def create_project(
     project_root.mkdir(exist_ok=True, parents=True)
     
     # Create main directories
-    dirs = ["assets", "docs", "tests", project_name]
+    dirs = ["assets", "docs", "tests", project_name, "resources"]
     for dir in dirs:
         (project_root / dir).mkdir(exist_ok=True, parents=True)
         if dir != project_name:
@@ -155,10 +155,6 @@ def create_project(
     # Create workflows directory
     workflows = project_root / ".github" / "workflows"
     workflows.mkdir(exist_ok=True, parents=True)
-
-    resources = project_root / "resources"
-    resources.mkdir(exist_ok=True, parents=True)
-    (resources / ".gitkeep").touch(exist_ok=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
