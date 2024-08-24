@@ -455,10 +455,9 @@ def create_project(
     ]
     for dir in dirs:
         dir_path = project_root / dir
-        if not dir_path.exists():
-            print(f"Creating directory: {dir_path}")
-            dir_path.mkdir(parents=True)
-            (dir_path / ".gitkeep").touch()
+        print(f"Creating directory: {dir_path}")
+        dir_path.mkdir(parents=True, exist_ok=True)
+        (dir_path / ".gitkeep").touch(exist_ok=True)
 
     # Create __about__.py in src directory
     about_file = src_path / "__about__.py"

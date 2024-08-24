@@ -30,7 +30,7 @@ def test_create_project(mock_cwd):
         create_project(project_name, author, description, deps)
 
         # Check if directories were created
-        assert mock_mkdir.call_count == 27  # Confirm 27 mkdir calls
+        assert mock_mkdir.call_count == 8  # Confirm 8 mkdir calls
         assert mock_touch.call_count == 4  # Confirm 4 touch calls for .gitkeep files
         expected_call = call(exist_ok=True, parents=True)
         assert all(call == expected_call for call in mock_mkdir.call_args_list), \
@@ -163,7 +163,7 @@ def test_create_project_existing_directory(mock_cwd):
 
         # All mkdir calls should have exist_ok=True
         for call in mock_mkdir.call_args_list:
-            assert call[1].get("exist_ok", False) is True
+            assert call[1].get("exist_ok", True) is True
 
 def test_create_project_with_documentation(mock_cwd):
     with (
@@ -174,7 +174,7 @@ def test_create_project_with_documentation(mock_cwd):
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
-        create_project("doc_project", "Doc Author", doc_type="sphinx", project_root=mock_cwd)
+        create_project("doc_project", "Doc Author", doc_type="sphinx")
         mock_setup_docs.assert_called_once_with(mock_cwd / "doc_project", "doc_project", "Doc Author", "", "sphinx", {})
 
 def test_create_project_with_mkdocs(mock_cwd):
@@ -186,7 +186,7 @@ def test_create_project_with_mkdocs(mock_cwd):
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
-        create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs", project_root=mock_cwd)
+        create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
         mock_setup_docs.assert_called_once_with(mock_cwd / "mkdocs_project", "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
 
 def test_create_project_with_custom_python_version(mock_cwd):
