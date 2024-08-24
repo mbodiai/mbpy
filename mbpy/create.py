@@ -138,13 +138,13 @@ def create_project(
 
     if deps is None:
         deps = []
+    elif deps == "local":
+        deps = []
     
     # Create project root directory
     root = Path(getcwd())
-    project_root = root
-    if root.stem != project_name:
-        project_root = root / project_name
-        print(f"Creating project root directory: {project_root}")
+    project_root = root / project_name
+    print(f"Creating project root directory: {project_root}")
     project_root.mkdir(exist_ok=True, parents=True)
     
     # Create main directories
@@ -153,6 +153,7 @@ def create_project(
         (project_root / dir).mkdir(exist_ok=True, parents=True)
         if dir != project_name:
             (project_root / dir / ".gitkeep").touch(exist_ok=True)
+    
     # Create workflows directory
     workflows = project_root / ".github" / "workflows"
     workflows.mkdir(exist_ok=True, parents=True)
@@ -160,6 +161,7 @@ def create_project(
     resources = project_root / "resources"
     resources.mkdir(exist_ok=True, parents=True)
     (resources / ".gitkeep").touch(exist_ok=True)
+    
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
     about_content = '__version__ = "0.0.1"'
