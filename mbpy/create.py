@@ -423,6 +423,7 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
+    project_root: Path = None,
 ) -> None:
     print(f"Creating project: {project_name}")
     print(f"Author: {author}")
@@ -435,14 +436,16 @@ def create_project(
         deps = []
     
     # Set project root directory
-    project_root = Path(getcwd()) / project_name
-    if project_root.exists():
-        overwrite = input(f"Project directory {project_root.absolute()} already exists. Overwrite? (y/n): ").lower()
+    if project_root is None:
+        project_root = Path(getcwd())
+    project_path = project_root / project_name
+    if project_path.exists():
+        overwrite = input(f"Project directory {project_path.absolute()} already exists. Overwrite? (y/n): ").lower()
         if overwrite != 'y':
             print("Project creation aborted.")
             return
-    print(f"Creating project root directory: {project_root}")
-    project_root.mkdir(exist_ok=True, parents=True)
+    print(f"Creating project root directory: {project_path}")
+    project_path.mkdir(exist_ok=True, parents=True)
     
     # Create all necessary directories
     dirs = [
@@ -458,7 +461,7 @@ def create_project(
         f"{project_name}/src"
     ]
     for dir in dirs:
-        dir_path = project_root / dir
+        dir_path = project_path / dir
         dir_path.mkdir(exist_ok=True, parents=True)
         if dir not in [project_name, ".github/workflows", f"{project_name}/resources", f"{project_name}/tests", "docs/api", f"{project_name}/src"]:
             gitkeep_path = dir_path / ".gitkeep"

@@ -248,13 +248,13 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(('', 0))
             return s.getsockname()[1]
-
+    
     # Create a new package using mpip create
     project_name = "test_project"
     author = "Test Author"
     description = "Test Description"
     
-    create_project(project_name, author, description, doc_type='mkdocs')
+    create_project(project_name, author, description, doc_type='mkdocs', project_root=tmp_path)
     
     project_path = tmp_path / project_name
     
