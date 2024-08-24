@@ -136,9 +136,7 @@ def create_project(
     print(f"Python version: {python_version}")
     print(f"Add CLI: {add_cli}")
 
-    if deps is None:
-        deps = []
-    elif deps == "local":
+    if deps is None or deps == "local":
         deps = []
     
     # Create project root directory
