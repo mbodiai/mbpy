@@ -28,7 +28,7 @@ def test_create_project(mock_cwd):
         create_project(project_name, author, description, deps)
 
         # Check if directories were created
-        assert mock_mkdir.call_count == 8  # Updated count to reflect actual number of mkdir calls
+        assert mock_mkdir.call_count == 8  # Confirm 8 mkdir calls
         for call_args in mock_mkdir.call_args_list:
             assert call_args == call(exist_ok=True, parents=True), f"Unexpected mkdir call: {call_args}"
 
@@ -47,7 +47,7 @@ def test_create_project(mock_cwd):
             any_order=True,
         )
 
-        # Check if __init__.py and other files were touched
+        # Check if .gitkeep files were touched
         assert mock_touch.call_count == 4
 
         # Check if create_pyproject_toml was called with correct arguments
