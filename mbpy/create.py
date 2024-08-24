@@ -125,7 +125,7 @@ def create_project(
     author,
     description="",
     deps: list[str] | Literal["local"] | None = None,
-    python_version="3.11",
+    python_version="3.10",
     add_cli=True,
     doc_type='sphinx',
 ) -> None:
@@ -139,9 +139,25 @@ def create_project(
     if deps is None or deps == "local":
         deps = []
     
-    # Create project root directory
+    # Check for existing pyproject.toml in parent directory
     root = Path(getcwd())
-    project_root = root / project_name
+    parent_pyproject = root / "pyproject.toml"
+    if parent_pyproject.exists():
+        use_parent = input(f"Found pyproject.toml in {root}. Use it? (y/n): ").lower() == 'y'
+        if use_parent:
+            project_root = root
+        else:
+            project_root = root / project_name
+    else:
+        project_root = root / project_name
+
+    # Check if project directory already exists
+    if project_root.exists():
+        overwrite = input(f"Project directory {project_root} already exists. Overwrite? (y/n): ").lower() == 'y'
+        if not overwrite:
+            print("Project creation cancelled.")
+            return
+
     print(f"Creating project root directory: {project_root}")
     project_root.mkdir(exist_ok=True, parents=True)
     
@@ -189,6 +205,11 @@ def create_project(
     ]
     for file, content in files:
         file_path = project_root / file
+        if file_path.exists():
+            overwrite = input(f"{file} already exists. Overwrite? (y/n): ").lower() == 'y'
+            if not overwrite:
+                print(f"Skipping {file}")
+                continue
         file_path.write_text(content)
 
     # Create workflow files
@@ -197,6 +218,19 @@ def create_project(
 
     # Set up documentation
     setup_documentation(project_root, project_name, author, description, doc_type)
+
+    # Check for import errors
+    import_errors = []
+    for module in ['__about__', '__init__', 'main']:
+        try:
+            __import__(f"{project_name}.{module}")
+        except ImportError as e:
+            import_errors.append(f"Warning: Unable to import {project_name}.{module}: {str(e)}")
+
+    for error in import_errors:
+        print(error)
+
+    print(f"Project {project_name} created successfully with {doc_type} documentation.")
 
 import ast
 import importlib
