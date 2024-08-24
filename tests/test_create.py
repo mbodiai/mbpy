@@ -255,14 +255,16 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
     description = "Test Description"
     
     with patch('mbpy.create.create_pyproject_toml', return_value='mock_pyproject_content') as mock_create_pyproject, \
-         patch('pathlib.Path.mkdir') as mock_mkdir, \
-         patch('pathlib.Path.write_text') as mock_write_text:
+         patch('pathlib.Path.mkdir', wraps=Path.mkdir) as mock_mkdir, \
+         patch('pathlib.Path.write_text', wraps=Path.write_text) as mock_write_text, \
+         patch('pathlib.Path.touch', wraps=Path.touch) as mock_touch:
         create_project(project_name, author, description, doc_type='mkdocs', project_root=tmp_path)
         mock_create_pyproject.assert_called_once_with(
             project_name, author, description, [], python_version="3.11", add_cli=True, overwrite=True
         )
-        mock_mkdir.assert_called()
-        mock_write_text.assert_called()
+        assert mock_mkdir.call_count >= 17  # At least 17 mkdir calls
+        assert mock_write_text.call_count >= 9  # At least 9 write_text calls
+        assert mock_touch.call_count >= 4  # At least 4 touch calls for .gitkeep files
     
     project_path = tmp_path / project_name
     
