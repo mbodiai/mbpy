@@ -213,7 +213,7 @@ def create_project(
     docstrings = extract_docstrings(project_root / project_name)
 
     # Set up documentation
-    setup_documentation(project_root, project_name, author, description, doc_type, docstrings)
+    setup_documentation(project_root.absolute(), project_name, author, description, doc_type, docstrings)
 
     # Check for import errors
     import_errors = []
