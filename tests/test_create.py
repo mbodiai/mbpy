@@ -59,7 +59,7 @@ def test_create_project(mock_cwd):
         mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version="3.11", add_cli=True)
 
         # Check if setup_documentation was called
-        mock_setup_docs.assert_called_once_with((mock_cwd / project_name).absolute(), project_name, author, description, 'sphinx', {})
+        mock_setup_docs.assert_called_once_with((mock_cwd / project_name).absolute(), project_name, author, description, 'sphinx', None)
 
 def test_create_project_with_mkdocs(mock_cwd):
     project_name = "mkdocs_project"
@@ -175,7 +175,7 @@ def test_create_project_with_documentation(mock_cwd):
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
         create_project("doc_project", "Doc Author", doc_type="sphinx")
-        mock_setup_docs.assert_called_once_with((mock_cwd / "doc_project").absolute(), "doc_project", "Doc Author", "", "sphinx", {})
+        mock_setup_docs.assert_called_once_with((mock_cwd / "doc_project").absolute(), "doc_project", "Doc Author", "", "sphinx", None)
 
 def test_create_project_with_mkdocs(mock_cwd):
     with (
@@ -187,7 +187,7 @@ def test_create_project_with_mkdocs(mock_cwd):
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
         create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
-        mock_setup_docs.assert_called_once_with((mock_cwd / "mkdocs_project").absolute(), "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
+        mock_setup_docs.assert_called_once_with((mock_cwd / "mkdocs_project").absolute(), "mkdocs_project", "MkDocs Author", "", "mkdocs", None)
 
 def test_create_project_with_custom_python_version(mock_cwd):
     with (
