@@ -575,8 +575,8 @@ def create_pyproject_toml(
     all_deps.sort(key=lambda x: x.lower())
     if all_deps:
         project["dependencies"] = all_deps
-    elif "dependencies" in project:
-        del project["dependencies"]
+    elif "dependencies" in pyproject.get("project", {}):
+        project["dependencies"] = pyproject["project"]["dependencies"]
 
     # Update optional dependencies
     optional_deps = project.setdefault("optional-dependencies", {})

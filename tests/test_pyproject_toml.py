@@ -339,6 +339,7 @@ dependencies = [
     assert (src_dir / "__about__.py").read_text() == '__version__ = "0.0.1"'
     
     new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
+    assert "dependencies" in new_pyproject["project"]
     assert "altair==5.3.0" in new_pyproject["project"]["dependencies"]
     assert "uvloop==0.19.0" in new_pyproject["project"]["dependencies"]
     assert new_pyproject["project"]["name"] == project_name

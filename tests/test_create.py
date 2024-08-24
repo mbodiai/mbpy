@@ -59,7 +59,7 @@ def test_create_project(mock_cwd):
         mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version="3.11", add_cli=True)
 
         # Check if setup_documentation was called
-        mock_setup_docs.assert_called_once_with(mock_cwd / project_name, project_name, author, description, 'sphinx', {})
+        mock_setup_docs.assert_called_once_with(mock_cwd, project_name, author, description, 'sphinx', {})
 
 def test_create_project_with_mkdocs(mock_cwd):
     project_name = "mkdocs_project"
