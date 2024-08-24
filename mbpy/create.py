@@ -459,9 +459,6 @@ def create_project(
     # Create workflows directory
     workflows = project_root / ".github" / "workflows"
     workflows.mkdir(exist_ok=True, parents=True)
-
-    # Ensure project root is created with both exist_ok and parents
-    project_root.mkdir(exist_ok=True, parents=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
