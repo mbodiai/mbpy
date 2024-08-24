@@ -255,9 +255,9 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
     description = "Test Description"
     
     with patch('mbpy.create.create_pyproject_toml', return_value='mock_pyproject_content') as mock_create_pyproject, \
-         patch('pathlib.Path.mkdir', wraps=Path.mkdir) as mock_mkdir, \
-         patch('pathlib.Path.write_text', wraps=Path.write_text) as mock_write_text, \
-         patch('pathlib.Path.touch', wraps=Path.touch) as mock_touch:
+         patch('pathlib.Path.mkdir', autospec=True) as mock_mkdir, \
+         patch('pathlib.Path.write_text', autospec=True) as mock_write_text, \
+         patch('pathlib.Path.touch', autospec=True) as mock_touch:
         create_project(project_name, author, description, doc_type='mkdocs', project_root=tmp_path)
         mock_create_pyproject.assert_called_once_with(
             project_name, author, description, [], python_version="3.11", add_cli=True, overwrite=True
