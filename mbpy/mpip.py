@@ -581,10 +581,17 @@ def is_package_in_requirements(
 def get_requirements_packages(requirements="requirements.txt", as_set=True):
     """Get the list of packages from the requirements.txt file.
 
+    Args:
+        requirements (str): Path to the requirements file. Defaults to "requirements.txt".
+        as_set (bool): Whether to return the result as a set. Defaults to True.
+
     Returns:
-        set: Set of packages listed in the requirements.txt file.
+        set or list: Packages listed in the requirements file.
     """
-    lines = Path(requirements).read_text().splitlines()
+    requirements_path = Path(requirements)
+    if not requirements_path.exists():
+        return set() if as_set else []
+    lines = requirements_path.read_text().splitlines()
     lines = [
         line.strip()
         for line in lines
