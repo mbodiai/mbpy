@@ -169,6 +169,13 @@ def test_mkdocs_serve(tmp_path):
     import time
     import requests
     from requests.exceptions import RequestException
+    import socket
+
+    # Function to find an available port
+    def find_free_port():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            return s.getsockname()[1]
 
     # Create a minimal MkDocs project
     docs_dir = tmp_path / "docs"
@@ -176,9 +183,12 @@ def test_mkdocs_serve(tmp_path):
     (docs_dir / "index.md").write_text("# Test")
     (tmp_path / "mkdocs.yml").write_text("site_name: Test")
 
+    # Find an available port
+    port = find_free_port()
+
     # Start MkDocs server
     process = subprocess.Popen(
-        ["mkdocs", "serve", "-a", "localhost:8000"],
+        ["mkdocs", "serve", "-a", f"localhost:{port}"],
         cwd=str(tmp_path),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -190,7 +200,7 @@ def test_mkdocs_serve(tmp_path):
         for _ in range(max_retries):
             try:
                 time.sleep(2)
-                response = requests.get("http://localhost:8000")
+                response = requests.get(f"http://localhost:{port}")
                 if response.status_code == 200:
                     break
             except RequestException:
