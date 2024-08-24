@@ -99,3 +99,67 @@ def test_create_project_existing_directory(mock_cwd):
         # All mkdir calls should have exist_ok=True
         for call in mock_mkdir.call_args_list:
             assert call[1].get("exist_ok", False) is True
+
+def test_create_project_with_documentation(mock_cwd):
+    with (
+        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.write_text"),
+        patch("mbpy.create.Path.touch"),
+        patch("mbpy.create.create_pyproject_toml"),
+        patch("mbpy.create.setup_documentation") as mock_setup_docs,
+    ):
+        create_project("doc_project", "Doc Author", doc_type="sphinx")
+        mock_setup_docs.assert_called_once_with(mock_cwd / "doc_project", "doc_project", "Doc Author", "", "sphinx")
+
+def test_create_project_with_mkdocs(mock_cwd):
+    with (
+        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.write_text"),
+        patch("mbpy.create.Path.touch"),
+        patch("mbpy.create.create_pyproject_toml"),
+        patch("mbpy.create.setup_documentation") as mock_setup_docs,
+    ):
+        create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
+        mock_setup_docs.assert_called_once_with(mock_cwd / "mkdocs_project", "mkdocs_project", "MkDocs Author", "", "mkdocs")
+
+def test_create_project_with_custom_python_version(mock_cwd):
+    with (
+        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.write_text"),
+        patch("mbpy.create.Path.touch"),
+        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
+    ):
+        create_project("custom_py_project", "Custom Py Author", python_version="3.9")
+        mock_create_pyproject.assert_called_once_with(
+            "custom_py_project",
+            "Custom Py Author",
+            "",
+            [],
+            python_version="3.9",
+            add_cli=True,
+        )
+
+def test_extract_docstrings(tmp_path):
+    project_path = tmp_path / "test_project"
+    project_path.mkdir()
+    (project_path / "test_module.py").write_text('''
+def test_function():
+    """This is a test function docstring."""
+    pass
+
+class TestClass:
+    """This is a test class docstring."""
+    pass
+''')
+    
+    with patch("mbpy.create.importlib.import_module") as mock_import:
+        mock_module = mock_import.return_value
+        mock_module.test_function.__doc__ = "This is a test function docstring."
+        mock_module.TestClass.__doc__ = "This is a test class docstring."
+        
+        docstrings = extract_docstrings(project_path)
+        
+        assert docstrings == {
+            "test_project.test_module.test_function": "This is a test function docstring.",
+            "test_project.test_module.TestClass": "This is a test class docstring.",
+        }
