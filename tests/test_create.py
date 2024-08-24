@@ -168,6 +168,7 @@ def test_mkdocs_serve(tmp_path):
     import subprocess
     import time
     import requests
+    from requests.exceptions import RequestException
 
     # Create a minimal MkDocs project
     docs_dir = tmp_path / "docs"
@@ -184,13 +185,30 @@ def test_mkdocs_serve(tmp_path):
     )
 
     try:
-        # Wait for the server to start
-        time.sleep(5)
+        # Wait for the server to start and retry connection
+        max_retries = 10
+        for _ in range(max_retries):
+            try:
+                time.sleep(2)
+                response = requests.get("http://localhost:8000")
+                if response.status_code == 200:
+                    break
+            except RequestException:
+                continue
+        else:
+            raise TimeoutError("MkDocs server did not start successfully")
 
         # Test the response
-        response = requests.get("http://localhost:8000")
-        assert response.status_code == 200
-        assert "Test" in response.text
+        assert response.status_code == 200, f"Unexpected status code: {response.status_code}"
+        assert "Test" in response.text, "Expected content not found in response"
+
+    except Exception as e:
+        # Log error information
+        stdout, stderr = process.communicate()
+        print(f"Error: {str(e)}")
+        print(f"STDOUT: {stdout.decode()}")
+        print(f"STDERR: {stderr.decode()}")
+        raise
 
     finally:
         # Terminate the server
