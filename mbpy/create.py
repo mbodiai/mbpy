@@ -129,6 +129,7 @@ def create_project(
     python_version="3.10",
     add_cli=True,
     doc_type='sphinx',
+    docstrings: dict = None,
 ) -> None:
     print(f"Creating project: {project_name}")
     print(f"Author: {author}")
