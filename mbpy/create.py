@@ -505,7 +505,7 @@ def create_project(
     # Set up documentation
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
-    setup_documentation(project_root, project_name, author, description, doc_type)
+    setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
 
 
 def create_pyproject_toml(
