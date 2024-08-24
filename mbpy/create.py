@@ -445,34 +445,22 @@ def create_project(
     print(f"Creating project root directory: {project_root}")
     project_root.mkdir(exist_ok=True, parents=True)
     
-    # Create main directories
-    dirs = ["assets", "docs", "tests", "resources", project_name, ".github", ".github/workflows"]
+    # Create all necessary directories
+    dirs = [
+        "assets",
+        "docs",
+        "tests",
+        "resources",
+        project_name,
+        ".github/workflows",
+        f"{project_name}/resources",
+        f"{project_name}/tests",
+        "docs/api"
+    ]
     for dir in dirs:
         (project_root / dir).mkdir(exist_ok=True, parents=True)
-        if dir not in [project_name, ".github", ".github/workflows"]:
+        if dir not in [project_name, ".github/workflows", f"{project_name}/resources", f"{project_name}/tests", "docs/api"]:
             (project_root / dir / ".gitkeep").touch(exist_ok=True)
-
-    # Create additional directories
-    additional_dirs = [project_name + "/resources", project_name + "/tests", "docs/api"]
-    for dir in additional_dirs:
-        (project_root / dir).mkdir(exist_ok=True, parents=True)
-
-    # Ensure all directories are created with both exist_ok=True and parents=True
-    all_dirs = [
-        project_root,
-        project_root / "assets",
-        project_root / "docs",
-        project_root / "tests",
-        project_root / "resources",
-        project_root / project_name,
-        project_root / ".github",
-        project_root / ".github" / "workflows",
-        project_root / project_name / "resources",
-        project_root / project_name / "tests",
-        project_root / "docs" / "api",
-    ]
-    for dir in all_dirs:
-        dir.mkdir(exist_ok=True, parents=True)
     
     # Create __about__.py in project directory
     about_file = project_root / project_name / "__about__.py"
