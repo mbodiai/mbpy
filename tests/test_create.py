@@ -29,7 +29,7 @@ def test_create_project(mock_cwd):
         create_project(project_name, author, description, deps)
 
         # Check if directories were created
-        assert mock_mkdir.call_count == 17  # Confirm 17 mkdir calls
+        assert mock_mkdir.call_count == 16  # Confirm 16 mkdir calls
         assert mock_touch.call_count == 4  # Confirm 4 touch calls for .gitkeep files
         expected_call = call(exist_ok=True, parents=True)
         assert all(call == expected_call for call in mock_mkdir.call_args_list), \
