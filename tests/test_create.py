@@ -1,7 +1,7 @@
 import pytest
 import sys
 from unittest.mock import patch, call
-from mbpy.create import create_project, extract_docstrings
+from mbpy.create import create_project, extract_docstrings, setup_documentation
 
 
 @pytest.fixture
