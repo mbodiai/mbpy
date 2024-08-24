@@ -465,7 +465,6 @@ def create_project(
         dir_path.mkdir(exist_ok=True, parents=True)
         if dir not in [project_name, ".github/workflows", f"{project_name}/resources", f"{project_name}/tests", "docs/api", f"{project_name}/src"]:
             gitkeep_path = dir_path / ".gitkeep"
-            gitkeep_path.parent.mkdir(exist_ok=True, parents=True)
             gitkeep_path.touch(exist_ok=True)
     
     # Create __about__.py in project directory
