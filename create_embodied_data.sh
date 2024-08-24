@@ -22,7 +22,14 @@ pytest
 
 # Serve the documentation
 echo "Starting MkDocs server..."
-mkdocs serve &
+mkdocs serve --dev-addr 127.0.0.1:8000 &
 
 echo "Project setup complete!"
 echo "Documentation is being served at http://127.0.0.1:8000"
+echo "Press Ctrl+C to stop the server when you're done."
+
+# Wait for user input to keep the script running
+read -p "Press Enter to exit..."
+
+# Kill the MkDocs server process
+pkill -f "mkdocs serve"
