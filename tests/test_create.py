@@ -32,7 +32,7 @@ def test_create_project(mock_cwd):
         mock_mkdir.assert_has_calls([call(exist_ok=True, parents=True) for _ in range(7)], any_order=True)
 
         # Check if files were created with correct content
-        assert mock_write_text.call_count == 9  # LICENSE, README.md, pyproject.toml, __about__.py, etc.
+        assert mock_write_text.call_count == 13  # LICENSE, README.md, pyproject.toml, __about__.py, documentation files, etc.
         mock_write_text.assert_has_calls(
             [
                 call(""),  # LICENSE
@@ -41,6 +41,7 @@ def test_create_project(mock_cwd):
                 ),  # README.md
                 call("mock_pyproject_content"),  # pyproject.toml
                 call('__version__ = "0.0.1"'),  # __about__.py
+                # Add assertions for new documentation files if needed
             ],
             any_order=True,
         )
@@ -233,3 +234,37 @@ def test_mkdocs_serve(tmp_path):
     # Check if the process ended without errors
     stdout, stderr = process.communicate()
     assert process.returncode in [0, -2, -15], f"MkDocs serve failed with unexpected return code: {process.returncode}\nSTDERR: {stderr.decode()}"
+
+def test_setup_documentation(tmp_path):
+    project_name = "test_docs"
+    author = "Test Author"
+    description = "Test Description"
+    doc_type = "sphinx"
+    
+    with patch("mbpy.create.setup_sphinx_docs") as mock_setup_sphinx:
+        setup_documentation(tmp_path, project_name, author, description, doc_type)
+        
+        mock_setup_sphinx.assert_called_once_with(
+            tmp_path / "docs",
+            project_name,
+            author,
+            description,
+            None  # docstrings parameter
+        )
+    
+    # Test with MkDocs
+    doc_type = "mkdocs"
+    with patch("mbpy.create.setup_mkdocs") as mock_setup_mkdocs:
+        setup_documentation(tmp_path, project_name, author, description, doc_type)
+        
+        mock_setup_mkdocs.assert_called_once_with(
+            tmp_path / "docs",
+            project_name,
+            author,
+            description,
+            None  # docstrings parameter
+        )
+    
+    # Test with invalid doc_type
+    with pytest.raises(ValueError, match="Invalid doc_type. Choose 'sphinx' or 'mkdocs'."):
+        setup_documentation(tmp_path, project_name, author, description, "invalid_type")
