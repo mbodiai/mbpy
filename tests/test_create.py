@@ -160,6 +160,6 @@ class TestClass:
         docstrings = extract_docstrings(project_path)
         
         assert docstrings == {
-            "test_project.test_module.test_function": "This is a test function docstring.",
-            "test_project.test_module.TestClass": "This is a test class docstring.",
+            "test_module.test_function": "This is a test function docstring.",
+            "test_module.TestClass": "This is a test class docstring.",
         }
