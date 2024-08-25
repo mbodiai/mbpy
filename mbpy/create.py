@@ -5,6 +5,7 @@ import click
 import tomlkit
 from typing import Literal
 
+DEFAULT_PYTHON = "3.11"
 getcwd = Path.cwd
 WORKFLOW_UBUNTU = """name: "Ubuntu"
 
@@ -128,7 +129,7 @@ def create_project(
     author,
     description="",
     deps: list[str] | Literal["local"] | None = None,
-    python_version="3.11",
+    python_version=DEFAULT_PYTHON,
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
@@ -158,6 +159,11 @@ def create_project(
     src_dir.mkdir(exist_ok=True)  # Remove parents=True
     (src_dir / "__init__.py").write_text("")
     (src_dir / "__about__.py").write_text('__version__ = "0.1.0"')
+
+    # Ensure __about__.py is created even if src_dir already exists
+    about_file = src_dir / "__about__.py"
+    if not about_file.exists():
+        about_file.write_text('__version__ = "0.1.0"')
 
     # Create pyproject.toml
     existing_content = None

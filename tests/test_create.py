@@ -271,9 +271,10 @@ def test_create_project_existing_project(mock_cwd):
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
         patch("mbpy.create.getcwd", return_value=mock_cwd),
         patch("builtins.open", mock_open(read_data="existing content")),
+        patch("mbpy.create.DEFAULT_PYTHON", "3.11"),
     ):
         project_path = create_project("existing_project", "Existing Author")
-
+    
         assert project_path == existing_project
         mock_create_pyproject.assert_called_once()
         mock_setup_docs.assert_called_once()
@@ -282,7 +283,7 @@ def test_create_project_existing_project(mock_cwd):
             "Existing Author",
             "",
             [],
-            python_version="3.10",
+            python_version="3.11",
             add_cli=True,
             existing_content="existing content"
         )
