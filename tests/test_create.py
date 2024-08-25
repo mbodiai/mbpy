@@ -69,7 +69,7 @@ def test_create_project(mock_cwd):
         )
 
         # Check if setup_documentation was called
-        mock_setup_docs.assert_called_once_with(mock_cwd / project_name, project_name, author, description, 'sphinx', {})
+        mock_setup_docs.assert_called_once_with(mock_cwd, project_name, author, description, 'sphinx', {})
 
 def test_create_project_with_mkdocs(mock_cwd):
     project_name = "mkdocs_project"
@@ -228,7 +228,7 @@ def test_create_project_with_documentation(mock_cwd):
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
         create_project("doc_project", "Doc Author", doc_type="sphinx")
-        mock_setup_docs.assert_called_once_with(mock_cwd / "doc_project", "doc_project", "Doc Author", "", "sphinx", {})
+        mock_setup_docs.assert_called_once_with(mock_cwd, "doc_project", "Doc Author", "", "sphinx", {})
 
 def test_create_project_with_mkdocs(mock_cwd):
     with (
@@ -256,7 +256,7 @@ def test_create_project_with_mkdocs(mock_cwd):
 
         # Check if setup_documentation was called with mkdocs
         print(f"mock_setup_docs call args: {mock_setup_docs.call_args}")
-        mock_setup_docs.assert_called_once_with(mock_cwd / "mkdocs_project", "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
+        mock_setup_docs.assert_called_once_with(mock_cwd, "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
     
         # The MkDocs server is no longer started in create_project, so we remove this assertion
 
