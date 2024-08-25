@@ -1,7 +1,9 @@
 import pytest
 import sys
-from unittest.mock import patch, call
+import subprocess
+from unittest.mock import patch, call, MagicMock
 from mbpy.create import create_project, extract_docstrings, setup_documentation
+import requests
 
 
 @pytest.fixture
@@ -73,11 +75,37 @@ def test_create_project_with_mkdocs(mock_cwd):
         patch("mbpy.create.Path.touch"),
         patch("mbpy.create.create_pyproject_toml"),
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
+        patch("subprocess.Popen") as mock_popen,
+        patch("requests.get") as mock_get,
     ):
-        create_project(project_name, author, description, deps, doc_type='mkdocs')
+        # Mock the subprocess.Popen to simulate the MkDocs server
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # Mock the requests.get to simulate a successful response from the MkDocs server
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = f"<html><body>{project_name}{description}</body></html>"
+        mock_get.return_value = mock_response
+
+        project_path = create_project(project_name, author, description, deps, doc_type='mkdocs')
 
         # Check if setup_documentation was called with mkdocs
-        mock_setup_docs.assert_called_once_with(mock_cwd / project_name, project_name, author, description, 'mkdocs')
+        mock_setup_docs.assert_called_once_with(mock_cwd, project_name, author, description, 'mkdocs', {})
+
+        # Check if the MkDocs server was started
+        mock_popen.assert_called_once_with(
+            ["mkdocs", "serve", "-a", "localhost:8000"],
+            cwd=str(project_path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Check if the documentation is servable
+        mock_get.assert_called_once_with("http://localhost:8000")
+        assert project_name in mock_response.text
+        assert description in mock_response.text
 
 def test_create_project_without_cli(mock_cwd):
     project_name = "no_cli_project"

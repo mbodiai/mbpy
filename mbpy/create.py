@@ -230,6 +230,7 @@ def create_project(
         print(error)
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
+    return project_root
 
 import ast
 import importlib
@@ -424,7 +425,7 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
-) -> None:
+) -> Path:
     print(f"Creating project: {project_name}")
     print(f"Author: {author}")
     print(f"Description: {description}")
