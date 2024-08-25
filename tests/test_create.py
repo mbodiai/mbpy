@@ -299,6 +299,8 @@ def test_create_project_existing_project(mock_cwd):
         project_path = create_project("existing_project", "Existing Author")
     
         assert project_path == mock_cwd / "existing_project"
+        mock_create_pyproject.assert_called_once()
+        mock_setup_docs.assert_called_once()
         mock_create_pyproject.assert_called_once_with(
             "existing_project",
             "Existing Author",

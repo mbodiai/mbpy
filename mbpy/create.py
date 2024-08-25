@@ -583,6 +583,8 @@ def create_project(
     print(f"Project root: {project_root}")
     setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
 
+    print(f"Project {project_name} created successfully with {doc_type} documentation.")
+    return src_path
 
 def create_pyproject_toml(
     project_name,
