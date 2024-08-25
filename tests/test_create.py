@@ -288,6 +288,33 @@ def test_create_project_with_custom_python_version(mock_cwd):
             existing_content=None
         )
 
+def test_create_project_existing_project(mock_cwd):
+    existing_project = mock_cwd / "existing_project"
+    existing_project.mkdir()
+    (existing_project / "pyproject.toml").write_text("existing content")
+
+    with (
+        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.write_text"),
+        patch("builtins.input", return_value="y"),  # Simulate user input to overwrite
+        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
+        patch("mbpy.create.setup_documentation") as mock_setup_docs,
+        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
+    ):
+        project_path = create_project("existing_project", "Existing Author")
+
+        assert project_path == existing_project
+        mock_create_pyproject.assert_called_once_with(
+            "existing_project",
+            "Existing Author",
+            "",
+            [],
+            python_version="3.10",
+            add_cli=True,
+            existing_content="existing content"
+        )
+        mock_setup_docs.assert_called_once()
+
 def test_extract_docstrings(tmp_path):
     project_path = tmp_path / "test_project"
     project_path.mkdir()

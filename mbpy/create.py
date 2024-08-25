@@ -130,7 +130,7 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
-) -> None:
+) -> Path:
     print(f"Creating project: {project_name}")
     print(f"Author: {author}")
     print(f"Description: {description}")
