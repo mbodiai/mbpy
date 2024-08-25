@@ -232,7 +232,7 @@ def create_project(
         print(error)
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
-    return project_root
+    return src_path
 
 import ast
 import importlib
