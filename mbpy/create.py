@@ -164,7 +164,7 @@ def create_project(
         project_name,
         author,
         description,
-        deps,
+        deps if deps is not None else [],
         python_version,
         add_cli,
         existing_content=None
@@ -172,7 +172,7 @@ def create_project(
     (project_root / "pyproject.toml").write_text(pyproject_content)
 
     # Setup documentation
-    setup_documentation(project_root, project_name, author, description, doc_type, docstrings)
+    setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
 
     if add_cli:
         (src_dir / "cli.py").touch()
@@ -391,11 +391,18 @@ def create_pyproject_toml(
         existing_deps = project.get("dependencies", [])
         new_deps = existing_deps + deps
         project["dependencies"] = list(set(new_deps))  # Remove duplicates
+    elif "dependencies" not in project:
+        project["dependencies"] = []
 
     if add_cli:
         if "scripts" not in project:
             project["scripts"] = tomlkit.table()
         project["scripts"][project_name] = f"{project_name}.cli:main"
+
+    # Preserve existing sections
+    for key, value in pyproject.items():
+        if key != "project":
+            project[key] = value
 
     return tomlkit.dumps(pyproject)
 
