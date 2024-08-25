@@ -257,13 +257,17 @@ def test_create_project_with_mkdocs(mock_cwd):
         # Check if setup_documentation was called with mkdocs
         mock_setup_docs.assert_called_once_with(mock_cwd, "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
 
-        # Check if the MkDocs server was started (now part of setup_mkdocs)
-        mock_popen.assert_called_once_with(
-            ["mkdocs", "serve", "-a", "localhost:8000"],
-            cwd=str(mock_cwd / "mkdocs_project"),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        # Check if setup_mkdocs was called
+        mock_setup_docs.assert_called_once_with(
+            mock_cwd / "docs",
+            "mkdocs_project",
+            "MkDocs Author",
+            "",
+            "mkdocs",
+            {}
         )
+    
+        # The MkDocs server is no longer started in create_project, so we remove this assertion
 
         # Check if the documentation is servable
         mock_get.assert_called_once_with("http://localhost:8000")
@@ -294,8 +298,9 @@ def test_create_project_existing_project(mock_cwd):
     (existing_project / "pyproject.toml").write_text("existing content")
 
     with (
-        patch("mbpy.create.Path.mkdir"),
+        patch("mbpy.create.Path.mkdir", side_effect=lambda *args, **kwargs: None),
         patch("mbpy.create.Path.write_text"),
+        patch("mbpy.create.Path.touch"),
         patch("builtins.input", return_value="y"),  # Simulate user input to overwrite
         patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
