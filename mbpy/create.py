@@ -483,7 +483,8 @@ def create_project(
 
     # Create pyproject.toml content
     print("Calling create_pyproject_toml...")
-    pyproject_content = create_pyproject_toml(project_name, author, description, deps, python_version=python_version, add_cli=add_cli)
+    existing_pyproject = (project_root / "pyproject.toml").read_text() if (project_root / "pyproject.toml").exists() else None
+    pyproject_content = create_pyproject_toml(project_name, author, description, deps, python_version=python_version, add_cli=add_cli, existing_content=existing_pyproject)
     print("create_pyproject_toml called successfully")
 
     # Create files in root
@@ -576,10 +577,8 @@ def create_pyproject_toml(
     all_deps.sort(key=lambda x: x.lower())
     if all_deps:
         project["dependencies"] = all_deps
-    elif "dependencies" in pyproject.get("project", {}):
-        project["dependencies"] = pyproject["project"]["dependencies"]
     elif existing_content:
-        # If there's existing content but no new deps, preserve the original dependencies
+        # If there's existing content, preserve the original dependencies
         existing_pyproject = tomlkit.parse(existing_content)
         if "dependencies" in existing_pyproject.get("project", {}):
             project["dependencies"] = existing_pyproject["project"]["dependencies"]
