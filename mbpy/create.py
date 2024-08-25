@@ -232,6 +232,7 @@ def create_project(
         print(error)
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
+    print(f"Returning project path: {project_root}")
     return project_root
     return project_root
 
@@ -580,6 +581,8 @@ def create_project(
     # Set up documentation
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
+    print(f"Setting up documentation in: {docs_dir}")
+    print(f"Project root: {project_root}")
     setup_documentation(docs_dir, project_name, author, description, doc_type, docstrings or {})
 
 

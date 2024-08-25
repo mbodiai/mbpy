@@ -255,6 +255,7 @@ def test_create_project_with_mkdocs(mock_cwd):
         project_path = create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
 
         # Check if setup_documentation was called with mkdocs
+        print(f"mock_setup_docs call args: {mock_setup_docs.call_args}")
         mock_setup_docs.assert_called_once_with(mock_cwd / "mkdocs_project" / "docs", "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
     
         # The MkDocs server is no longer started in create_project, so we remove this assertion
