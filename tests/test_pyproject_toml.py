@@ -338,7 +338,7 @@ dependencies = [
 
     assert project_path == project_dir / project_name
     assert (project_path / "__about__.py").exists()
-    assert (project_path / "__about__.py").read_text() == '__version__ = "0.0.1"'
+    assert (project_path / "__about__.py").read_text() == '__version__ = "0.1.0"'
     
     new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
     assert "dependencies" in new_pyproject["project"], "Dependencies not found in project section"

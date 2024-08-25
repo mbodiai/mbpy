@@ -36,7 +36,7 @@ def test_create_project(mock_cwd):
         assert project_root == mock_cwd / project_name
         mock_mkdir.assert_has_calls([
             call(parents=True, exist_ok=True),
-            call(exist_ok=True)
+            call(parents=True, exist_ok=True)
         ])
 
         # Check if files were created with correct content
