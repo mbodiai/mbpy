@@ -160,6 +160,11 @@ def create_project(
     (src_dir / "__about__.py").touch()
 
     # Create pyproject.toml
+    existing_content = None
+    if (project_root / "pyproject.toml").exists():
+        with open(project_root / "pyproject.toml", "r") as f:
+            existing_content = f.read()
+
     pyproject_content = create_pyproject_toml(
         project_name,
         author,
@@ -167,7 +172,7 @@ def create_project(
         deps if deps is not None else [],
         python_version,
         add_cli,
-        existing_content=None
+        existing_content=existing_content
     )
     (project_root / "pyproject.toml").write_text(pyproject_content)
 
@@ -382,7 +387,8 @@ def create_pyproject_toml(
 
     project = pyproject["project"]
     project["name"] = project_name
-    project["version"] = "0.1.0"
+    if "version" not in project:
+        project["version"] = "0.1.0"
     project["description"] = desc
     project["authors"] = [{"name": author}]
     project["requires-python"] = f">={python_version}"
@@ -402,7 +408,7 @@ def create_pyproject_toml(
     # Preserve existing sections
     for key, value in pyproject.items():
         if key != "project":
-            project[key] = value
+            pyproject[key] = value
 
     return tomlkit.dumps(pyproject)
 
