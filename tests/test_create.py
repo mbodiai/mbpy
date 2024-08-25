@@ -1,7 +1,7 @@
 import pytest
 import sys
 import subprocess
-from unittest.mock import patch, call, MagicMock
+from unittest.mock import patch, call, MagicMock, mock_open
 from mbpy.create import create_project, extract_docstrings, setup_documentation
 import requests
 
