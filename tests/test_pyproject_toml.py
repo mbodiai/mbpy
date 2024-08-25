@@ -345,6 +345,6 @@ dependencies = [
     assert "altair==5.3.0" in new_pyproject["project"]["dependencies"], "Original dependency not preserved"
     assert len(new_pyproject["project"]["dependencies"]) == 11, "Not all original dependencies were preserved"
     assert "uvloop==0.19.0" in new_pyproject["project"]["dependencies"]
-    assert new_pyproject["project"]["name"] == project_name
+    assert new_pyproject["project"]["name"] == project_name, f"Project name not set correctly. Expected {project_name}, got {new_pyproject['project'].get('name')}"
     assert {"name": author} in new_pyproject["project"]["authors"]
     assert len(new_pyproject["project"]["dependencies"]) == 11  # Ensure all original dependencies are preserved

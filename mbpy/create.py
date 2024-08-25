@@ -405,7 +405,7 @@ def create_pyproject_toml(
         pyproject["project"] = tomlkit.table()
 
     project = pyproject["project"]
-    project["name"] = project_name
+    project["name"] = project_name  # Always set the project name
     if "version" not in project:
         project["version"] = "0.1.0"
     if desc or "description" not in project:
