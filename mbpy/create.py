@@ -583,7 +583,7 @@ def create_project(
     docs_dir.mkdir(exist_ok=True, parents=True)
     print(f"Setting up documentation in: {docs_dir}")
     print(f"Project root: {project_root}")
-    setup_documentation(docs_dir, project_name, author, description, doc_type, docstrings or {})
+    setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
 
 
 def create_pyproject_toml(
