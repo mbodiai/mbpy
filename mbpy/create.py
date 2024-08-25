@@ -180,7 +180,17 @@ def create_project(
     setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
 
     if add_cli:
-        (src_dir / "cli.py").touch()
+        cli_content = f"""
+import click
+
+@click.command()
+def main():
+    click.echo("Hello from {project_name}!")
+
+if __name__ == "__main__":
+    main()
+"""
+        (src_dir / "cli.py").write_text(cli_content)
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
     print(f"Returning project root: {project_root}")
@@ -389,8 +399,10 @@ def create_pyproject_toml(
     project["name"] = project_name
     if "version" not in project:
         project["version"] = "0.1.0"
-    project["description"] = desc
-    project["authors"] = [{"name": author}]
+    if desc or "description" not in project:
+        project["description"] = desc
+    if "authors" not in project:
+        project["authors"] = [{"name": author}]
     project["requires-python"] = f">={python_version}"
 
     if deps:
