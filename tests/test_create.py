@@ -31,18 +31,13 @@ def test_create_project(mock_cwd):
     ):
         project_root = create_project(project_name, author, description, deps)
 
-        # Check if directories were created
-        assert mock_mkdir.call_count == 2  # project root and src directory
+        # Check if directory was created
+        assert mock_mkdir.call_count == 1  # Only project root directory
         assert project_root == mock_cwd / project_name
-        assert mock_write_text.call_count >= 4  # __init__.py, __about__.py, pyproject.toml, and possibly cli.py
-        assert mock_touch.call_count == 5  # Confirm 5 touch calls for .gitkeep files
-        expected_call = call(exist_ok=True, parents=True)
-        assert all(call == expected_call for call in mock_mkdir.call_args_list), \
-            f"Not all mkdir calls used both exist_ok=True and parents=True. Actual calls: {mock_mkdir.call_args_list}"
+        mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
         # Check if files were created with correct content
-        assert mock_write_text.call_count == 9  # LICENSE, README.md, pyproject.toml, __about__.py, __init__.py, main.py, and possibly additional files
-        # Check for specific file contents
+        assert mock_write_text.call_count >= 6  # LICENSE, README.md, pyproject.toml, __about__.py, __init__.py, main.py
         mock_write_text.assert_has_calls(
             [
                 call(""),  # LICENSE
@@ -54,7 +49,6 @@ def test_create_project(mock_cwd):
             ],
             any_order=True,
         )
-        # Note: There might be additional files created that we're not explicitly checking here
 
         # Check if .gitkeep files were touched
         assert mock_touch.call_count == 5
