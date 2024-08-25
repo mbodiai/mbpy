@@ -21,6 +21,7 @@ def test_create_project(mock_cwd):
     with (
         patch("mbpy.create.Path.mkdir") as mock_mkdir,
         patch("mbpy.create.Path.write_text") as mock_write_text,
+        patch("mbpy.create.Path.touch") as mock_touch,
         patch(
             "mbpy.create.create_pyproject_toml",
             return_value="mock_pyproject_content",
