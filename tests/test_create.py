@@ -21,7 +21,6 @@ def test_create_project(mock_cwd):
     with (
         patch("mbpy.create.Path.mkdir") as mock_mkdir,
         patch("mbpy.create.Path.write_text") as mock_write_text,
-        patch("mbpy.create.Path.touch") as mock_touch,
         patch(
             "mbpy.create.create_pyproject_toml",
             return_value="mock_pyproject_content",
@@ -34,6 +33,7 @@ def test_create_project(mock_cwd):
         # Check if directories were created
         assert mock_mkdir.call_count == 2  # project root and src directory
         assert project_root == mock_cwd / project_name
+        assert mock_write_text.call_count >= 4  # __init__.py, __about__.py, pyproject.toml, and possibly cli.py
         assert mock_touch.call_count == 5  # Confirm 5 touch calls for .gitkeep files
         expected_call = call(exist_ok=True, parents=True)
         assert all(call == expected_call for call in mock_mkdir.call_args_list), \
@@ -125,7 +125,6 @@ def test_create_project_without_cli(mock_cwd):
     with (
         patch("mbpy.create.Path.mkdir"),
         patch("mbpy.create.Path.write_text") as mock_write_text,
-        patch("mbpy.create.Path.touch"),
         patch("mbpy.create.create_pyproject_toml"),
         patch("mbpy.create.setup_documentation"),
     ):
@@ -133,6 +132,7 @@ def test_create_project_without_cli(mock_cwd):
 
         # Check if __init__.py was created without cli import
         mock_write_text.assert_any_call("")  # Empty __init__.py
+        mock_write_text.assert_any_call('__version__ = "0.1.0"')  # __about__.py content
 
 def test_create_project_custom_python_version(mock_cwd):
     project_name = "custom_py_project"
@@ -192,7 +192,6 @@ def test_create_project_no_deps(mock_cwd):
     with (
         patch("mbpy.create.Path.mkdir"),
         patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
         patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
     ):
         create_project("no_deps_project", "No Deps Author")
@@ -223,40 +222,25 @@ def test_create_project_with_documentation(mock_cwd):
     with (
         patch("mbpy.create.Path.mkdir"),
         patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
         patch("mbpy.create.create_pyproject_toml"),
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
-        create_project("doc_project", "Doc Author", doc_type="sphinx")
-        mock_setup_docs.assert_called_once_with(mock_cwd, "doc_project", "Doc Author", "", "sphinx", {})
+        project_path = create_project("doc_project", "Doc Author", doc_type="sphinx")
+        mock_setup_docs.assert_called_once_with(project_path, "doc_project", "Doc Author", "", "sphinx", {})
 
 def test_create_project_with_mkdocs(mock_cwd):
     with (
         patch("mbpy.create.Path.mkdir"),
         patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
         patch("mbpy.create.create_pyproject_toml"),
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
-        patch("subprocess.Popen") as mock_popen,
-        patch("requests.get") as mock_get,
     ):
-        # Mock the subprocess.Popen to simulate the MkDocs server
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
-
-        # Mock the requests.get to simulate a successful response from the MkDocs server
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "<html><body>mkdocs_project MkDocs Description</body></html>"
-        mock_get.return_value = mock_response
-
         project_path = create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
 
         # Check if setup_documentation was called with mkdocs
-        mock_setup_docs.assert_called_once_with(mock_cwd, "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
+        mock_setup_docs.assert_called_once_with(project_path, "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
     
         # The MkDocs server is no longer started in create_project, so we remove this assertion
 
@@ -290,7 +274,6 @@ def test_create_project_existing_project(mock_cwd):
     with (
         patch("mbpy.create.Path.mkdir", side_effect=lambda *args, **kwargs: None),
         patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
         patch("builtins.input", return_value="y"),  # Simulate user input to overwrite
         patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
@@ -299,7 +282,7 @@ def test_create_project_existing_project(mock_cwd):
     ):
         project_path = create_project("existing_project", "Existing Author")
 
-        assert project_path == mock_cwd / "existing_project"
+        assert project_path == existing_project
         mock_create_pyproject.assert_called_once()
         mock_setup_docs.assert_called_once()
         mock_create_pyproject.assert_called_once_with(
