@@ -156,14 +156,12 @@ def create_project(
 
     # Create project structure
     src_dir = project_root / project_name
-    src_dir.mkdir(exist_ok=True)  # Remove parents=True
+    src_dir.mkdir(exist_ok=True)
     (src_dir / "__init__.py").write_text("")
-    (src_dir / "__about__.py").write_text('__version__ = "0.1.0"')
-
-    # Ensure __about__.py is created even if src_dir already exists
+    
+    # Always create or update __about__.py
     about_file = src_dir / "__about__.py"
-    if not about_file.exists():
-        about_file.write_text('__version__ = "0.1.0"')
+    about_file.write_text('__version__ = "0.1.0"')
 
     # Create pyproject.toml
     existing_content = None
