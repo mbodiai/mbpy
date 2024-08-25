@@ -443,6 +443,32 @@ from {module_name} import {obj_name}
 
     return process
 
+    # Start MkDocs server
+    import subprocess
+    import time
+    import requests
+
+    process = subprocess.Popen(
+        ["mkdocs", "serve", "-a", "localhost:8000"],
+        cwd=str(docs_dir.parent),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Wait for the server to start
+    for _ in range(10):
+        time.sleep(1)
+        try:
+            response = requests.get("http://localhost:8000")
+            if response.status_code == 200:
+                break
+        except requests.ConnectionError:
+            continue
+    else:
+        raise TimeoutError("MkDocs server did not start successfully")
+
+    return process
+
 def create_project(
     project_name,
     author,
