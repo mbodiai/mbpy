@@ -133,13 +133,30 @@ def create_project(
     doc_type='sphinx',
     docstrings: dict = None,
 ) -> Path:
+    print(f"Creating project: {project_name}")
+    print(f"Author: {author}")
+    print(f"Description: {description}")
+    print(f"Dependencies: {deps}")
+    print(f"Python version: {python_version}")
+    print(f"Add CLI: {add_cli}")
+    print(f"Documentation type: {doc_type}")
+
     # Set project root directory
     root = Path.cwd()
     project_root = root / project_name
+    print(f"Project root directory: {project_root}")
+
+    # Validate project root
+    if project_root.exists():
+        print(f"Warning: Directory {project_root} already exists.")
+    else:
+        print(f"Creating directory: {project_root}")
+        project_root.mkdir(parents=True, exist_ok=True)
 
     # ... (rest of the function remains the same)
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
+    print(f"Returning project root: {project_root}")
     return project_root  # Return the project root directory
 
 
