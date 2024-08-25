@@ -77,9 +77,7 @@ def install_command(
     try:
         if requirements:
             requirements_file = requirements
-            if not Path(requirements_file).exists():
-                click.echo(f"Requirements file {requirements_file} not found.")
-                return
+            packages |= set(get_requirements_packages(requirements_file)) | set(packages)
             
             click.echo(f"Installing packages from {requirements_file}...")
             package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]

@@ -1,5 +1,7 @@
 
 from pathlib import Path
+
+import click
 import tomlkit
 from typing import Literal
 
@@ -234,9 +236,7 @@ def create_project(
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
     return project_root / project_name
 
-import ast
-import importlib
-import inspect
+
 
 def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None):
     docs_dir = project_root / "docs"
@@ -340,7 +340,7 @@ def extract_docstrings(project_path):
             print(f"Warning: Unable to parse {py_file}: {e}")
     return docstrings
 
-def setup_mkdocs(docs_dir, project_name, author, description, docstrings):
+def setup_mkdocs(docs_dir: Path, project_name: str, author, description, docstrings):
     # Create mkdocs.yml
     mkdocs_content = f"""
 site_name: {project_name}
@@ -418,181 +418,6 @@ from {module_name} import {obj_name}
 
     (docs_dir / "api.md").write_text(api_content)
 
-    # Start MkDocs server
-    import subprocess
-    import time
-    import requests
-
-    process = subprocess.Popen(
-        ["mkdocs", "serve", "-a", "localhost:8000"],
-        cwd=str(docs_dir.parent),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    # Wait for the server to start
-    for _ in range(10):
-        time.sleep(1)
-        try:
-            response = requests.get("http://localhost:8000")
-            if response.status_code == 200:
-                break
-        except requests.ConnectionError:
-            continue
-    else:
-        raise TimeoutError("MkDocs server did not start successfully")
-
-    return process
-
-    # Start MkDocs server
-    import subprocess
-    import time
-    import requests
-
-    process = subprocess.Popen(
-        ["mkdocs", "serve", "-a", "localhost:8000"],
-        cwd=str(docs_dir.parent),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    # Wait for the server to start
-    for _ in range(10):
-        time.sleep(1)
-        try:
-            response = requests.get("http://localhost:8000")
-            if response.status_code == 200:
-                break
-        except requests.ConnectionError:
-            continue
-    else:
-        raise TimeoutError("MkDocs server did not start successfully")
-
-    return process
-
-def create_project(
-    project_name,
-    author,
-    description="",
-    deps: list[str] | Literal["local"] | None = None,
-    python_version="3.10",
-    add_cli=True,
-    doc_type='sphinx',
-    docstrings: dict = None,
-) -> Path:
-    print(f"Creating project: {project_name}")
-    print(f"Author: {author}")
-    print(f"Description: {description}")
-    print(f"Dependencies: {deps}")
-    print(f"Python version: {python_version}")
-    print(f"Add CLI: {add_cli}")
-
-    if deps is None or deps == "local":
-        deps = []
-    
-    # Set project root directory
-    project_root = Path(getcwd())
-    src_path = project_root / project_name
-    if src_path.exists():
-        overwrite = input(f"Project source directory {src_path.absolute()} already exists. Overwrite? (y/n): ").lower()
-        if overwrite == 'y':
-            # Create a backup of the current directory
-            legacy_path = src_path.with_name(f"{src_path.name}_legacy")
-            import shutil
-            shutil.copytree(src_path, legacy_path)
-            print(f"Existing project backed up to: {legacy_path}")
-        else:
-            print("Using existing project directory.")
-    else:
-        src_path.mkdir(parents=True, exist_ok=True)
-    print(f"Using project source directory: {src_path}")
-
-    # Read existing pyproject.toml content if it exists
-    existing_content = None
-    pyproject_path = src_path / "pyproject.toml"
-    if pyproject_path.exists():
-        with open(pyproject_path, "r") as f:
-            existing_content = f.read()
-    
-    # Create necessary directories in the current directory
-    dirs = [
-        "assets",
-        "docs",
-        "tests",
-        "resources",
-        ".github/workflows",
-    ]
-    for dir in dirs:
-        dir_path = project_root / dir
-        print(f"Creating directory: {dir_path}")
-        dir_path.mkdir(parents=True, exist_ok=True)
-        gitkeep_path = dir_path / ".gitkeep"
-        if not gitkeep_path.exists():
-            gitkeep_path.touch()
-
-    # Create __about__.py in src directory
-    about_file = src_path / "__about__.py"
-    about_content = '__version__ = "0.0.1"'
-    about_file.write_text(about_content)
-
-    # Create __init__.py and main.py in src directory if add_cli is True
-    if add_cli:
-        init_content = "from .main import cli\n\n__all__ = ['cli']"
-        main_content = "from click import command\n\n@command()\ndef cli() -> None:\n    pass\n\nif __name__ == '__main__':\n    cli()"
-        (src_path / "__init__.py").write_text(init_content)
-        (src_path / "main.py").write_text(main_content)
-    else:
-        (src_path / "__init__.py").touch()
-
-    # Create pyproject.toml content
-    print("Calling create_pyproject_toml...")
-    existing_pyproject = (project_root / "pyproject.toml").read_text() if (project_root / "pyproject.toml").exists() else None
-    pyproject_content = create_pyproject_toml(
-        project_name, 
-        author, 
-        description, 
-        deps, 
-        python_version=python_version, 
-        add_cli=add_cli, 
-        existing_content=existing_pyproject
-    )
-    print("create_pyproject_toml called successfully")
-
-    # Create files in root
-    files = [
-        ("LICENSE", ""),
-        (
-            "README.md",
-            f"# {project_name}\n\n{description}\n\n## Installation\n\n```bash\npip install {project_name}\n```\n",
-        ),
-        ("pyproject.toml", pyproject_content),
-        ("requirements.txt", "click" if add_cli else ""),
-    ]
-    for file, content in files:
-        file_path = project_root / file
-        if file_path.exists():
-            overwrite = input(f"{file} already exists. Overwrite? (y/n): ").lower()
-            if overwrite != 'y':
-                print(f"Skipping {file}")
-                continue
-        file_path.write_text(content)
-
-    # Create workflow files
-    workflows_dir = project_root / ".github" / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    (workflows_dir / "macos.yml").write_text(WORKFLOW_MAC)
-    (workflows_dir / "ubuntu.yml").write_text(WORKFLOW_UBUNTU)
-
-    # Set up documentation
-    docs_dir = project_root / "docs"
-    docs_dir.mkdir(exist_ok=True, parents=True)
-    print(f"Setting up documentation in: {docs_dir}")
-    print(f"Project root: {project_root}")
-    setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
-
-    print(f"Project {project_name} created successfully with {doc_type} documentation.")
-    return src_path
-
 def create_pyproject_toml(
     project_name,
     author,
@@ -610,10 +435,7 @@ def create_pyproject_toml(
         print("Skipping pyproject.toml creation.")
         return ""
 
-    if existing_content:
-        pyproject = tomlkit.parse(existing_content)
-    else:
-        pyproject = tomlkit.document()
+    pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
 
     # Preserve existing dependencies if any
     existing_deps = pyproject.get("project", {}).get("dependencies", [])
@@ -687,8 +509,8 @@ def create_pyproject_toml(
     default_env["path"] = f".envs/{project_name}"
     default_env["dependencies"] = ["pytest", "pytest-mock", "pytest-asyncio", "requests", "sphinx"]
     default_env["scripts"] = {
-        "test": f"pytest -vv -m 'not network' --ignore third_party {{args:tests}}",
-        "test-all": f"pytest -vv --ignore third_party {{args:tests}}",
+        "test": "pytest -vv -m 'not network' --ignore third_party {args:tests}",
+        "test-all": "pytest -vv --ignore third_party {args:tests}",
         "test-cov": "coverage run -m pytest -m 'not network' {{args:tests}}",
         "test-cov-all": "coverage run -m pytest {{args:tests}}",
         "cov-report": ["- coverage combine", "coverage report"],
@@ -760,7 +582,9 @@ def create_pyproject_toml(
         "**/{tests,docs}/*": ["ALL"],
         "**__init__.py": ["F401"],
     }
-
-    return tomlkit.dumps(pyproject)
-
+    from mbpy.mpip import write_pyproject
+    if not existing_content:
+      Path(pyproject_path).touch(exist_ok=True)
+    write_pyproject(pyproject, pyproject_path)
+    return pyproject
 
