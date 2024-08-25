@@ -475,7 +475,7 @@ def create_project(
     author,
     description="",
     deps: list[str] | Literal["local"] | None = None,
-    python_version="3.11",
+    python_version="3.10",
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
@@ -506,6 +506,13 @@ def create_project(
     else:
         src_path.mkdir(parents=True, exist_ok=True)
     print(f"Using project source directory: {src_path}")
+
+    # Read existing pyproject.toml content if it exists
+    existing_content = None
+    pyproject_path = src_path / "pyproject.toml"
+    if pyproject_path.exists():
+        with open(pyproject_path, "r") as f:
+            existing_content = f.read()
     
     # Create necessary directories in the current directory
     dirs = [
