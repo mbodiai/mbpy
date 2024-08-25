@@ -77,7 +77,9 @@ def install_command(
     try:
         if requirements:
             requirements_file = requirements
-            packages |= set(get_requirements_packages(requirements_file)) | set(packages)
+            req_packages = set(get_requirements_packages(requirements_file))
+            packages = set(packages)
+            packages.update(req_packages)
             
             click.echo(f"Installing packages from {requirements_file}...")
             package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]
