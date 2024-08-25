@@ -238,9 +238,37 @@ def test_create_project_with_mkdocs(mock_cwd):
         patch("mbpy.create.create_pyproject_toml"),
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
+        patch("subprocess.Popen") as mock_popen,
+        patch("requests.get") as mock_get,
     ):
-        create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
+        # Mock the subprocess.Popen to simulate the MkDocs server
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_popen.return_value = mock_process
+
+        # Mock the requests.get to simulate a successful response from the MkDocs server
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body>mkdocs_project MkDocs Description</body></html>"
+        mock_get.return_value = mock_response
+
+        project_path = create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
+
+        # Check if setup_documentation was called with mkdocs
         mock_setup_docs.assert_called_once_with(mock_cwd, "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
+
+        # Check if the MkDocs server was started
+        mock_popen.assert_called_once_with(
+            ["mkdocs", "serve", "-a", "localhost:8000"],
+            cwd=str(project_path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Check if the documentation is servable
+        mock_get.assert_called_once_with("http://localhost:8000")
+        assert "mkdocs_project" in mock_response.text
+        assert "MkDocs Description" in mock_response.text
 
 def test_create_project_with_custom_python_version(mock_cwd):
     with (

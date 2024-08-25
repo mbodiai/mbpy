@@ -231,6 +231,7 @@ def create_project(
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
     return project_root
+    return project_root
 
 import ast
 import importlib
