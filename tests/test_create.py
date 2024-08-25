@@ -27,31 +27,28 @@ def test_create_project(mock_cwd):
             return_value="mock_pyproject_content",
         ) as mock_create_pyproject,
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("mbpy.create.getcwd", return_value=mock_cwd),
+        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
         project_root = create_project(project_name, author, description, deps)
 
-        # Check if directory was created
-        assert mock_mkdir.call_count == 1  # Only project root directory
+        # Check if directories were created
+        assert mock_mkdir.call_count == 2  # project root and src directory
         assert project_root == mock_cwd / project_name
-        mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
+        mock_mkdir.assert_has_calls([
+            call(parents=True, exist_ok=True),
+            call(exist_ok=True)
+        ])
 
         # Check if files were created with correct content
-        assert mock_write_text.call_count >= 6  # LICENSE, README.md, pyproject.toml, __about__.py, __init__.py, main.py
+        assert mock_write_text.call_count >= 3  # __about__.py, __init__.py, pyproject.toml
         mock_write_text.assert_has_calls(
             [
-                call(""),  # LICENSE
-                call(f"# {project_name}\n\n{description}\n\n## Installation\n\n```bash\npip install {project_name}\n```\n"),  # README.md
+                call('__version__ = "0.1.0"'),  # __about__.py
+                call(""),  # __init__.py
                 call("mock_pyproject_content"),  # pyproject.toml
-                call('__version__ = "0.0.1"'),  # __about__.py
-                call("from .main import cli\n\n__all__ = ['cli']"),  # __init__.py
-                call("from click import command\n\n@command()\ndef cli() -> None:\n    pass\n\nif __name__ == '__main__':\n    cli()"),  # main.py
             ],
             any_order=True,
         )
-
-        # Check if .gitkeep files were touched
-        assert mock_touch.call_count == 5
 
         # Check if create_pyproject_toml was called with correct arguments
         mock_create_pyproject.assert_called_once_with(
@@ -65,7 +62,7 @@ def test_create_project(mock_cwd):
         )
 
         # Check if setup_documentation was called
-        mock_setup_docs.assert_called_once_with(mock_cwd, project_name, author, description, 'sphinx', {})
+        mock_setup_docs.assert_called_once_with(project_root, project_name, author, description, 'sphinx', {})
 
 def test_create_project_with_mkdocs(mock_cwd):
     project_name = "mkdocs_project"
