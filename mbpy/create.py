@@ -417,6 +417,32 @@ from {module_name} import {obj_name}
 
     (docs_dir / "api.md").write_text(api_content)
 
+    # Start MkDocs server
+    import subprocess
+    import time
+    import requests
+
+    process = subprocess.Popen(
+        ["mkdocs", "serve", "-a", "localhost:8000"],
+        cwd=str(docs_dir.parent),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Wait for the server to start
+    for _ in range(10):
+        time.sleep(1)
+        try:
+            response = requests.get("http://localhost:8000")
+            if response.status_code == 200:
+                break
+        except requests.ConnectionError:
+            continue
+    else:
+        raise TimeoutError("MkDocs server did not start successfully")
+
+    return process
+
 def create_project(
     project_name,
     author,
@@ -466,7 +492,9 @@ def create_project(
         dir_path = project_root / dir
         print(f"Creating directory: {dir_path}")
         dir_path.mkdir(parents=True, exist_ok=True)
-        (dir_path / ".gitkeep").touch(exist_ok=True)
+        gitkeep_path = dir_path / ".gitkeep"
+        if not gitkeep_path.exists():
+            gitkeep_path.touch()
 
     # Create __about__.py in src directory
     about_file = src_path / "__about__.py"

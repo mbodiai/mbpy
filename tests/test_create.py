@@ -257,10 +257,10 @@ def test_create_project_with_mkdocs(mock_cwd):
         # Check if setup_documentation was called with mkdocs
         mock_setup_docs.assert_called_once_with(mock_cwd, "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
 
-        # Check if the MkDocs server was started
+        # Check if the MkDocs server was started (now part of setup_mkdocs)
         mock_popen.assert_called_once_with(
             ["mkdocs", "serve", "-a", "localhost:8000"],
-            cwd=str(project_path),
+            cwd=str(mock_cwd / "mkdocs_project"),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
