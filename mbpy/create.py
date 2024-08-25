@@ -153,7 +153,29 @@ def create_project(
         print(f"Creating directory: {project_root}")
         project_root.mkdir(parents=True, exist_ok=True)
 
-    # ... (rest of the function remains the same)
+    # Create project structure
+    src_dir = project_root / project_name
+    src_dir.mkdir(exist_ok=True)
+    (src_dir / "__init__.py").touch()
+    (src_dir / "__about__.py").touch()
+
+    # Create pyproject.toml
+    pyproject_content = create_pyproject_toml(
+        project_name,
+        author,
+        description,
+        deps,
+        python_version,
+        add_cli,
+        existing_content=None
+    )
+    (project_root / "pyproject.toml").write_text(pyproject_content)
+
+    # Setup documentation
+    setup_documentation(project_root, project_name, author, description, doc_type, docstrings)
+
+    if add_cli:
+        (src_dir / "cli.py").touch()
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
     print(f"Returning project root: {project_root}")
@@ -353,19 +375,27 @@ def create_pyproject_toml(
     **kwargs
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
-    pyproject_path = Path(project_name) / "pyproject.toml"
-    pyproject_path.parent.mkdir(parents=True, exist_ok=True)
-    if pyproject_path.exists() and not overwrite:
-        print("Skipping pyproject.toml creation.")
-        return ""
-
     pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
 
-    # ... (rest of the function remains the same)
+    if "project" not in pyproject:
+        pyproject["project"] = tomlkit.table()
 
-    from mbpy.mpip import write_pyproject
-    if not existing_content:
-      Path(pyproject_path).touch(exist_ok=True)
-    write_pyproject(pyproject, pyproject_path)
-    return tomlkit.dumps(pyproject)  # Convert TOMLDocument to string
+    project = pyproject["project"]
+    project["name"] = project_name
+    project["version"] = "0.1.0"
+    project["description"] = desc
+    project["authors"] = [{"name": author}]
+    project["requires-python"] = f">={python_version}"
+
+    if deps:
+        existing_deps = project.get("dependencies", [])
+        new_deps = existing_deps + deps
+        project["dependencies"] = list(set(new_deps))  # Remove duplicates
+
+    if add_cli:
+        if "scripts" not in project:
+            project["scripts"] = tomlkit.table()
+        project["scripts"][project_name] = f"{project_name}.cli:main"
+
+    return tomlkit.dumps(pyproject)
 
