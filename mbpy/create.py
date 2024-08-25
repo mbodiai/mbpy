@@ -1,6 +1,6 @@
 
 from pathlib import Path
-
+import importlib
 import click
 import tomlkit
 from typing import Literal
@@ -431,6 +431,7 @@ def create_pyproject_toml(
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
     pyproject_path = Path(project_name) / "pyproject.toml"
+    pyproject_path.parent.mkdir(parents=True, exist_ok=True)
     if pyproject_path.exists() and not overwrite:
         print("Skipping pyproject.toml creation.")
         return ""
