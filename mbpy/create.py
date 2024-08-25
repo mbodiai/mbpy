@@ -170,10 +170,11 @@ def create_project(
 
     # Create pyproject.toml
     existing_content = None
-    if (project_root / "pyproject.toml").exists():
-        with open(project_root / "pyproject.toml", "r") as f:
+    pyproject_path = project_root / "pyproject.toml"
+    if pyproject_path.exists():
+        with open(pyproject_path, "r") as f:
             existing_content = f.read()
-
+    
     pyproject_content = create_pyproject_toml(
         project_name,
         author,
@@ -183,7 +184,7 @@ def create_project(
         add_cli=add_cli,
         existing_content=existing_content
     )
-    (project_root / "pyproject.toml").write_text(pyproject_content)
+    pyproject_path.write_text(pyproject_content)
 
     # Setup documentation
     setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
@@ -430,11 +431,6 @@ def create_pyproject_toml(
         if "scripts" not in project:
             project["scripts"] = tomlkit.table()
         project["scripts"][project_name] = f"{project_name}.cli:main"
-
-    # Preserve existing sections
-    for key, value in pyproject.items():
-        if key != "project":
-            pyproject[key] = value
 
     result = tomlkit.dumps(pyproject)
     print(f"Final pyproject.toml content: {result}")
