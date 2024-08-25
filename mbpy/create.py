@@ -484,7 +484,15 @@ def create_project(
     # Create pyproject.toml content
     print("Calling create_pyproject_toml...")
     existing_pyproject = (project_root / "pyproject.toml").read_text() if (project_root / "pyproject.toml").exists() else None
-    pyproject_content = create_pyproject_toml(project_name, author, description, deps, python_version=python_version, add_cli=add_cli, existing_content=existing_pyproject)
+    pyproject_content = create_pyproject_toml(
+        project_name, 
+        author, 
+        description, 
+        deps, 
+        python_version=python_version, 
+        add_cli=add_cli, 
+        existing_content=existing_pyproject
+    )
     print("create_pyproject_toml called successfully")
 
     # Create files in root

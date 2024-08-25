@@ -58,7 +58,15 @@ def test_create_project(mock_cwd):
         assert mock_touch.call_count == 5
 
         # Check if create_pyproject_toml was called with correct arguments
-        mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version="3.11", add_cli=True)
+        mock_create_pyproject.assert_called_once_with(
+            project_name, 
+            author, 
+            description, 
+            deps, 
+            python_version="3.11", 
+            add_cli=True, 
+            existing_content=None
+        )
 
         # Check if setup_documentation was called
         mock_setup_docs.assert_called_once_with(mock_cwd, project_name, author, description, 'sphinx', {})
@@ -142,7 +150,15 @@ def test_create_project_custom_python_version(mock_cwd):
         create_project(project_name, author, description, deps, python_version=python_version)
 
         # Check if create_pyproject_toml was called with correct python version
-        mock_create_pyproject.assert_called_once_with(project_name, author, description, deps, python_version=python_version, add_cli=True)
+        mock_create_pyproject.assert_called_once_with(
+            project_name, 
+            author, 
+            description, 
+            deps, 
+            python_version=python_version, 
+            add_cli=True, 
+            existing_content=None
+        )
 
 
 def test_create_project_with_local_deps(mock_cwd):
@@ -160,7 +176,15 @@ def test_create_project_with_local_deps(mock_cwd):
             python_version="3.11",
             add_cli=False,
         )
-        mock_create_pyproject.assert_called_once_with("local_project", "Local Author", "local", [], python_version='3.11', add_cli=False)
+        mock_create_pyproject.assert_called_once_with(
+            "local_project", 
+            "Local Author", 
+            "local", 
+            [], 
+            python_version='3.11', 
+            add_cli=False, 
+            existing_content=None
+        )
 
 
 def test_create_project_no_deps(mock_cwd):
@@ -178,6 +202,7 @@ def test_create_project_no_deps(mock_cwd):
             [],
             python_version="3.11",
             add_cli=True,
+            existing_content=None
         )
 
 
@@ -232,6 +257,7 @@ def test_create_project_with_custom_python_version(mock_cwd):
             [],
             python_version="3.9",
             add_cli=True,
+            existing_content=None
         )
 
 def test_extract_docstrings(tmp_path):
