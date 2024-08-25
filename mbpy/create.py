@@ -406,25 +406,28 @@ def create_pyproject_toml(
     
     pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
 
+    # Build system
+    if "build-system" not in pyproject:
+        pyproject["build-system"] = {
+            "requires": ["hatchling"],
+            "build-backend": "hatchling.build"
+        }
+
+    # Project metadata
     if "project" not in pyproject:
         pyproject["project"] = tomlkit.table()
 
     project = pyproject["project"]
-    project["name"] = project_name  # Always set the project name
-    print(f"Set project name to: {project_name}")
-    
-    if "version" not in project:
-        project["version"] = "0.1.0"
-    if desc or "description" not in project:
-        project["description"] = desc
-    if "authors" not in project:
-        project["authors"] = [{"name": author}]
+    project["name"] = project_name
+    project["version"] = "0.1.0"
+    project["description"] = desc
+    project["readme"] = "README.md"
     project["requires-python"] = f">={python_version}"
+    project["license"] = "MIT"
+    project["authors"] = [{"name": author}]
 
     if deps:
-        existing_deps = project.get("dependencies", [])
-        new_deps = existing_deps + (deps if isinstance(deps, list) else [deps])
-        project["dependencies"] = list(dict.fromkeys(new_deps))  # Remove duplicates while preserving order
+        project["dependencies"] = deps if isinstance(deps, list) else [deps]
     elif "dependencies" not in project:
         project["dependencies"] = []
 
@@ -433,8 +436,44 @@ def create_pyproject_toml(
             project["scripts"] = tomlkit.table()
         project["scripts"][project_name] = f"{project_name}.cli:main"
 
-    # Ensure the name is set in the project section
-    project["name"] = project_name
+    # Hatch configuration
+    if "tool" not in pyproject:
+        pyproject["tool"] = tomlkit.table()
+    
+    pyproject["tool"]["hatch"] = {
+        "version": {
+            "path": f"{project_name}/__about__.py"
+        },
+        "envs": {
+            "default": {
+                "dependencies": [
+                    "pytest",
+                    "pytest-cov"
+                ]
+            }
+        }
+    }
+
+    # Ruff configuration
+    pyproject["tool"]["ruff"] = {
+        "line-length": 120,
+        "select": [
+            "E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"
+        ],
+        "ignore": [
+            "E501",  # Line too long
+            "D100",  # Missing docstring in public module
+            "D104",  # Missing docstring in public package
+        ]
+    }
+
+    # Pytest configuration
+    pyproject["tool"]["pytest"] = {
+        "ini_options": {
+            "addopts": "--cov=src --cov-report=term-missing",
+            "testpaths": ["tests"]
+        }
+    }
 
     result = tomlkit.dumps(pyproject)
     print(f"Final pyproject.toml content: {result}")

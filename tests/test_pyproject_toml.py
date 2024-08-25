@@ -341,10 +341,38 @@ dependencies = [
     assert (project_path / "__about__.py").read_text() == '__version__ = "0.1.0"'
     
     new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
-    assert "dependencies" in new_pyproject["project"], "Dependencies not found in project section"
-    assert "altair==5.3.0" in new_pyproject["project"]["dependencies"], "Original dependency not preserved"
-    assert len(new_pyproject["project"]["dependencies"]) == 11, "Not all original dependencies were preserved"
-    assert "uvloop==0.19.0" in new_pyproject["project"]["dependencies"]
-    assert new_pyproject["project"]["name"] == project_name, f"Project name not set correctly. Expected {project_name}, got {new_pyproject['project'].get('name')}"
+    
+    # Check build-system
+    assert "build-system" in new_pyproject
+    assert new_pyproject["build-system"]["requires"] == ["hatchling"]
+    assert new_pyproject["build-system"]["build-backend"] == "hatchling.build"
+    
+    # Check project metadata
+    assert "project" in new_pyproject
+    assert new_pyproject["project"]["name"] == project_name
+    assert new_pyproject["project"]["version"] == "0.1.0"
+    assert new_pyproject["project"]["readme"] == "README.md"
+    assert new_pyproject["project"]["requires-python"] >= "3.10"
+    assert new_pyproject["project"]["license"] == "MIT"
     assert {"name": author} in new_pyproject["project"]["authors"]
-    assert len(new_pyproject["project"]["dependencies"]) == 11  # Ensure all original dependencies are preserved
+    
+    # Check dependencies
+    assert "dependencies" in new_pyproject["project"]
+    assert "altair==5.3.0" in new_pyproject["project"]["dependencies"]
+    assert len(new_pyproject["project"]["dependencies"]) == 11
+    assert "uvloop==0.19.0" in new_pyproject["project"]["dependencies"]
+    
+    # Check Hatch configuration
+    assert "tool" in new_pyproject
+    assert "hatch" in new_pyproject["tool"]
+    assert new_pyproject["tool"]["hatch"]["version"]["path"] == f"{project_name}/__about__.py"
+    assert "pytest" in new_pyproject["tool"]["hatch"]["envs"]["default"]["dependencies"]
+    
+    # Check Ruff configuration
+    assert "ruff" in new_pyproject["tool"]
+    assert new_pyproject["tool"]["ruff"]["line-length"] == 120
+    assert "E" in new_pyproject["tool"]["ruff"]["select"]
+    
+    # Check Pytest configuration
+    assert "pytest" in new_pyproject["tool"]
+    assert "--cov=src" in new_pyproject["tool"]["pytest"]["ini_options"]["addopts"]
