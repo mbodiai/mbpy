@@ -395,8 +395,8 @@ def create_pyproject_toml(
 
     if deps:
         existing_deps = project.get("dependencies", [])
-        new_deps = existing_deps + deps
-        project["dependencies"] = list(set(new_deps))  # Remove duplicates
+        new_deps = existing_deps + (deps if isinstance(deps, list) else [deps])
+        project["dependencies"] = list(dict.fromkeys(new_deps))  # Remove duplicates while preserving order
     elif "dependencies" not in project:
         project["dependencies"] = []
 
