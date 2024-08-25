@@ -185,6 +185,7 @@ def create_project(
         existing_content=existing_content
     )
     pyproject_path.write_text(pyproject_content)
+    print(f"Written pyproject.toml content: {pyproject_content}")
 
     # Setup documentation
     setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
@@ -431,6 +432,9 @@ def create_pyproject_toml(
         if "scripts" not in project:
             project["scripts"] = tomlkit.table()
         project["scripts"][project_name] = f"{project_name}.cli:main"
+
+    # Ensure the name is set in the project section
+    project["name"] = project_name
 
     result = tomlkit.dumps(pyproject)
     print(f"Final pyproject.toml content: {result}")
