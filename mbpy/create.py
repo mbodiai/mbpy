@@ -233,6 +233,7 @@ def create_project(
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
     return project_root
+    return project_root
 
 import ast
 import importlib
@@ -579,7 +580,7 @@ def create_project(
     # Set up documentation
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
-    setup_documentation(project_root, project_name, author, description, doc_type, docstrings or {})
+    setup_documentation(docs_dir, project_name, author, description, doc_type, docstrings or {})
 
 
 def create_pyproject_toml(
