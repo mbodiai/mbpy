@@ -232,7 +232,6 @@ def create_project(
         print(error)
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
-    print(f"Returning project path: {project_root}")
     return project_root
 
 import ast
