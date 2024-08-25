@@ -399,6 +399,9 @@ def create_pyproject_toml(
     **kwargs
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
+    print(f"Creating pyproject.toml for {project_name}")
+    print(f"Existing content: {existing_content}")
+    
     pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
 
     if "project" not in pyproject:
@@ -406,6 +409,8 @@ def create_pyproject_toml(
 
     project = pyproject["project"]
     project["name"] = project_name  # Always set the project name
+    print(f"Set project name to: {project_name}")
+    
     if "version" not in project:
         project["version"] = "0.1.0"
     if desc or "description" not in project:
@@ -431,5 +436,7 @@ def create_pyproject_toml(
         if key != "project":
             pyproject[key] = value
 
-    return tomlkit.dumps(pyproject)
+    result = tomlkit.dumps(pyproject)
+    print(f"Final pyproject.toml content: {result}")
+    return result
 
