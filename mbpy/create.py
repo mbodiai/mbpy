@@ -133,6 +133,10 @@ def create_project(
     doc_type='sphinx',
     docstrings: dict = None,
 ) -> Path:
+    # Set project root directory
+    root = Path.cwd()
+    project_root = root / project_name
+
     # ... (rest of the function remains the same)
 
     print(f"Project {project_name} created successfully with {doc_type} documentation.")
