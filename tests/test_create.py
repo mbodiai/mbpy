@@ -260,10 +260,9 @@ def test_create_project_with_mkdocs(mock_cwd):
     
         # The MkDocs server is no longer started in create_project, so we remove this assertion
 
-        # Check if the documentation is servable
-        mock_get.assert_called_once_with("http://localhost:8000")
-        assert "mkdocs_project" in mock_response.text
-        assert "MkDocs Description" in mock_response.text
+        # The MkDocs server is no longer started in create_project, so we remove these assertions
+        # assert "mkdocs_project" in mock_response.text
+        # assert "MkDocs Description" in mock_response.text
 
 def test_create_project_with_custom_python_version(mock_cwd):
     with (
