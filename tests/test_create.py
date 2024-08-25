@@ -29,10 +29,11 @@ def test_create_project(mock_cwd):
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
         patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
     ):
-        create_project(project_name, author, description, deps)
-    
+        project_root = create_project(project_name, author, description, deps)
+
         # Check if directories were created
-        assert mock_mkdir.call_count == 8  # Confirm 8 mkdir calls
+        assert mock_mkdir.call_count == 2  # project root and src directory
+        assert project_root == mock_cwd / project_name
         assert mock_touch.call_count == 5  # Confirm 5 touch calls for .gitkeep files
         expected_call = call(exist_ok=True, parents=True)
         assert all(call == expected_call for call in mock_mkdir.call_args_list), \

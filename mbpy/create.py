@@ -170,8 +170,8 @@ def create_project(
         author,
         description,
         deps if deps is not None else [],
-        python_version,
-        add_cli,
+        python_version=python_version,
+        add_cli=add_cli,
         existing_content=existing_content
     )
     (project_root / "pyproject.toml").write_text(pyproject_content)
