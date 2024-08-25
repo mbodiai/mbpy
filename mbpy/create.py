@@ -155,7 +155,7 @@ def create_project(
 
     # Create project structure
     src_dir = project_root / project_name
-    src_dir.mkdir(exist_ok=True)
+    src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "__init__.py").write_text("")
     (src_dir / "__about__.py").write_text('__version__ = "0.1.0"')
 

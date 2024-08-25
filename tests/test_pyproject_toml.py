@@ -307,7 +307,7 @@ def test_create_pyproject_toml_existing_directory(tmp_path, monkeypatch):
     author = "Test Author"
     project_dir = tmp_path
     src_dir = project_dir / project_name
-    
+
     initial_pyproject = """
 [project]
 dependencies = [
@@ -325,17 +325,17 @@ dependencies = [
 ]
 """
     (project_dir / "pyproject.toml").write_text(initial_pyproject)
-    
+
     def mock_input(prompt):
         return 'y'
-    
+
     monkeypatch.setattr('builtins.input', mock_input)
-    monkeypatch.setattr('mbpy.create.getcwd', lambda: tmp_path)
-    
+    monkeypatch.setattr('mbpy.create.getcwd', lambda: project_dir)
+
     from mbpy.create import create_project
-    
+
     create_project(project_name, author)
-    
+
     assert (src_dir / "__about__.py").exists()
     assert (src_dir / "__about__.py").read_text() == '__version__ = "0.0.1"'
     

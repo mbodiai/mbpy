@@ -26,7 +26,7 @@ def test_create_project(mock_cwd):
             return_value="mock_pyproject_content",
         ) as mock_create_pyproject,
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
+        patch("mbpy.create.getcwd", return_value=mock_cwd),
     ):
         project_root = create_project(project_name, author, description, deps)
 
@@ -277,7 +277,7 @@ def test_create_project_existing_project(mock_cwd):
         patch("builtins.input", return_value="y"),  # Simulate user input to overwrite
         patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
         patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
+        patch("mbpy.create.getcwd", return_value=mock_cwd),
         patch("builtins.open", mock_open(read_data="existing content")),
     ):
         project_path = create_project("existing_project", "Existing Author")
