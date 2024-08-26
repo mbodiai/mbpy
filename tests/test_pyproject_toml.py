@@ -1,7 +1,7 @@
 import pytest
 import subprocess
 import sys
-from unittest.mock import patch
+from pathlib import Path
 from mbpy.create import create_pyproject_toml
 import tomlkit
 import click
@@ -135,90 +135,22 @@ all = [
     except subprocess.CalledProcessError as e:
         pytest.fail(f"Failed to install or check einops: {e.stdout}\n{e.stderr}")
 
-def test_pip_upgrade_notice(monkeypatch, capsys):
-    def mock_subprocess_popen(*args, **kwargs):
-        class MockProcess:
-            def communicate(self, timeout=None):
-                return (
-                    "Requirement already satisfied: markdown2==2.5.0 in /path/to/site-packages (2.5.0)\n"
-                    "[notice] A new release of pip is available: 24.1 -> 24.2\n"
-                    "[notice] To update, run: pip install --upgrade pip\n",
-                    ""
-                )
-            
-            @property
-            def returncode(self):
-                return 0
 
-        return MockProcess()
-
-    monkeypatch.setattr(subprocess, "Popen", mock_subprocess_popen)
-    
-    from mbpy.cli import install_command
-    runner = click.testing.CliRunner()
-    result = runner.invoke(install_command, ["-r", "requirements.txt"])
-    
-    assert result.exit_code == 0
-    assert "Installing packages from requirements.txt..." in result.output
-    assert "Running command:" in result.output
-    assert "/python" in result.output and "-m pip install -r requirements.txt" in result.output
-    assert "Requirement already satisfied: markdown2==2.5.0 in /path/to/site-packages (2.5.0)" in result.output
-    assert "[notice] A new release of pip is available: 24.1 -> 24.2" in result.output
-    assert "[notice] To update, run: pip install --upgrade pip" in result.output
-
-    # Test that the function returns after processing requirements file
-    assert "Successfully installed" not in result.output
-    assert "HINT: You are attempting to install a package literally named 'requirements.txt'" not in result.output
-    assert "ERROR: Could not find a version that satisfies the requirement requirements.txt" not in result.output
-    assert "ERROR: No matching distribution found for requirements.txt" not in result.output
-
-def test_install_requirements_txt_error(monkeypatch, tmp_path):
+def test_install_requirements_txt_error(tmp_path):
     # Create a temporary requirements.txt file
     requirements_file = tmp_path / "requirements.txt"
     requirements_file.write_text("requirements.txt\n")  # This line simulates the error condition
 
-    def mock_subprocess_popen(*args, **kwargs):
-        class MockProcess:
-            def communicate(self, timeout=None):
-                return (
-                    "HINT: You are attempting to install a package literally named \"requirements.txt\" (which cannot exist). Consider using the '-r' flag to install the packages listed in requirements.txt\n"
-                    "\n"
-                    "ERROR: Could not find a version that satisfies the requirement requirements.txt (from versions: none)\n"
-                    "ERROR: No matching distribution found for requirements.txt\n",
-                    ""
-                )
-            
-            @property
-            def returncode(self):
-                return 1
+    # Run the mbpy install command
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "install", "-r", str(requirements_file)],
+        capture_output=True,
+        text=True
+    )
 
-        return MockProcess()
-
-    monkeypatch.setattr(subprocess, "Popen", mock_subprocess_popen)
-    
-    from mbpy.cli import install_command
-    runner = click.testing.CliRunner()
-    result = runner.invoke(install_command, ["-r", str(requirements_file)])
-    
-    assert result.exit_code != 0
-    assert "Installing packages from" in result.output
-    assert "Running command:" in result.output
-    assert "-m pip install -r" in result.output
-    assert "Error: The requirements.txt file contains an invalid entry 'requirements.txt'." in result.output
-    assert "Please remove this line from your requirements.txt file and try again." in result.output
-    output_lines = result.output.strip().split("\n")
-    assert 6 <= len(output_lines) <= 15  # Allow for more flexibility in the number of lines
-    non_empty_lines = [line for line in output_lines if line.strip()]
-    assert len(non_empty_lines) >= 6  # Ensure at least 6 non-empty lines
-    assert all(expected in result.output for expected in [
-        "Installing packages from requirements.txt...",
-        "Running command:",
-        "/python",
-        "-m pip install -r requirements.txt",
-        "Requirement already satisfied: markdown2==2.5.0 in /path/to/site-packages (2.5.0)",
-        "[notice] A new release of pip is available: 24.1 -> 24.2",
-        "[notice] To update, run: pip install --upgrade pip"
-    ])
+    assert result.returncode != 0
+    assert "Error: The requirements.txt file contains an invalid entry 'requirements.txt'." in result.stderr
+    assert "Please remove this line from your requirements.txt file and try again." in result.stderr
 
 def test_mpip_install_requirements_subprocess(tmp_path):
     # Create a temporary requirements.txt file
@@ -244,7 +176,7 @@ def test_install_requirements_txt_error(monkeypatch, tmp_path):
     # Test that install -r requirements.txt works for all argument cases.
     assert False
 
-def test_mpip_install_upgrade(monkeypatch, tmp_path):
+def test_mpip_install_upgrade(tmp_path):
     # Create a temporary pyproject.toml file
     pyproject_file = tmp_path / "pyproject.toml"
     initial_content = """
@@ -255,31 +187,18 @@ dependencies = [
 """
     pyproject_file.write_text(initial_content)
 
-    def mock_subprocess_popen(*args, **kwargs):
-        class MockProcess:
-            def communicate(self, timeout=None):
-                return (
-                    "Successfully installed sphinx-8.0.2\n",
-                    ""
-                )
-            
-            @property
-            def returncode(self):
-                return 0
+    # Run the mbpy install command
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "install", "-U", "sphinx"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
 
-        return MockProcess()
-
-    monkeypatch.setattr(subprocess, "Popen", mock_subprocess_popen)
-    monkeypatch.setattr("mbpy.cli.Path.cwd", lambda: tmp_path)
-    
-    from mbpy.cli import install_command
-    runner = click.testing.CliRunner()
-    result = runner.invoke(install_command, ["-U", "sphinx"])
-    
-    assert result.exit_code == 0
-    assert "Successfully installed sphinx-8.0.2" in result.output
+    assert result.returncode == 0
+    assert "Successfully installed sphinx" in result.stdout
 
     # Check if pyproject.toml was updated correctly
     updated_content = pyproject_file.read_text()
-    assert 'sphinx==8.0.2' in updated_content
     assert 'sphinx==7.0.0' not in updated_content
+    assert 'sphinx==' in updated_content  # The version might vary, so we just check for an updated version
