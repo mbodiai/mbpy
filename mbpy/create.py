@@ -160,6 +160,7 @@ def create_project(
     src_dir = project_root / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "__init__.py").write_text("")
+    (project_root / "__init__.py").write_text("")  # Create __init__.py in the project root
     
     # Always create or update __about__.py
     about_file = src_dir / "__about__.py"

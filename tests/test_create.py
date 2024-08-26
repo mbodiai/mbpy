@@ -149,7 +149,7 @@ def test_create_project_with_local_deps():
         
         with open(project_path / "pyproject.toml", "r") as f:
             content = f.read()
-            assert 'dependencies = []' in content
+            assert 'dependencies = ["local"]' in content
 
 
 def test_create_project_no_deps():
