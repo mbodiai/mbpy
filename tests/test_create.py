@@ -10,9 +10,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import os
+import json
 from mbpy.create import create_project, setup_documentation, extract_docstrings
-import tempfile
-import os
 
 def test_create_project(tmp_path):
     project_name = "test_project"
