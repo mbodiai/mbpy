@@ -525,6 +525,11 @@ def modify_pyproject_toml(
 
     write_pyproject(pyproject, pyproject_path)
 
+    # Update requirements.txt if it exists
+    requirements_path = pyproject_path.parent / "requirements.txt"
+    if requirements_path.exists():
+        modify_requirements(package_name, package_version, action, str(requirements_path))
+
 def modify_dependencies(dependencies, package_version_str, action):
     """Modify the dependencies list for installing or uninstalling a package.
 
