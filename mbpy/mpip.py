@@ -17,6 +17,7 @@ from mbpy.create import create_project
 
 logger = logging.getLogger(__name__)
 logger.addHandler(RichHandler())
+logger.setLevel(logging.DEBUG)  # Set to DEBUG level
 
 
 INFO_KEYS = [
