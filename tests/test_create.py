@@ -122,10 +122,10 @@ def test_create_project_custom_python_version(tmp_path):
     assert (project_path / project_name).exists()
 
     with open(project_path / "pyproject.toml", "r") as f:
-            content = f.read()
-            assert f'requires-python = ">={python_version}"' in content
-        
-        assert not (project_path / "cli.py").exists()
+        content = f.read()
+        assert f'requires-python = ">={python_version}"' in content
+
+    assert not (project_path / project_name / "cli.py").exists()
 
 
 def test_create_project_with_local_deps(tmp_path):
