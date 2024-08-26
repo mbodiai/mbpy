@@ -6,63 +6,48 @@ from mbpy.create import create_project, extract_docstrings, setup_documentation
 import requests
 
 
-@pytest.fixture
-def mock_cwd(tmp_path):
-    with patch("mbpy.create.getcwd", return_value=str(tmp_path)):
-        yield tmp_path
+import pytest
+import subprocess
+import sys
+from pathlib import Path
 
-
-def test_create_project(mock_cwd):
+def test_create_project(tmp_path):
     project_name = "test_project"
     author = "Test Author"
     description = "Test Description"
     deps = ["pytest", "numpy"]
 
-    with (
-        patch("mbpy.create.Path.mkdir") as mock_mkdir,
-        patch("mbpy.create.Path.write_text") as mock_write_text,
-        patch("mbpy.create.Path.touch") as mock_touch,
-        patch(
-            "mbpy.create.create_pyproject_toml",
-            return_value="mock_pyproject_content",
-        ) as mock_create_pyproject,
-        patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
-    ):
-        project_root = create_project(project_name, author, description, deps)
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
 
-        # Check if directories were created
-        assert mock_mkdir.call_count == 2  # project root and src directory
-        assert project_root == mock_cwd / project_name
-        mock_mkdir.assert_has_calls([
-            call(parents=True, exist_ok=True),
-            call(parents=True, exist_ok=True)
-        ])
+    assert result.returncode == 0
+    assert f"Project {project_name} created successfully" in result.stdout
 
-        # Check if files were created with correct content
-        assert mock_write_text.call_count >= 3  # __about__.py, __init__.py, pyproject.toml
-        mock_write_text.assert_has_calls(
-            [
-                call('__version__ = "0.1.0"'),  # __about__.py
-                call(""),  # __init__.py
-                call("mock_pyproject_content"),  # pyproject.toml
-            ],
-            any_order=True,
-        )
+    project_root = tmp_path / project_name
+    assert project_root.exists()
+    assert (project_root / "pyproject.toml").exists()
+    assert (project_root / project_name / "__about__.py").exists()
+    assert (project_root / project_name / "__init__.py").exists()
+    assert (project_root / "docs").exists()
 
-        # Check if create_pyproject_toml was called with correct arguments
-        mock_create_pyproject.assert_called_once_with(
-            project_name, 
-            author, 
-            description, 
-            deps, 
-            python_version="3.11", 
-            add_cli=True, 
-            existing_content=None
-        )
+    # Check pyproject.toml content
+    pyproject_content = (project_root / "pyproject.toml").read_text()
+    assert project_name in pyproject_content
+    assert author in pyproject_content
+    assert description in pyproject_content
+    for dep in deps:
+        assert dep in pyproject_content
 
-        # Check if setup_documentation was called
-        mock_setup_docs.assert_called_once_with(project_root, project_name, author, description, 'sphinx', {})
+    # Check __about__.py content
+    about_content = (project_root / project_name / "__about__.py").read_text()
+    assert '__version__ = "0.1.0"' in about_content
+
+    # Check if documentation was set up
+    assert (project_root / "docs" / "conf.py").exists()
 
 def test_create_project_with_mkdocs(mock_cwd):
     project_name = "mkdocs_project"

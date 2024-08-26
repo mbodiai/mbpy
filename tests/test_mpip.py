@@ -1,23 +1,33 @@
 import pytest
-import requests
+import subprocess
 import sys
+from pathlib import Path
 from mbpy.mpip import (
-    get_latest_version,
     base_name,
     modify_dependencies,
     is_group,
     process_dependencies,
-    search_package,
-    find_and_sort,
     format_dependency,
 )
 
 
-def test_get_latest_version():
+def test_get_latest_version(tmp_path):
     print("Starting test_get_latest_version", file=sys.stderr)
-    assert get_latest_version("pytest") is not None
-    # Test with a non-existent package
-    assert get_latest_version("non_existent_package_12345") is None
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "info", "pytest"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+    assert "Version:" in result.stdout
+    
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "info", "non_existent_package_12345"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+    assert "Package not found" in result.stdout
     print("Finished test_get_latest_version", file=sys.stderr)
 
 

@@ -4,7 +4,13 @@ import sys
 from mbpy.create import create_pyproject_toml
 import tomlkit
 
-def test_add_dependencies_to_pyproject():
+import pytest
+import subprocess
+import sys
+from pathlib import Path
+import tomlkit
+
+def test_add_dependencies_to_pyproject(tmp_path):
     initial_pyproject = """
 [build-system]
 requires = ["hatchling"]
@@ -75,22 +81,24 @@ all = [
     "matplotlib",
 ]
 """
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(initial_pyproject)
 
     new_dependencies = ["new_package1==1.0.0", "new_package2>=2.0.0"]
     
-    # Create a new pyproject.toml content with added dependencies
-    updated_pyproject = create_pyproject_toml(
-        project_name="embdata",
-        author="mbodi ai team",
-        description="Data, types, pipes, manipulation for embodied learning.",
-        deps=new_dependencies,
-        python_version="3.10",
-        add_cli=False,
-        existing_content=initial_pyproject
-    )
+    # Run mbpy install command to add new dependencies
+    for dep in new_dependencies:
+        result = subprocess.run(
+            [sys.executable, "-m", "mbpy.cli", "install", dep],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True
+        )
+        assert result.returncode == 0
 
-    # Parse the updated pyproject.toml content
-    parsed_toml = tomlkit.parse(updated_pyproject)
+    # Read and parse the updated pyproject.toml
+    updated_content = pyproject_file.read_text()
+    parsed_toml = tomlkit.parse(updated_content)
 
     # Check if the new dependencies were added correctly
     project_dependencies = parsed_toml["project"]["dependencies"]
@@ -110,24 +118,23 @@ all = [
     assert parsed_toml["project"]["description"] == "Data, types, pipes, manipulation for embodied learning."
 
     # Verify that the formatting is preserved (this is a basic check, might need refinement)
-    assert "dependencies = [" in updated_pyproject
-    assert "]" in updated_pyproject.split("dependencies = [")[1]
+    assert "dependencies = [" in updated_content
+    assert "]" in updated_content.split("dependencies = [")[1]
 
     # Test that installing "einops==0.8.0" equals the current string in the test
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "einops==0.8.0"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        installed_version = subprocess.run(
-            [sys.executable, "-m", "pip", "show", "einops"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        assert "Version: 0.8.0" in installed_version.stdout
-        assert "einops==0.8.0" in parsed_toml["project"]["optional-dependencies"]["all"]
-    except subprocess.CalledProcessError as e:
-        pytest.fail(f"Failed to install or check einops: {e.stdout}\n{e.stderr}")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "einops==0.8.0"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 0
+
+    installed_version = subprocess.run(
+        [sys.executable, "-m", "pip", "show", "einops"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+    assert "Version: 0.8.0" in installed_version.stdout
+    assert "einops==0.8.0" in parsed_toml["project"]["optional-dependencies"]["all"]
