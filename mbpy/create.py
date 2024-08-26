@@ -272,21 +272,21 @@ help:
 """
     (docs_dir / "Makefile").write_text(makefile_content)
 
-def extract_docstrings(project_path):
+def extract_docstrings(project_path) -> dict[str, str]:
     docstrings = {}
     project_path = Path(project_path)  # Convert to Path object if it's a string
     for py_file in project_path.glob('**/*.py'):
         module_name = '.'.join(py_file.relative_to(project_path).with_suffix('').parts)
         try:
-            with open(py_file) as file:
+            with py_file.open() as file:
                 tree = ast.parse(file.read())
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef | ast.ClassDef):
                     docstring = ast.get_docstring(node)
                     if docstring:
                         docstrings[f"{module_name}.{node.name}"] = docstring.strip()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error processing {py_file}: {e}")
     return docstrings
 
 def setup_mkdocs(project_root: Path, project_name: str, author, description, docstrings) -> None:
@@ -399,9 +399,7 @@ def create_pyproject_toml(
     deps=None,
     python_version="3.10",
     add_cli=True,
-    existing_content=None,
-    overwrite=True,
-    **kwargs
+    existing_content=None
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
     try:

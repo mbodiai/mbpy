@@ -106,7 +106,7 @@ def search_package(package_name):
     return package_info
 
 
-def get_package_names(query_key):
+def get_package_names(query_key) -> list[str]:
     """Fetch package names from PyPI search results."""
     search_url = f"https://pypi.org/search/?q={query_key}"
     response = requests.get(search_url, timeout=20)
@@ -136,7 +136,7 @@ def get_package_names(query_key):
     return package_names
 
 
-def get_package_info(package_name, verbose=False, include=None, release=None):
+def get_package_info(package_name, verbose=False, include=None, release=None) -> dict:
     """Retrieve detailed package information from PyPI JSON API."""
     package_url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(package_url, timeout=5)
@@ -279,7 +279,7 @@ def modify_requirements(
         f.writelines(lines)
 
 
-def is_group(line):
+def is_group(line) -> bool:
     return (
         "[" in line
         and "]" in line
@@ -287,7 +287,7 @@ def is_group(line):
     )
 
 
-def parse_dependencies(dependencies):
+def parse_dependencies(dependencies) -> list[str]:
     if isinstance(dependencies, str):
         dependencies = dependencies.strip()
         if dependencies.startswith('[') and dependencies.endswith(']'):
@@ -295,7 +295,7 @@ def parse_dependencies(dependencies):
         return dependencies, False
     return dependencies, False
 
-def split_dependencies(dependencies):
+def split_dependencies(dependencies) -> list[str]:
     if isinstance(dependencies, str):
         import re
         # This regex handles package names with extras and versions
@@ -312,7 +312,7 @@ def format_dependency(dep) -> str:
         formatted_dep = f'{name.strip()}[{extras}]{version}'
     return f'  "{formatted_dep}",'
 
-def process_dependencies(dependencies, output_lines=None):
+def process_dependencies(dependencies, output_lines=None) -> list[str]:
     if output_lines is None:
         output_lines = []
 
@@ -331,7 +331,7 @@ def process_dependencies(dependencies, output_lines=None):
 
     return output_lines
 
-def format_dependency(dep):
+def format_dependency(dep) -> str:
     formatted_dep = dep.strip().strip('"').rstrip(',')
     if '[' in formatted_dep and ']' in formatted_dep:
         name, rest = formatted_dep.split('[', 1)
@@ -402,7 +402,7 @@ def write_pyproject(data, filename="pyproject.toml") -> None:
             f.write(original_data)
 
 
-def base_name(package_name):
+def base_name(package_name) -> str:
     """Extract the base package name from a package name with optional extras.
 
     Args:
@@ -414,7 +414,7 @@ def base_name(package_name):
     return package_name.split("[")[0].split("==")[0]
 
 
-def name_and_version(package_name, upgrade=False):
+def name_and_version(package_name, upgrade=False) -> tuple[str, str]:
     if upgrade:
         version = get_latest_version(base_name(package_name))
         return base_name(package_name), version
@@ -536,7 +536,7 @@ def modify_dependencies(dependencies: List[str], package_version_str: str, actio
     return dependencies
 
 
-def get_pip_freeze():
+def get_pip_freeze() -> list[str]:
     """Get the list of installed packages as a set.
 
     Returns:
@@ -568,7 +568,7 @@ def is_package_in_requirements(
         return any(base_name(package_name) == base_name(line) for line in f)
 
 
-def get_requirements_packages(requirements="requirements.txt", as_set=True):
+def get_requirements_packages(requirements="requirements.txt", as_set=True) -> set[str] | list[str]:
     """Get the list of packages from the requirements.txt file.
 
     Args:

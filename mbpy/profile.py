@@ -4,7 +4,7 @@ import pstats
 from functools import wraps
 
 
-def profile(func):
+def profile(func) -> callable:
     @wraps(func)
     def wrapper(*args, **kwargs):
         pr = cProfile.Profile()
