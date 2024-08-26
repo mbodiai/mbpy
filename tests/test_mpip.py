@@ -17,12 +17,12 @@ dependencies = [
 
     # Test install action
     result = subprocess.run(
-        [sys.executable, "-m", "mbpy.cli", "install", "package3==3.0.0"],
+        [sys.executable, "-m", "mbpy.cli", "install", "requests"],
         cwd=tmp_path,
         capture_output=True,
         text=True
     )
-    assert result.returncode == 0
+    assert result.returncode == 0, f"Installation failed. Output: {result.stdout}\nError: {result.stderr}"
     updated_content = pyproject_path.read_text()
     assert "package3==3.0.0" in updated_content
 
