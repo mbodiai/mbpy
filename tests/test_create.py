@@ -277,12 +277,15 @@ class TestClass:
 ''')
         
         result = subprocess.run(
-            [sys.executable, "-c", f"from mbpy.create import extract_docstrings; print(extract_docstrings('{project_path}'))"],
+            [sys.executable, "-c", f"from mbpy.create import extract_docstrings; import json; print(json.dumps(extract_docstrings('{project_path}')))"],
             capture_output=True,
             text=True
         )
         
         assert result.returncode == 0
+        docstrings = json.loads(result.stdout)
+        assert "test_module.test_function" in docstrings
+        assert "test_module.TestClass" in docstrings
         docstrings = eval(result.stdout)
         
         assert docstrings == {
@@ -387,11 +390,12 @@ def test_setup_documentation():
         # Test with Sphinx
         doc_type = "sphinx"
         result = subprocess.run(
-            [sys.executable, "-c", f"from mbpy.create import setup_documentation; setup_documentation('{tmpdir}', '{project_name}', '{author}', '{description}', '{doc_type}')"],
+            [sys.executable, "-c", f"from pathlib import Path; from mbpy.create import setup_documentation; setup_documentation(Path('{tmpdir}'), '{project_name}', '{author}', '{description}', '{doc_type}')"],
             capture_output=True,
             text=True
         )
         assert result.returncode == 0
+        assert (Path(tmpdir) / "docs" / "conf.py").exists()
         assert (Path(tmpdir) / "docs" / "conf.py").exists()
         
         # Test with MkDocs

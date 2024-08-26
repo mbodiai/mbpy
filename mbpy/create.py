@@ -188,6 +188,7 @@ if __name__ == "__main__":
 
 
 def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None):
+    project_root = Path(project_root)  # Convert to Path object if it's a string
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
 
@@ -275,6 +276,7 @@ help:
 
 def extract_docstrings(project_path):
     docstrings = {}
+    project_path = Path(project_path)  # Convert to Path object if it's a string
     for py_file in project_path.glob('**/*.py'):
         module_name = '.'.join(py_file.relative_to(project_path).with_suffix('').parts)
         try:
