@@ -335,7 +335,7 @@ def format_dependency(dep):
         extras = extras.replace(',', ', ').strip()
         version = ']'.join(version).strip()
         formatted_dep = f'{name.strip()}[{extras}]{version}'
-    return formatted_dep
+    return formatted_dep.replace('"', '\\"')  # Escape any remaining quotes
 
 def format_dependency(dep):
     formatted_dep = dep.strip().strip('"').rstrip(',')  # Remove quotes and trailing comma
@@ -450,22 +450,12 @@ def modify_pyproject_toml(
     dependency_group="dependencies",
     pyproject_path="pyproject.toml",
 ) -> None:
-    """Modify the pyproject.toml file to update dependencies based on action.
-
-    Args:
-        package_name (str): The name of the package to install or uninstall.
-        package_version (str, optional): The version of the package. Defaults to "".
-        action (str): The action to perform, either 'install' or 'uninstall'.
-        hatch_env (str, optional): The Hatch environment to use. Defaults to None.
-        dependency_group (str, optional): The group of dependencies to modify. Defaults to "dependencies".
-    """
+    """Modify the pyproject.toml file to update dependencies based on action."""
     pyproject_path = Path(pyproject_path)
 
     if not pyproject_path.exists():
         print("pyproject.toml not found")
-        action = input(
-            "pyproject.toml not found. Do you want to create it? (y/n): ",
-        ).lower()
+        action = input("pyproject.toml not found. Do you want to create it? (y/n): ").lower()
         for _ in range(3):
             pyproject_path = pyproject_path.parent / "pyproject.toml"
             if pyproject_path.exists():
@@ -487,49 +477,27 @@ def modify_pyproject_toml(
         pyproject = tomlkit.parse(content)
 
     is_optional = dependency_group != "dependencies"
-    is_hatch_env = (
-        hatch_env
-        and "tool" in pyproject
-        and "hatch" in pyproject.setdefault("tool", {})
-    )
+    is_hatch_env = hatch_env and "tool" in pyproject and "hatch" in pyproject.get("tool", {})
     if hatch_env and not is_hatch_env:
-        raise ValueError(
-            "Hatch environment specified but hatch tool not found in pyproject.toml.",
-        )
+        raise ValueError("Hatch environment specified but hatch tool not found in pyproject.toml.")
 
-    # Prepare the package string with version if provided
-    package_version_str = (
-        f"{package_name}{('==' + package_version) if package_version else ''}"
-    )
+    package_version_str = f"{package_name}{('==' + package_version) if package_version else ''}"
     
     if is_hatch_env:
-        base_project = pyproject.get("tool", {}).setdefault("hatch", {}).setdefault("envs", {}).setdefault(hatch_env, {})
+        base_project = pyproject.setdefault("tool", {}).setdefault("hatch", {}).setdefault("envs", {}).setdefault(hatch_env, {})
     else:
         base_project = pyproject.setdefault("project", {})
     
-    optional_base = base_project.setdefault("optional-dependencies", {})
-
     if is_optional:
+        optional_base = base_project.setdefault("optional-dependencies", {})
         dependencies = optional_base.get(dependency_group, [])
-        optional_base[dependency_group] = modify_dependencies(
-            dependencies,
-            package_version_str,
-            action,
-        )
+        optional_base[dependency_group] = modify_dependencies(dependencies, package_version_str, action)
 
         all_group = optional_base.get("all", [])
-        optional_base["all"] = modify_dependencies(
-            all_group,
-            package_version_str,
-            action,
-        )
+        optional_base["all"] = modify_dependencies(all_group, package_version_str, action)
     else:
         dependencies = base_project.get("dependencies", [])
-        base_project["dependencies"] = modify_dependencies(
-            dependencies,
-            package_version_str,
-            action,
-        )
+        base_project["dependencies"] = modify_dependencies(dependencies, package_version_str, action)
 
     write_pyproject(pyproject, pyproject_path)
 
