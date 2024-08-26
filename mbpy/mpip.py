@@ -73,7 +73,7 @@ def get_latest_version(package_name: str) -> str | None:
     return None
 
 
-def search_package(package_name):
+def search_package(package_name) -> dict:
     """Search for a package on PyPI and return the description, details, and GitHub URL if available.
 
     Args:
@@ -191,15 +191,19 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     return package_info
 
 
-def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, release=None):
+def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, release=None) -> list[dict]:
     """Find and sort potential packages by a specified key.
 
     Args:
         query_key (str): The key to query for.
-        sort_key (str): The key to sort by. Defaults to "downloads".
+        limit (int): The maximum number of results to return.
+        sort (str): The key to sort by. Defaults to None.
+        verbose (bool): Whether to include verbose output.
+        include (str or list): Additional information to include.
+        release (str): Specific release to search for.
 
     Returns:
-        list: List of packages sorted by the specified key.
+        list[dict]: List of packages sorted by the specified key.
     """
     try:
         package_names = get_package_names(query_key)
@@ -230,6 +234,7 @@ def modify_requirements(
         package_name (str): The name of the package to install or uninstall.
         package_version (str, optional): The version of the package to install. Defaults to None.
         action (str): The action to perform, either 'install' or 'uninstall'.
+        requirements (str): The path to the requirements file. Defaults to "requirements.txt".
 
     Raises:
         FileNotFoundError: If the requirements.txt file does not exist when attempting to read.
@@ -558,6 +563,7 @@ def is_package_in_requirements(
 
     Args:
         package_name (str): The name of the package.
+        requirements_path (str): The path to the requirements file. Defaults to "requirements.txt".
 
     Returns:
         bool: True if the package is listed in requirements.txt, False otherwise.
@@ -603,7 +609,8 @@ def is_package_in_pyproject(
 
     Args:
         package_name (str): The name of the package.
-        hatch_env (str): The Hatch environment to check in. Defaults to "default".
+        hatch_env (str, optional): The Hatch environment to check in. Defaults to None.
+        pyproject_path (str): The path to the pyproject.toml file. Defaults to "pyproject.toml".
 
     Returns:
         bool: True if the package is listed in pyproject.toml, False otherwise.
