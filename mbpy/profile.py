@@ -1,7 +1,8 @@
 import cProfile
-import pstats
 import io
+import pstats
 from functools import wraps
+
 
 def profile(func):
     @wraps(func)
@@ -13,6 +14,5 @@ def profile(func):
         s = io.StringIO()
         ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
         ps.print_stats()
-        print(s.getvalue())
         return result
     return wrapper

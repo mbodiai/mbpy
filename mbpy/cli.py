@@ -13,7 +13,6 @@ from mbpy.create import create_project
 from mbpy.mpip import (
     find_and_sort,
     get_package_info,
-    get_requirements_packages,
     modify_pyproject_toml,
     modify_requirements,
     name_and_version,
@@ -80,7 +79,7 @@ def install_command(
                 click.echo(result.stderr, err=True)
             
             # Get installed packages from requirements file
-            with open(requirements_file, 'r') as req_file:
+            with open(requirements_file) as req_file:
                 installed_packages = [line.strip() for line in req_file if line.strip() and not line.startswith('#')]
         
         if packages:
@@ -116,7 +115,7 @@ def install_command(
             click.echo("No packages specified for installation.")
 
     except subprocess.CalledProcessError as e:
-        click.echo(f"Error: Installation failed.", err=True)
+        click.echo("Error: Installation failed.", err=True)
         click.echo(f"Command: {e.cmd}", err=True)
         click.echo(f"Return code: {e.returncode}", err=True)
         click.echo(f"Output: {e.output}", err=True)
@@ -217,7 +216,7 @@ def find_command(package, limit, sort) -> None:
         packages = find_and_sort(package, limit, sort)
         md = Markdown(packages)
         md.stream()
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
 
 @cli.command("search") # Alias for find
@@ -236,7 +235,7 @@ def search_command(package, limit, sort) -> None:
         packages = find_and_sort(package, limit, sort)
         md = Markdown(packages)
         md.stream()
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
     
 
@@ -255,7 +254,7 @@ def info_command(package, detailed) -> None:
         package_info = get_package_info(package, detailed)
         md = Markdown(package_info)
         md.stream()
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         sys.exit(1)
 
@@ -275,7 +274,7 @@ def create_command(project_name, author, description, deps, python_version="3.10
             deps = deps.split(",")
         create_project(project_name, author, description, deps, python_version, not no_cli, doc_type)
         click.echo(f"Project {project_name} created successfully with {doc_type} documentation.")
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         sys.exit(1)
 

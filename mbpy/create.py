@@ -1,9 +1,8 @@
 
 from pathlib import Path
-import importlib
-import click
-import tomlkit
 from typing import Literal
+
+import tomlkit
 
 DEFAULT_PYTHON = "3.11"
 getcwd = Path.cwd
@@ -120,9 +119,8 @@ jobs:
           hatch run test"""
 
 
-import os
-import subprocess
 import ast
+
 
 def create_project(
     project_name,
@@ -153,7 +151,7 @@ def create_project(
     pyproject_path = project_path / "pyproject.toml"
     existing_content = None
     if pyproject_path.exists():
-        with open(pyproject_path, "r") as f:
+        with open(pyproject_path) as f:
             existing_content = f.read()
     
     pyproject_content = create_pyproject_toml(
@@ -187,7 +185,7 @@ if __name__ == "__main__":
 
 
 
-def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None):
+def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None) -> None:
     project_root = Path(project_root)  # Convert to Path object if it's a string
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
@@ -199,7 +197,7 @@ def setup_documentation(project_root, project_name, author, description, doc_typ
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
-def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings):
+def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings) -> None:
     # Create conf.py
     conf_content = f"""
 # Configuration file for the Sphinx documentation builder.
@@ -280,18 +278,18 @@ def extract_docstrings(project_path):
     for py_file in project_path.glob('**/*.py'):
         module_name = '.'.join(py_file.relative_to(project_path).with_suffix('').parts)
         try:
-            with open(py_file, 'r') as file:
+            with open(py_file) as file:
                 tree = ast.parse(file.read())
             for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                if isinstance(node, ast.FunctionDef | ast.ClassDef):
                     docstring = ast.get_docstring(node)
                     if docstring:
                         docstrings[f"{module_name}.{node.name}"] = docstring.strip()
-        except Exception as e:
-            print(f"Warning: Unable to parse {py_file}: {e}")
+        except Exception:
+            pass
     return docstrings
 
-def setup_mkdocs(project_root: Path, project_name: str, author, description, docstrings):
+def setup_mkdocs(project_root: Path, project_name: str, author, description, docstrings) -> None:
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True)
 
@@ -406,13 +404,9 @@ def create_pyproject_toml(
     **kwargs
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
-    print(f"Creating pyproject.toml for {project_name}")
-
-    
     try:
         pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
     except tomlkit.exceptions.ParseError:
-        print("Warning: Existing pyproject.toml content is invalid. Creating a new TOML document.")
         pyproject = tomlkit.document()
 
     # Build system
@@ -548,7 +542,5 @@ def create_pyproject_toml(
         }
     }
 
-    result = tomlkit.dumps(pyproject)
-    print(f"Final pyproject.toml content: {result}")
-    return result
+    return tomlkit.dumps(pyproject)
 

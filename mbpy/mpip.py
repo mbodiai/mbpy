@@ -5,15 +5,12 @@ import subprocess
 import sys
 import traceback
 from pathlib import Path
-from typing import Optional, List
-import tomlkit
+from typing import List
 
 import click
 import requests
 import tomlkit
 from rich.logging import RichHandler
-
-from mbpy.create import create_project
 
 logger = logging.getLogger(__name__)
 logger.addHandler(RichHandler())
@@ -53,7 +50,7 @@ INFO_KEYS = [
 ADDITONAL_KEYS = ["last_serial", "releases", "urls", "vulnerabilities"]
 
 
-def get_latest_version(package_name: str) -> Optional[str]:
+def get_latest_version(package_name: str) -> str | None:
     """Gets the latest version of the specified package from PyPI.
 
     Args:
@@ -306,7 +303,7 @@ def split_dependencies(dependencies):
         return [dep.strip() for dep in re.findall(pattern, dependencies)]
     return dependencies
 
-def format_dependency(dep):
+def format_dependency(dep) -> str:
     formatted_dep = dep.strip().strip('"')
     if '[' in formatted_dep and ']' in formatted_dep:
         name, rest = formatted_dep.split('[', 1)
@@ -344,7 +341,7 @@ def format_dependency(dep):
         formatted_dep = f'{name.strip()}[{extras}]{version}'
     return formatted_dep.replace('"', '\\"')  # Escape any remaining quotes
 
-def format_dependency(dep):
+def format_dependency(dep) -> str:
     formatted_dep = dep.strip().strip('"').rstrip(',')  # Remove quotes and trailing comma
     if '[' in formatted_dep and ']' in formatted_dep:
         name, rest = formatted_dep.split('[', 1)
@@ -400,8 +397,7 @@ def write_pyproject(data, filename="pyproject.toml") -> None:
                 output_lines.append(line)
 
             f.write("\n".join(output_lines))
-    except Exception as e:
-        print(f"Error writing pyproject.toml: {e}")
+    except Exception:
         with Path(filename).open("w") as f:
             f.write(original_data)
 
@@ -428,8 +424,7 @@ def name_and_version(package_name, upgrade=False):
 
 
 def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
-    """
-    Modify the dependencies list for installing or uninstalling a package.
+    """Modify the dependencies list for installing or uninstalling a package.
 
     Args:
         dependencies (List[str]): List of current dependencies.
@@ -456,12 +451,11 @@ def modify_pyproject_toml(
     package_name: str,
     package_version: str = "",
     action: str = "install",
-    hatch_env: Optional[str] = None,
+    hatch_env: str | None = None,
     dependency_group: str = "dependencies",
     pyproject_path: str = "pyproject.toml",
 ) -> None:
-    """
-    Modify the pyproject.toml file to update dependencies based on action.
+    """Modify the pyproject.toml file to update dependencies based on action.
 
     Args:
         package_name (str): Name of the package to modify.
@@ -475,7 +469,6 @@ def modify_pyproject_toml(
         FileNotFoundError: If pyproject.toml is not found.
         ValueError: If Hatch environment is specified but not found in pyproject.toml.
     """
-    
     pyproject_path = Path(pyproject_path)
 
     if not pyproject_path.exists():
@@ -520,8 +513,7 @@ def modify_pyproject_toml(
         modify_requirements(package_name, package_version, action, str(requirements_path))
 
 def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
-    """
-    Modify the dependencies list for installing or uninstalling a package.
+    """Modify the dependencies list for installing or uninstalling a package.
 
     Args:
         dependencies (List[str]): List of current dependencies.
@@ -531,7 +523,6 @@ def modify_dependencies(dependencies: List[str], package_version_str: str, actio
     Returns:
         List[str]: Modified list of dependencies.
     """
-    
     package_name = base_name(package_version_str)
     
     dependencies = [
@@ -634,7 +625,7 @@ def is_package_in_pyproject(
     return any(package_name in dep for dep in dependencies)
 
 
-def main():
+def main() -> None:
     get_package_info("aider-chat")
 
 
