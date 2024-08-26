@@ -24,7 +24,7 @@ dependencies = [
     )
     assert result.returncode == 0, f"Installation failed. Output: {result.stdout}\nError: {result.stderr}"
     updated_content = pyproject_path.read_text()
-    assert "package3==3.0.0" in updated_content
+    assert "requests" in updated_content, f"'requests' not found in updated content: {updated_content}"
 
     # Test uninstall action
     result = subprocess.run(
