@@ -37,18 +37,40 @@ def test_base_name():
     assert base_name("package==1.0.0") == "package"
 
 
+import tempfile
+import os
+from pathlib import Path
+
 def test_modify_dependencies():
-    dependencies = ["package1==1.0.0", "package2==2.0.0"]
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create a temporary pyproject.toml file
+        pyproject_path = Path(temp_dir) / "pyproject.toml"
+        initial_content = """
+[project]
+dependencies = [
+    "package1==1.0.0",
+    "package2==2.0.0"
+]
+"""
+        pyproject_path.write_text(initial_content)
 
-    # Test install action
-    result = modify_dependencies(dependencies, "package3==3.0.0", "install")
-    assert "package3==3.0.0" in result
-    assert len(result) == 3
+        # Test install action
+        result = modify_dependencies(str(pyproject_path), "package3==3.0.0", "install")
+        assert "package3==3.0.0" in result
+        assert len(result) == 3
 
-    # Test uninstall action
-    result = modify_dependencies(dependencies, "package1==1.0.0", "uninstall")
-    assert "package1==1.0.0" not in result
-    assert len(result) == 1
+        # Verify the file was updated
+        updated_content = pyproject_path.read_text()
+        assert "package3==3.0.0" in updated_content
+
+        # Test uninstall action
+        result = modify_dependencies(str(pyproject_path), "package1==1.0.0", "uninstall")
+        assert "package1==1.0.0" not in result
+        assert len(result) == 2
+
+        # Verify the file was updated
+        updated_content = pyproject_path.read_text()
+        assert "package1==1.0.0" not in updated_content
 
 
 def test_is_group():
