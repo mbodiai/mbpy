@@ -133,9 +133,11 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
+    project_root: Path = None,
 ) -> Path:
-    # Set project root directory to current working directory
-    project_root = Path.cwd()
+    # Set project root directory
+    if project_root is None:
+        project_root = Path.cwd()
     project_path = project_root
 
     # Create project structure

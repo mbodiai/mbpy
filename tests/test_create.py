@@ -28,8 +28,8 @@ def test_create_project(tmp_path):
     assert result.returncode == 0
     assert f"Project {project_name} created successfully" in result.stdout
 
-    project_root = tmp_path / project_name
-    assert project_root.exists()
+    project_root = tmp_path
+    assert (project_root / project_name).exists()
     assert (project_root / "pyproject.toml").exists()
     assert (project_root / project_name / "__about__.py").exists()
     assert (project_root / project_name / "__init__.py").exists()
@@ -66,8 +66,8 @@ def test_create_project_with_mkdocs(tmp_path):
     assert result.returncode == 0
     assert f"Project {project_name} created successfully" in result.stdout
 
-    project_root = tmp_path / project_name
-    assert project_root.exists()
+    project_root = tmp_path
+    assert (project_root / project_name).exists()
     assert (project_root / "pyproject.toml").exists()
     assert (project_root / project_name / "__about__.py").exists()
     assert (project_root / project_name / "__init__.py").exists()
@@ -102,101 +102,99 @@ def test_create_project_without_cli():
         assert (project_path / "__about__.py").exists()
         assert not (project_path / "cli.py").exists()
 
-def test_create_project_custom_python_version():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        project_name = "custom_py_project"
-        author = "Custom Py Author"
-        description = "Custom Py Description"
-        deps = ["pytest"]
-        python_version = "3.9"
-        
-        result = subprocess.run(
-            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--python-version", python_version, "--no-cli"],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True
-        )
-        
-        assert result.returncode == 0
-        
-        project_path = Path(tmpdir) / project_name
-        assert project_path.exists()
-        
-        with open(project_path / "pyproject.toml", "r") as f:
+def test_create_project_custom_python_version(tmp_path):
+    project_name = "custom_py_project"
+    author = "Custom Py Author"
+    description = "Custom Py Description"
+    deps = ["pytest"]
+    python_version = "3.9"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--python-version", python_version, "--no-cli"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0
+
+    project_path = tmp_path
+    assert (project_path / project_name).exists()
+
+    with open(project_path / "pyproject.toml", "r") as f:
             content = f.read()
             assert f'requires-python = ">={python_version}"' in content
         
         assert not (project_path / "cli.py").exists()
 
 
-def test_create_project_with_local_deps():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        project_name = "local_project"
-        author = "Local Author"
-        description = "local"
-        
-        result = subprocess.run(
-            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", "local", "--python-version", "3.11", "--no-cli"],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True
-        )
-        
-        assert result.returncode == 0
-        
-        project_path = Path(tmpdir) / project_name
-        assert project_path.exists()
-        
-        with open(project_path / "pyproject.toml", "r") as f:
+def test_create_project_with_local_deps(tmp_path):
+    project_name = "local_project"
+    author = "Local Author"
+    description = "local"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", "local", "--python-version", "3.11", "--no-cli"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0
+
+    project_path = tmp_path
+    assert (project_path / project_name).exists()
+
+    with open(project_path / "pyproject.toml", "r") as f:
             content = f.read()
             assert 'dependencies = ["local"]' in content
 
 
-def test_create_project_no_deps():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        project_name = "no_deps_project"
-        author = "No Deps Author"
-        
-        result = subprocess.run(
-            [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True
-        )
-        
-        assert result.returncode == 0
-        
-        project_path = Path(tmpdir) / project_name
-        assert project_path.exists()
-        
-        with open(project_path / "pyproject.toml", "r") as f:
+def test_create_project_no_deps(tmp_path):
+    project_name = "no_deps_project"
+    author = "No Deps Author"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0
+
+    project_path = tmp_path
+    assert (project_path / project_name).exists()
+
+    with open(project_path / "pyproject.toml", "r") as f:
             content = f.read()
             assert 'dependencies = []' in content
 
 
-def test_create_project_existing_directory():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        project_name = "existing_project"
-        author = "Existing Author"
-        
-        # Create the project directory beforehand
-        os.mkdir(os.path.join(tmpdir, project_name))
-        
-        result = subprocess.run(
-            [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
-            cwd=tmpdir,
-            capture_output=True,
-            text=True
-        )
-        
-        assert result.returncode == 0
-        
-        project_path = Path(tmpdir) / project_name
-        assert project_path.exists()
-        assert (project_path / "pyproject.toml").exists()
+def test_create_project_existing_directory(tmp_path):
+    project_name = "existing_project"
+    author = "Existing Author"
+
+    # Create the project directory beforehand
+    (tmp_path / project_name).mkdir()
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0
+
+    project_path = tmp_path
+    assert (project_path / project_name).exists()
+    assert (project_path / "pyproject.toml").exists()
 
 def test_create_project_with_documentation(tmp_path):
     project_path = create_project("doc_project", "Doc Author", doc_type="sphinx", project_root=tmp_path)
+    assert (project_path / "doc_project").exists()
+    assert (project_path / "pyproject.toml").exists()
     assert (project_path / "docs").exists()
     assert (project_path / "docs" / "conf.py").exists()
     assert (project_path / "docs" / "index.rst").exists()
@@ -204,6 +202,8 @@ def test_create_project_with_documentation(tmp_path):
 
 def test_create_project_with_custom_python_version(tmp_path):
     project_path = create_project("custom_py_project", "Custom Py Author", python_version="3.9", project_root=tmp_path)
+    assert (project_path / "custom_py_project").exists()
+    assert (project_path / "pyproject.toml").exists()
     pyproject_path = project_path / "pyproject.toml"
     assert pyproject_path.exists()
     content = pyproject_path.read_text()
@@ -212,9 +212,12 @@ def test_create_project_with_custom_python_version(tmp_path):
 def test_create_project_existing_project(tmp_path):
     existing_project = tmp_path / "existing_project"
     existing_project.mkdir()
-    (existing_project / "pyproject.toml").write_text("existing content")
+    (tmp_path / "pyproject.toml").write_text("existing content")
 
     project_path = create_project("existing_project", "Existing Author", project_root=tmp_path)
+    assert (project_path / "existing_project").exists()
+    assert (project_path / "pyproject.toml").exists()
+    assert (project_path / "pyproject.toml").read_text() != "existing content"
     
     assert project_path == existing_project
     assert (project_path / "pyproject.toml").exists()
