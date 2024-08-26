@@ -72,12 +72,12 @@ path = "mbpy/__about__.py"
 python = "3.10"
 path = ".mpip/envs/mpip"
 dependencies = [
-"pyclean==3.0.0",
-"pytest",
-"sphinx",
-"sphinx-rtd-theme",
-"sphinx-click",
-"myst-parser",
+  "pyclean==3.0.0"
+  "pytest"
+  "sphinx"
+  "sphinx-rtd-theme"
+  "sphinx-click"
+  "myst-parser"
 ]
 [tool.hatch.envs.default.scripts]
 docs = "sphinx-build -b html docs docs/_build"
