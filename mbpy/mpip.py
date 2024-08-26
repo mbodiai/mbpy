@@ -426,25 +426,28 @@ def name_and_version(package_name, upgrade=False):
     return package_name, None
 
 
-def modify_dependencies(dependencies, package_version_str, action):
-    """Modify the dependencies list for installing or uninstalling a package.
+def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
+    """
+    Modify the dependencies list for installing or uninstalling a package.
 
     Args:
-        dependencies (list): List of current dependencies.
-        package_version_str (str): Package with version string.
+        dependencies (List[str]): List of current dependencies.
+        package_version_str (str): Package with version string to modify.
         action (str): Action to perform, either 'install' or 'uninstall'.
 
     Returns:
-        list: Modified list of dependencies.
+        List[str]: Modified list of dependencies.
     """
+    package_name = base_name(package_version_str)
+    
     dependencies = [
-        dep.strip()
-        for dep in dependencies
-        if base_name(dep) != base_name(package_version_str)
+        dep for dep in dependencies
+        if base_name(dep) != package_name
     ]
     if action == "install":
         dependencies.append(package_version_str.strip())
-    dependencies.sort(key=lambda x: x.lower())  # Sort dependencies alphabetically
+    dependencies.sort(key=lambda x: base_name(x).lower())  # Sort dependencies alphabetically
+    
     return dependencies
 
 
@@ -471,35 +474,13 @@ def modify_pyproject_toml(
         FileNotFoundError: If pyproject.toml is not found.
         ValueError: If Hatch environment is specified but not found in pyproject.toml.
     """
-    """Modify the pyproject.toml file to update dependencies based on action."""
     pyproject_path = Path(pyproject_path)
 
     if not pyproject_path.exists():
-        print("pyproject.toml not found")
-        action = input("pyproject.toml not found. Do you want to create it? (y/n): ").lower()
-        for _ in range(3):
-            pyproject_path = pyproject_path.parent / "pyproject.toml"
-            if pyproject_path.exists():
-                print(f"Found pyproject.toml at: {pyproject_path}")
-                break
-            if "y" in input("Could not find pyproject.toml. Create it? (y/n): ").lower():
-                create_project(
-                    input("Enter project name: "),
-                    input("Enter author name: "),
-                    input("Enter project description: "),
-                )
-
-        if not pyproject_path.exists():
-            print("pyproject.toml not found after checking parent directories")
-            sys.exit(1)
+        raise FileNotFoundError("pyproject.toml not found.")
 
     with pyproject_path.open() as f:
-        content = f.read()
-        try:
-            pyproject = tomlkit.parse(content)
-        except tomlkit.exceptions.ParseError:
-            print(f"Error parsing {pyproject_path}. The file may be corrupted.")
-            return
+        pyproject = tomlkit.parse(f.read())
 
     is_optional = dependency_group != "dependencies"
     is_hatch_env = hatch_env and "tool" in pyproject and "hatch" in pyproject.get("tool", {})
@@ -524,7 +505,8 @@ def modify_pyproject_toml(
         dependencies = base_project.get("dependencies", [])
         base_project["dependencies"] = modify_dependencies(dependencies, package_version_str, action)
 
-    write_pyproject(pyproject, pyproject_path)
+    with pyproject_path.open("w") as f:
+        f.write(tomlkit.dumps(pyproject))
 
     # Update requirements.txt if it exists
     requirements_path = pyproject_path.parent / "requirements.txt"
