@@ -67,7 +67,24 @@ def install_command(
     """Install packages and update requirements.txt and pyproject.toml accordingly."""
     try:
         if requirements:
-            # ... (keep existing code for handling requirements file)
+            requirements_file = requirements
+            req_packages = set(get_requirements_packages(requirements_file))
+            packages = set(packages)
+            packages.update(req_packages)
+            
+            click.echo(f"Installing packages from {requirements_file}...")
+            package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]
+            if upgrade:
+                package_install_cmd.append("-U")
+            click.echo(f"Running command: {' '.join(package_install_cmd)}")
+            process = subprocess.Popen(package_install_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate()
+            click.echo(stdout)
+            if stderr:
+                click.echo(stderr, err=True)
+            if process.returncode != 0:
+                click.echo(f"Error: Installation failed with return code {process.returncode}", err=True)
+                sys.exit(process.returncode)
         else:
             requirements = "requirements.txt"
             click.echo("Installing packages...")

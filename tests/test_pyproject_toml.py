@@ -281,6 +281,41 @@ dependencies = [
     updated_content = pyproject_file.read_text()
     assert 'sphinx==8.0.2' in updated_content
     assert 'sphinx==7.0.0' not in updated_content
+[project]
+dependencies = [
+    "sphinx==7.0.0"
+]
+"""
+    pyproject_file.write_text(initial_content)
+
+    def mock_subprocess_popen(*args, **kwargs):
+        class MockProcess:
+            def communicate(self, timeout=None):
+                return (
+                    "Successfully installed sphinx-8.0.2\n",
+                    ""
+                )
+            
+            @property
+            def returncode(self):
+                return 0
+
+        return MockProcess()
+
+    monkeypatch.setattr(subprocess, "Popen", mock_subprocess_popen)
+    monkeypatch.setattr("mbpy.cli.Path.cwd", lambda: tmp_path)
+    
+    from mbpy.cli import install_command
+    runner = click.testing.CliRunner()
+    result = runner.invoke(install_command, ["-U", "sphinx"])
+    
+    assert result.exit_code == 0
+    assert "Successfully installed sphinx-8.0.2" in result.output
+
+    # Check if pyproject.toml was updated correctly
+    updated_content = pyproject_file.read_text()
+    assert 'sphinx==8.0.2' in updated_content
+    assert 'sphinx==7.0.0' not in updated_content
 
 def test_install_command_none_requirements(monkeypatch):
     def mock_subprocess_popen(*args, **kwargs):
