@@ -76,7 +76,6 @@ def install_command(
             package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]
             if upgrade:
                 package_install_cmd.append("-U")
-            click.echo(f"Running command: {' '.join(package_install_cmd)}")
             process = subprocess.Popen(package_install_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate()
             click.echo(stdout)

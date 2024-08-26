@@ -17,7 +17,7 @@ from mbpy.create import create_project
 
 logger = logging.getLogger(__name__)
 logger.addHandler(RichHandler())
-logger.setLevel(logging.DEBUG)  # Set to DEBUG level
+logger.setLevel(logging.INFO)
 
 
 INFO_KEYS = [
@@ -475,7 +475,6 @@ def modify_pyproject_toml(
         FileNotFoundError: If pyproject.toml is not found.
         ValueError: If Hatch environment is specified but not found in pyproject.toml.
     """
-    logger.debug(f"modify_pyproject_toml called with: package_name={package_name}, package_version={package_version}, action={action}, hatch_env={hatch_env}, dependency_group={dependency_group}, pyproject_path={pyproject_path}")
     
     pyproject_path = Path(pyproject_path)
 
@@ -500,19 +499,12 @@ def modify_pyproject_toml(
     if is_optional:
         optional_base = base_project.setdefault("optional-dependencies", {})
         dependencies = optional_base.get(dependency_group, [])
-        logger.debug(f"Before modification (optional): {dependencies}")
         optional_base[dependency_group] = modify_dependencies(dependencies, package_version_str, action)
-        logger.debug(f"After modification (optional): {optional_base[dependency_group]}")
-
         all_group = optional_base.get("all", [])
-        logger.debug(f"Before modification (all): {all_group}")
         optional_base["all"] = modify_dependencies(all_group, package_version_str, action)
-        logger.debug(f"After modification (all): {optional_base['all']}")
     else:
         dependencies = base_project.get("dependencies", [])
-        logger.debug(f"Before modification: {dependencies}")
         base_project["dependencies"] = modify_dependencies(dependencies, package_version_str, action)
-        logger.debug(f"After modification: {base_project['dependencies']}")
 
     # Ensure dependencies are written on separate lines
     if "dependencies" in base_project:
@@ -539,7 +531,6 @@ def modify_dependencies(dependencies: List[str], package_version_str: str, actio
     Returns:
         List[str]: Modified list of dependencies.
     """
-    logger.debug(f"modify_dependencies called with: dependencies={dependencies}, package_version_str={package_version_str}, action={action}")
     
     package_name = base_name(package_version_str)
     
@@ -551,7 +542,6 @@ def modify_dependencies(dependencies: List[str], package_version_str: str, actio
         dependencies.append(package_version_str.strip())
     dependencies.sort(key=lambda x: base_name(x).lower())  # Sort dependencies alphabetically
     
-    logger.debug(f"Modified dependencies: {dependencies}")
     return dependencies
 
 

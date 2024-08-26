@@ -135,26 +135,14 @@ def create_project(
     docstrings: dict = None,
     project_root: Path = None,
 ) -> Path:
-    print(f"Creating project: {project_name}")
-    print(f"Author: {author}")
-    print(f"Description: {description}")
-    print(f"Dependencies: {deps}")
-    print(f"Python version: {python_version}")
-    print(f"Add CLI: {add_cli}")
-    print(f"Documentation type: {doc_type}")
-
     # Set project root directory
     if project_root is None:
         root = Path(getcwd())  # Convert getcwd() result to Path object
         project_root = root
     project_path = project_root / project_name
-    print(f"Project path: {project_path}")
 
     # Validate project path
-    if project_path.exists():
-        print(f"Warning: Directory {project_path} already exists.")
-    else:
-        print(f"Creating directory: {project_path}")
+    if not project_path.exists():
         project_path.mkdir(parents=True, exist_ok=True)
 
     # Create project structure
@@ -189,7 +177,6 @@ def create_project(
         existing_content=existing_content
     )
     pyproject_path.write_text(pyproject_content)
-    print(f"Written pyproject.toml content: {pyproject_content}")
 
     # Setup documentation
     setup_documentation(project_path, project_name, author, description, doc_type, docstrings or {})
@@ -207,8 +194,6 @@ if __name__ == "__main__":
 """
         (src_dir / "cli.py").write_text(cli_content)
 
-    print(f"Project {project_name} created successfully with {doc_type} documentation.")
-    print(f"Returning project path: {project_path}")
     return project_path  # Return the project path
 
 
