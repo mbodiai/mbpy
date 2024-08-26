@@ -120,6 +120,7 @@ jobs:
 
 
 import ast
+from typing import Literal
 
 
 def create_project(
@@ -151,7 +152,7 @@ def create_project(
     pyproject_path = project_path / "pyproject.toml"
     existing_content = None
     if pyproject_path.exists():
-        with open(pyproject_path) as f:
+        with pyproject_path.open() as f:
             existing_content = f.read()
     
     pyproject_content = create_pyproject_toml(

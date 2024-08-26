@@ -73,13 +73,13 @@ def install_command(
             if upgrade:
                 package_install_cmd.append("-U")
             click.echo(f"Running command: {' '.join(package_install_cmd)}")
-            result = subprocess.run(package_install_cmd, check=True, capture_output=True, text=True)
+            result = subprocess.run(package_install_cmd, check=True, capture_output=True, text=True, shell=False)
             click.echo(result.stdout)
             if result.stderr:
                 click.echo(result.stderr, err=True)
             
             # Get installed packages from requirements file
-            with open(requirements_file) as req_file:
+            with Path(requirements_file).open() as req_file:
                 installed_packages = [line.strip() for line in req_file if line.strip() and not line.startswith('#')]
         
         if packages:
@@ -266,7 +266,8 @@ def info_command(package, detailed) -> None:
 @click.option("--deps", default=None, help="Dependencies separated by commas")
 @click.option("--python-version", default="3.10", help="Python version to use")
 @click.option("--no-cli", is_flag=True, help="Do not add a CLI")
-@click.option("--doc-type", type=click.Choice(['sphinx', 'mkdocs']), default='sphinx', help="Documentation type to use")
+@click.option("--doc-type", type=click.Choice(['sphinx', 'mkdocs']), default='sphinx', 
+              help="Documentation type to use")
 def create_command(project_name, author, description, deps, python_version="3.10", no_cli=False, doc_type='sphinx') -> None:
     """Create a new Python project. Optionally add dependencies and a CLI."""
     try:
