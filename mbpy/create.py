@@ -484,8 +484,50 @@ def create_pyproject_toml(
     # Ruff configuration
     ruff = tool.setdefault("ruff", tomlkit.table())
     ruff["line-length"] = 120
-    ruff["extend-select"] = ["E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"]
-    ruff["ignore"] = ["E501", "D100", "D104"]
+    ruff["select"] = [
+        "A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN",
+        "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"
+    ]
+    ruff["ignore"] = [
+        "D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102",
+        "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202",
+        "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"
+    ]
+    ruff["fixable"] = ["ALL"]
+    ruff["unfixable"] = []
+
+    ruff_format = ruff.setdefault("format", tomlkit.table())
+    ruff_format["docstring-code-format"] = True
+    ruff_format["quote-style"] = "double"
+    ruff_format["indent-style"] = "space"
+    ruff_format["skip-magic-trailing-comma"] = False
+    ruff_format["line-ending"] = "auto"
+
+    ruff_lint = ruff.setdefault("lint", tomlkit.table())
+    ruff_lint_pydocstyle = ruff_lint.setdefault("pydocstyle", tomlkit.table())
+    ruff_lint_pydocstyle["convention"] = "google"
+
+    ruff_lint_per_file_ignores = ruff_lint.setdefault("per-file-ignores", tomlkit.table())
+    ruff_lint_per_file_ignores["**/{tests,docs}/*"] = ["ALL"]
+    ruff_lint_per_file_ignores["**__init__.py"] = ["F401"]
+
+    tool["codeflash"] = {
+        "module-root": project_name,
+        "tests-root": "tests",
+        "test-framework": "pytest",
+        "ignore-paths": [],
+        "formatter-cmds": [
+            "hatch run ruff check --exit-zero --fix $file",
+            "hatch run ruff format $file"
+        ]
+    }
+
+    tool["pytest"] = {
+        "ini_options": {
+            "addopts": "-m 'not network'",
+            "markers": "network: marks tests that make network calls (deselect with '-m \"not network\"')"
+        }
+    }
     
     # Add additional Ruff configurations from the current pyproject.toml
     current_ruff = pyproject.get("tool", {}).get("ruff", {})
