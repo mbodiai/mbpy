@@ -133,32 +133,19 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
-    project_root: Path = None,
 ) -> Path:
-    # Set project root directory
-    if project_root is None:
-        root = Path(getcwd())  # Convert getcwd() result to Path object
-        project_root = root
-    project_path = project_root / project_name
-
-    # Validate project path
-    if not project_path.exists():
-        project_path.mkdir(parents=True, exist_ok=True)
+    # Set project root directory to current working directory
+    project_root = Path.cwd()
+    project_path = project_root
 
     # Create project structure
     src_dir = project_path / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "__init__.py").write_text("")
-    (project_path / "__init__.py").write_text("")  # Create __init__.py in the project root
     
     # Always create or update __about__.py
     about_file = src_dir / "__about__.py"
     about_file.write_text('__version__ = "0.1.0"')
-
-    # Ensure the __about__.py file is also created in the project root for compatibility
-    root_about_file = project_path / "__about__.py"
-    if not root_about_file.exists():
-        root_about_file.write_text('__version__ = "0.1.0"')
 
     # Create pyproject.toml
     pyproject_path = project_path / "pyproject.toml"
@@ -414,6 +401,16 @@ def create_pyproject_toml(
     project["requires-python"] = f">={python_version}"
     project["license"] = "MIT"
     project["authors"] = [{"name": author}]
+
+    # Classifiers
+    project["classifiers"] = [
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        f"Programming Language :: Python :: {python_version}",
+        "Programming Language :: Python :: 3 :: Only",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ]
 
     # Dependencies
     project["dependencies"] = tomlkit.array()
