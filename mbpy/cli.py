@@ -109,7 +109,9 @@ def install_command(
                 click.echo("Error: Installation process timed out after 5 minutes.")
                 process.kill()
                 sys.exit(1)
-            return
+        else:
+            requirements = "requirements.txt"
+            click.echo("Installing packages...")
 
         packages = set(packages) if packages else set()
         if not packages:
