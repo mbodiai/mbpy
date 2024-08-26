@@ -71,18 +71,21 @@ mdstream==0.3.4
             check=True
         )
 
-        # Check if installed packages are on one line
+        # Check if there are any installed or already satisfied packages
         install_lines = [line for line in result.stdout.split('\n') if "Installing collected packages:" in line]
+        already_satisfied_lines = [line for line in result.stdout.split('\n') if "Requirement already satisfied:" in line]
         
         if install_lines:
             assert len(install_lines) == 1, "Expected installed packages to be on one line"
             packages = install_lines[0].split(":")[1].strip().split(", ")
-            assert len(packages) > 1, "Expected multiple packages to be installed"
             print(f"Installed packages: {packages}")
-        else:
-            print("No new packages were installed. They might already be present in the environment.")
-            # If no packages were installed, we'll consider the test passed
-            assert True, "No new packages were installed, but this is acceptable"
+        
+        if already_satisfied_lines:
+            print(f"Already satisfied packages: {len(already_satisfied_lines)}")
+        
+        total_packages = len(packages) if 'packages' in locals() else 0 + len(already_satisfied_lines)
+        assert total_packages > 1, f"Expected multiple packages to be processed, but got {total_packages}"
+        print(f"Total packages processed: {total_packages}")
 
     finally:
         # Clean up
