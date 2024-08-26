@@ -345,7 +345,7 @@ def format_dependency(dep):
         extras = extras.replace(',', ', ').strip()
         version = ']'.join(version).strip()
         formatted_dep = f'{name.strip()}[{extras}]{version}'
-    return f'  "{formatted_dep.replace('"', '\\"')}"'  # Escape any remaining quotes
+    return f'  "{formatted_dep.replace("\"", "\\\"")}"'  # Escape any remaining quotes
 
 
 def write_pyproject(data, filename="pyproject.toml") -> None:
