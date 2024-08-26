@@ -50,22 +50,26 @@ INFO_KEYS = [
 ADDITONAL_KEYS = ["last_serial", "releases", "urls", "vulnerabilities"]
 
 
-def get_latest_version(package_name) -> str:
+def get_latest_version(package_name: str) -> Optional[str]:
     """Gets the latest version of the specified package from PyPI.
 
     Args:
         package_name (str): The name of the package to fetch the latest version for.
 
     Returns:
-        str or None: The latest version of the package, or None if not found or on error.
+        Optional[str]: The latest version of the package, or None if not found or on error.
     """
     try:
         response = requests.get(f"https://pypi.org/pypi/{package_name}/json", timeout=5)
         response.raise_for_status()  # Raises stored HTTPError, if one occurred.
         data = response.json()
         return data['info']['version']
+    except requests.RequestException as e:
+        logging.error(f"Error fetching latest version for {package_name}: {e}")
+    except (KeyError, ValueError) as e:
+        logging.error(f"Error parsing response for {package_name}: {e}")
     except Exception as e:
-        logging.exception("Error fetching latest version: %s", e)
+        logging.exception(f"Unexpected error fetching latest version for {package_name}: {e}")
     return None
 
 
@@ -443,13 +447,28 @@ def modify_dependencies(dependencies, package_version_str, action):
 
 
 def modify_pyproject_toml(
-    package_name,
-    package_version="",
-    action="install",
-    hatch_env=None,
-    dependency_group="dependencies",
-    pyproject_path="pyproject.toml",
+    package_name: str,
+    package_version: str = "",
+    action: str = "install",
+    hatch_env: Optional[str] = None,
+    dependency_group: str = "dependencies",
+    pyproject_path: str = "pyproject.toml",
 ) -> None:
+    """
+    Modify the pyproject.toml file to update dependencies based on action.
+
+    Args:
+        package_name (str): Name of the package to modify.
+        package_version (str): Version of the package (optional).
+        action (str): Action to perform, either 'install' or 'uninstall'.
+        hatch_env (Optional[str]): Hatch environment to modify (if applicable).
+        dependency_group (str): Dependency group to modify (default is 'dependencies').
+        pyproject_path (str): Path to the pyproject.toml file.
+
+    Raises:
+        FileNotFoundError: If pyproject.toml is not found.
+        ValueError: If Hatch environment is specified but not found in pyproject.toml.
+    """
     """Modify the pyproject.toml file to update dependencies based on action."""
     pyproject_path = Path(pyproject_path)
 
@@ -510,8 +529,18 @@ def modify_pyproject_toml(
     if requirements_path.exists():
         modify_requirements(package_name, package_version, action, str(requirements_path))
 
-def modify_dependencies(dependencies, package_version_str, action):
-    """Modify the dependencies list for installing or uninstalling a package."""
+def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
+    """
+    Modify the dependencies list for installing or uninstalling a package.
+
+    Args:
+        dependencies (List[str]): Current list of dependencies.
+        package_version_str (str): Package with version string to modify.
+        action (str): Action to perform, either 'install' or 'uninstall'.
+
+    Returns:
+        List[str]: Modified list of dependencies.
+    """
     package_name = base_name(package_version_str)
     dependencies = [
         dep for dep in dependencies
