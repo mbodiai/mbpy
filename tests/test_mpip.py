@@ -130,3 +130,74 @@ dependencies = [
     assert "package1==1.0.0" not in updated_content
 
 # Keep other tests that don't use patches
+
+def test_pyproject_toml_formatting(tmp_path):
+    # Create a temporary pyproject.toml file
+    pyproject_path = tmp_path / "pyproject.toml"
+    initial_content = """
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "test-project"
+version = "0.1.0"
+description = "A test project"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "click==8.0.3",
+    "requests==2.26.0",
+]
+
+[tool.hatch.version]
+path = "test_project/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest",
+    "pytest-cov"
+]
+
+[tool.ruff]
+line-length = 120
+select = ["E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"]
+ignore = ["E501", "D100", "D104"]
+"""
+    pyproject_path.write_text(initial_content)
+
+    # Run the install command to add a new package
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "install", "numpy==1.21.0"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 0, f"Installation failed: {result.stderr}"
+
+    # Read the updated pyproject.toml content
+    updated_content = pyproject_path.read_text()
+
+    # Check the formatting
+    lines = updated_content.split("\n")
+    for line in lines:
+        if line.strip().startswith('"') and line.strip().endswith('",'):
+            # Check indentation for dependency lines
+            assert line.startswith("    "), f"Incorrect indentation for line: {line}"
+        elif "=" in line and not line.strip().startswith("["):
+            # Check indentation for key-value pairs
+            assert line.startswith("    ") or not line.startswith(" "), f"Incorrect indentation for line: {line}"
+        elif line.strip().startswith("[") and line.strip().endswith("]"):
+            # Check that section headers are not indented
+            assert not line.startswith(" "), f"Incorrect indentation for section header: {line}"
+
+    # Check that the new package was added with correct formatting
+    assert '    "numpy==1.21.0",' in updated_content, "New package not added with correct formatting"
+
+    # Check that the overall structure is maintained
+    assert "[build-system]" in updated_content
+    assert "[project]" in updated_content
+    assert "[tool.hatch.version]" in updated_content
+    assert "[tool.hatch.envs.default]" in updated_content
+    assert "[tool.ruff]" in updated_content
