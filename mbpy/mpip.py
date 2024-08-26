@@ -6,6 +6,7 @@ import sys
 import traceback
 from pathlib import Path
 
+import click
 import requests
 import tomlkit
 from rich.logging import RichHandler
@@ -342,7 +343,7 @@ def format_dependency(dep):
 
 def write_pyproject(data, filename="pyproject.toml") -> None:
     """Write the modified pyproject.toml data back to the file."""
-    original_data = Path(filename).read_text()
+    original_data = Path(filename).read_text() if Path(filename).exists() else ""
     try:
         with Path(filename).open("w") as f:
             toml_str = tomlkit.dumps(data)
@@ -590,7 +591,9 @@ def get_requirements_packages(requirements="requirements.txt", as_set=True):
     """
     requirements_path = Path(requirements)
     if not requirements_path.exists():
-        print(f"Warning: Requirements file '{requirements}' not found. Creating an empty one.")
+        click.echo(
+            f"\033[93mWarning: Requirements file '{requirements}' not found. Creating an empty one.\033[0m"
+        )
         requirements_path.touch()
         return set() if as_set else []
     lines = requirements_path.read_text().splitlines()
