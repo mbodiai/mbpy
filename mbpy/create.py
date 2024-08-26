@@ -418,18 +418,20 @@ def create_pyproject_toml(
         pyproject["project"] = tomlkit.table()
 
     project = pyproject["project"]
-    project["name"] = project_name
-    project["version"] = "0.1.0"
-    project["description"] = desc
-    project["readme"] = "README.md"
-    project["requires-python"] = f">={python_version}"
-    project["license"] = "MIT"
-    project["authors"] = [{"name": author}]
+    project.setdefault("name", project_name)
+    project.setdefault("version", "0.1.0")
+    project.setdefault("description", desc)
+    project.setdefault("readme", "README.md")
+    project.setdefault("requires-python", f">={python_version}")
+    project.setdefault("license", "MIT")
+    project.setdefault("authors", [{"name": author}])
 
-    if deps:
-        project["dependencies"] = deps if isinstance(deps, list) else [deps]
-    elif "dependencies" not in project:
+    if "dependencies" not in project:
         project["dependencies"] = []
+    
+    if deps:
+        new_deps = deps if isinstance(deps, list) else [deps]
+        project["dependencies"].extend(new_deps)
 
     if add_cli:
         if "scripts" not in project:
@@ -440,7 +442,7 @@ def create_pyproject_toml(
     if "tool" not in pyproject:
         pyproject["tool"] = tomlkit.table()
     
-    pyproject["tool"]["hatch"] = {
+    pyproject["tool"].setdefault("hatch", {
         "version": {
             "path": f"{project_name}/__about__.py"
         },
@@ -452,10 +454,10 @@ def create_pyproject_toml(
                 ]
             }
         }
-    }
+    })
 
     # Ruff configuration
-    pyproject["tool"]["ruff"] = {
+    pyproject["tool"].setdefault("ruff", {
         "line-length": 120,
         "select": [
             "E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"
@@ -465,10 +467,10 @@ def create_pyproject_toml(
             "D100",  # Missing docstring in public module
             "D104",  # Missing docstring in public package
         ]
-    }
+    })
 
     # Pytest configuration
-    pyproject["tool"]["pytest"] = {
+    pyproject["tool"].setdefault("pytest", {
         "ini_options": {
             "addopts": "--cov=src --cov-report=term-missing",
             "testpaths": ["tests"],
@@ -476,7 +478,7 @@ def create_pyproject_toml(
                 "network: marks tests that require network access (deselect with '-m \"not network\"')",
             ]
         }
-    }
+    })
 
     result = tomlkit.dumps(pyproject)
     print(f"Final pyproject.toml content: {result}")
