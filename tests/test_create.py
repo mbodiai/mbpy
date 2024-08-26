@@ -343,27 +343,30 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
         stderr=subprocess.PIPE,
     )
 
+    # Add a small delay to allow the server to start
+    time.sleep(2)
+
     try:
         # Wait for the server to start and retry connection
         print("Waiting for server to start")
         max_retries = 15
         for attempt in range(max_retries):
             print(f"Attempt {attempt + 1} of {max_retries}")
-            time.sleep(1)
             try:
                 print(f"Trying to connect to http://localhost:{port}")
                 response = requests.get(f"http://localhost:{port}")
                 if response.status_code == 200:
                     print("Successfully connected to server")
                     # Test the response
-                    assert project_name in response.text, "Project name not found in response"
-                    assert description in response.text, "Project description not found in response"
+                    assert project_name in response.text, f"Project name '{project_name}' not found in response"
+                    assert description in response.text, f"Project description '{description}' not found in response"
                     assert "def test_function():" in response.text, "Function definition not found in response"
                     assert "This is a test docstring." in response.text, "Docstring not found in response"
                     print("All assertions passed")
                     break
             except requests.ConnectionError:
                 print("Connection failed, retrying...")
+            time.sleep(1)
         else:
             raise TimeoutError("MkDocs server did not start successfully")
 

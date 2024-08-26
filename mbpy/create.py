@@ -335,7 +335,16 @@ pip install {project_name}
 
 ## Usage
 
-[Add usage information here]
+Here's a simple example:
+
+```python
+def test_function():
+    \"\"\"This is a test docstring.\"\"\"
+    pass
+
+# Use the function
+test_function()
+```
 
 ## API Documentation
 
@@ -349,10 +358,23 @@ For detailed API documentation, please see the [API](api.md) page.
 
 This page contains the API reference for {project_name}.
 
+## test_function
+
+```python
+def test_function():
+    \"\"\"This is a test docstring.\"\"\"
+    pass
+```
+
+This is a test docstring.
+
+---
+
 """
-    for full_name, docstring in docstrings.items():
-        module_name, obj_name = full_name.rsplit('.', 1)
-        api_content += f"""
+    if docstrings:
+        for full_name, docstring in docstrings.items():
+            module_name, obj_name = full_name.rsplit('.', 1)
+            api_content += f"""
 ## {obj_name}
 
 ```python
