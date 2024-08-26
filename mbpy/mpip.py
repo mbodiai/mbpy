@@ -514,6 +514,11 @@ def modify_pyproject_toml(
         base_project["dependencies"] = modify_dependencies(dependencies, package_version_str, action)
         logger.debug(f"After modification: {base_project['dependencies']}")
 
+    # Ensure dependencies are written on separate lines
+    if "dependencies" in base_project:
+        base_project["dependencies"] = tomlkit.array(base_project["dependencies"])
+        base_project["dependencies"].multiline(True)
+
     with pyproject_path.open("w") as f:
         f.write(tomlkit.dumps(pyproject))
 
