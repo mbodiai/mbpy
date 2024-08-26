@@ -417,6 +417,7 @@ def create_pyproject_toml(
     # Dependencies
     existing_deps = project.get("dependencies", tomlkit.array())
     new_deps = tomlkit.array()
+    new_deps.multiline(True)  # Ensure each dependency is on a new line
     
     # Add existing dependencies
     for dep in existing_deps:
@@ -451,17 +452,18 @@ def create_pyproject_toml(
     }
 
     # Ruff configuration
-    tool["ruff"] = {
-        "line-length": 120,
-        "select": [
-            "E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"
-        ],
-        "ignore": [
-            "E501",  # Line too long
-            "D100",  # Missing docstring in public module
-            "D104",  # Missing docstring in public package
-        ]
-    }
+    ruff = tool.setdefault("ruff", tomlkit.table())
+    ruff["line-length"] = 120
+    ruff["extend-select"] = ["E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"]
+    ruff["ignore"] = ["E501", "D100", "D104"]
+    
+    # Add additional Ruff configurations from the current pyproject.toml
+    current_ruff = pyproject.get("tool", {}).get("ruff", {})
+    for key, value in current_ruff.items():
+        if key not in ruff:
+            ruff[key] = value
+        elif isinstance(value, list):
+            ruff[key].extend([item for item in value if item not in ruff[key]])
 
     # Pytest configuration
     tool["pytest"] = {
