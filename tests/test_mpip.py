@@ -71,6 +71,9 @@ packaging==24.1
     assert any(dep.startswith("requests==2.32.3") for dep in dependencies), f"requests not updated in {dependencies}"
     assert any(dep.startswith("toml==0.10.2") for dep in dependencies), f"toml not updated in {dependencies}"
     assert any(dep.startswith("packaging==24.1") for dep in dependencies), f"packaging not added in {dependencies}"
+    assert any(dep.startswith("requests==2.32.3") for dep in dependencies), f"requests not updated in {dependencies}"
+    assert any(dep.startswith("toml==0.10.2") for dep in dependencies), f"toml not updated in {dependencies}"
+    assert any(dep.startswith("packaging==24.1") for dep in dependencies), f"packaging not added in {dependencies}"
 
     # Check if dependencies are on separate lines
     dependencies_str = tomlkit.dumps(updated_pyproject["project"]["dependencies"])
