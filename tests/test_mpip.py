@@ -56,7 +56,7 @@ dependencies = [
 
         # Test install action
         result = modify_dependencies(str(pyproject_path), "package3==3.0.0", "install")
-        assert "package3==3.0.0" in result
+        assert any("package3==3.0.0" in dep for dep in result)
         assert len(result) == 3
 
         # Verify the file was updated

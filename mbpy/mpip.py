@@ -6,6 +6,7 @@ import sys
 import traceback
 from pathlib import Path
 from typing import Optional, List
+import tomlkit
 
 import click
 import requests
@@ -530,19 +531,24 @@ def modify_pyproject_toml(
     if requirements_path.exists():
         modify_requirements(package_name, package_version, action, str(requirements_path))
 
-def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
+def modify_dependencies(pyproject_path: str, package_version_str: str, action: str) -> List[str]:
     """
-    Modify the dependencies list for installing or uninstalling a package.
+    Modify the dependencies list in pyproject.toml for installing or uninstalling a package.
 
     Args:
-        dependencies (List[str]): Current list of dependencies.
+        pyproject_path (str): Path to the pyproject.toml file.
         package_version_str (str): Package with version string to modify.
         action (str): Action to perform, either 'install' or 'uninstall'.
 
     Returns:
         List[str]: Modified list of dependencies.
     """
+    with open(pyproject_path, 'r') as f:
+        pyproject = tomlkit.parse(f.read())
+
+    dependencies = pyproject['project']['dependencies']
     package_name = base_name(package_version_str)
+    
     dependencies = [
         dep for dep in dependencies
         if base_name(dep) != package_name
@@ -550,7 +556,13 @@ def modify_dependencies(dependencies: List[str], package_version_str: str, actio
     if action == "install":
         dependencies.append(package_version_str.strip())
     dependencies.sort(key=lambda x: base_name(x).lower())  # Sort dependencies alphabetically
-    return [format_dependency(dep) for dep in dependencies]  # Format each dependency
+    
+    pyproject['project']['dependencies'] = dependencies
+    
+    with open(pyproject_path, 'w') as f:
+        f.write(tomlkit.dumps(pyproject))
+
+    return dependencies
 
 
 def get_pip_freeze():
