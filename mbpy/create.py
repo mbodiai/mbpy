@@ -285,8 +285,8 @@ def extract_docstrings(project_path) -> dict[str, str]:
                     docstring = ast.get_docstring(node)
                     if docstring:
                         docstrings[f"{module_name}.{node.name}"] = docstring.strip()
-        except Exception as e:
-            print(f"Error processing {py_file}: {e}")
+        except Exception:
+            pass
     return docstrings
 
 def setup_mkdocs(project_root: Path, project_name: str, author, description, docstrings) -> None:
