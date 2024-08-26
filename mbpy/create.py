@@ -324,7 +324,7 @@ plugins:
           rendering:
             show_source: true
 """
-    (project_root / "mkdocs.yml").write_text(mkdocs_content)
+    (docs_dir / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
     index_content = f"""
@@ -407,7 +407,7 @@ def create_pyproject_toml(
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
     print(f"Creating pyproject.toml for {project_name}")
-    print(f"Existing content: {existing_content}")
+
     
     try:
         pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
@@ -424,7 +424,7 @@ def create_pyproject_toml(
     # Project metadata
     project = pyproject.setdefault("project", tomlkit.table())
     project["name"] = project_name
-    project["version"] = "0.1.0"
+    project["version"] = "0.0.1"
     project["description"] = desc
     project["readme"] = "README.md"
     project["requires-python"] = f">={python_version}"
