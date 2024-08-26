@@ -475,6 +475,8 @@ def modify_pyproject_toml(
         FileNotFoundError: If pyproject.toml is not found.
         ValueError: If Hatch environment is specified but not found in pyproject.toml.
     """
+    logger.debug(f"modify_pyproject_toml called with: package_name={package_name}, package_version={package_version}, action={action}, hatch_env={hatch_env}, dependency_group={dependency_group}, pyproject_path={pyproject_path}")
+    
     pyproject_path = Path(pyproject_path)
 
     if not pyproject_path.exists():
@@ -498,13 +500,19 @@ def modify_pyproject_toml(
     if is_optional:
         optional_base = base_project.setdefault("optional-dependencies", {})
         dependencies = optional_base.get(dependency_group, [])
+        logger.debug(f"Before modification (optional): {dependencies}")
         optional_base[dependency_group] = modify_dependencies(dependencies, package_version_str, action)
+        logger.debug(f"After modification (optional): {optional_base[dependency_group]}")
 
         all_group = optional_base.get("all", [])
+        logger.debug(f"Before modification (all): {all_group}")
         optional_base["all"] = modify_dependencies(all_group, package_version_str, action)
+        logger.debug(f"After modification (all): {optional_base['all']}")
     else:
         dependencies = base_project.get("dependencies", [])
+        logger.debug(f"Before modification: {dependencies}")
         base_project["dependencies"] = modify_dependencies(dependencies, package_version_str, action)
+        logger.debug(f"After modification: {base_project['dependencies']}")
 
     with pyproject_path.open("w") as f:
         f.write(tomlkit.dumps(pyproject))
@@ -514,22 +522,20 @@ def modify_pyproject_toml(
     if requirements_path.exists():
         modify_requirements(package_name, package_version, action, str(requirements_path))
 
-def modify_dependencies(pyproject_path: str, package_version_str: str, action: str) -> List[str]:
+def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
     """
-    Modify the dependencies list in pyproject.toml for installing or uninstalling a package.
+    Modify the dependencies list for installing or uninstalling a package.
 
     Args:
-        pyproject_path (str): Path to the pyproject.toml file.
+        dependencies (List[str]): List of current dependencies.
         package_version_str (str): Package with version string to modify.
         action (str): Action to perform, either 'install' or 'uninstall'.
 
     Returns:
         List[str]: Modified list of dependencies.
     """
-    with open(pyproject_path, 'r') as f:
-        pyproject = tomlkit.parse(f.read())
-
-    dependencies = pyproject['project']['dependencies']
+    logger.debug(f"modify_dependencies called with: dependencies={dependencies}, package_version_str={package_version_str}, action={action}")
+    
     package_name = base_name(package_version_str)
     
     dependencies = [
@@ -540,11 +546,7 @@ def modify_dependencies(pyproject_path: str, package_version_str: str, action: s
         dependencies.append(package_version_str.strip())
     dependencies.sort(key=lambda x: base_name(x).lower())  # Sort dependencies alphabetically
     
-    pyproject['project']['dependencies'] = dependencies
-    
-    with open(pyproject_path, 'w') as f:
-        f.write(tomlkit.dumps(pyproject))
-
+    logger.debug(f"Modified dependencies: {dependencies}")
     return dependencies
 
 
