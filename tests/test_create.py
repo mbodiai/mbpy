@@ -140,18 +140,21 @@ def test_create_project_custom_python_version(mock_cwd):
         patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
         patch("mbpy.create.setup_documentation"),
     ):
-        create_project(project_name, author, description, deps, python_version=python_version)
+        create_project(project_name, author, description, deps, python_version=python_version, add_cli=False)
 
-        # Check if create_pyproject_toml was called with correct python version
+        # Check if create_pyproject_toml was called with correct python version and without CLI
         mock_create_pyproject.assert_called_once_with(
             project_name, 
             author, 
             description, 
             deps, 
             python_version=python_version, 
-            add_cli=True, 
+            add_cli=False, 
             existing_content=None
         )
+
+        # Check if CLI file was not created
+        assert not (mock_cwd / project_name / project_name / "cli.py").exists()
 
 
 def test_create_project_with_local_deps(mock_cwd):
