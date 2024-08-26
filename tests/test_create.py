@@ -343,7 +343,7 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
          patch('pathlib.Path.touch', autospec=True) as mock_touch:
         create_project(project_name, author, description, doc_type='mkdocs', project_root=tmp_path)
         mock_create_pyproject.assert_called_once_with(
-            project_name, author, description, [], python_version="3.11", add_cli=True, overwrite=True
+            project_name, author, description, [], python_version="3.11", add_cli=True, existing_content=None
         )
         assert mock_mkdir.call_count >= 27  # At least 27 mkdir calls
         assert mock_write_text.call_count >= 9  # At least 9 write_text calls
