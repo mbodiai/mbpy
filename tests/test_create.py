@@ -326,6 +326,8 @@ from mbpy.create import create_project
 
 @pytest.mark.network
 def test_mpip_create_and_mkdocs_serve(tmp_path):
+    print("Starting test_mpip_create_and_mkdocs_serve")
+    
     # Function to find an available port
     def find_free_port():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -337,6 +339,7 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
     author = "Test Author"
     description = "Test Description"
     
+    print(f"Creating project: {project_name}")
     project_path = tmp_path / project_name
     project_path.mkdir(parents=True, exist_ok=True)
     (project_path / "mkdocs.yml").write_text("site_name: Test Project")
@@ -344,18 +347,23 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
     docs_path.mkdir(exist_ok=True)
     (docs_path / "index.md").write_text("# Welcome to Test Project")
 
+    print("Calling create_project function")
     create_project(project_name, author, description, doc_type='mkdocs', project_root=tmp_path)
 
     # Verify that the project structure is created
-    assert project_path.exists()
-    assert (project_path / "mkdocs.yml").exists()
-    assert docs_path.exists()
-    assert (docs_path / "index.md").exists()
+    print("Verifying project structure")
+    assert project_path.exists(), f"Project path {project_path} does not exist"
+    assert (project_path / "mkdocs.yml").exists(), "mkdocs.yml does not exist"
+    assert docs_path.exists(), f"Docs path {docs_path} does not exist"
+    assert (docs_path / "index.md").exists(), "index.md does not exist"
 
     # Find an available port
+    print("Finding available port")
     port = find_free_port()
+    print(f"Using port: {port}")
 
     # Start MkDocs server
+    print("Starting MkDocs server")
     process = subprocess.Popen(
         ["mkdocs", "serve", "-a", f"localhost:{port}"],
         cwd=str(project_path),
@@ -365,43 +373,54 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
 
     try:
         # Wait for the server to start and retry connection
+        print("Waiting for server to start")
         max_retries = 15
-        for _ in range(max_retries):
+        for attempt in range(max_retries):
+            print(f"Attempt {attempt + 1} of {max_retries}")
             time.sleep(1)
             try:
+                print(f"Trying to connect to http://localhost:{port}")
                 response = requests.get(f"http://localhost:{port}")
                 if response.status_code == 200:
+                    print("Successfully connected to server")
                     # Test the response
                     assert project_name in response.text, "Project name not found in response"
                     assert description in response.text, "Project description not found in response"
                     assert "def test_function():" in response.text, "Function definition not found in response"
                     assert "This is a test docstring." in response.text, "Docstring not found in response"
+                    print("All assertions passed")
                     break
             except requests.ConnectionError:
-                continue
+                print("Connection failed, retrying...")
         else:
             raise TimeoutError("MkDocs server did not start successfully")
 
         # Check if the process ended without errors
-        stdout, stderr = process.communicate()
+        print("Checking process status")
+        stdout, stderr = process.communicate(timeout=5)
         if process.returncode not in [0, -2, -15]:
             raise AssertionError(f"MkDocs serve failed with unexpected return code: {process.returncode}\nSTDOUT: {stdout.decode()}\nSTDERR: {stderr.decode()}")
 
     except Exception as e:
         # Log error information
-        stdout, stderr = process.communicate()
+        print("An exception occurred:")
         print(f"Error: {str(e)}")
+        stdout, stderr = process.communicate(timeout=5)
         print(f"STDOUT: {stdout.decode()}")
         print(f"STDERR: {stderr.decode()}")
         raise
 
     finally:
+        print("Terminating MkDocs server")
         # Terminate the server gracefully
         process.send_signal(signal.SIGINT)
         try:
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
+            print("Server didn't terminate gracefully, forcing kill")
             process.kill()
+        
+    print("Test completed successfully")
 
 def test_setup_documentation(tmp_path):
     project_name = "test_docs"
