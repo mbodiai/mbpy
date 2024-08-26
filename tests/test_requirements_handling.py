@@ -44,3 +44,41 @@ def test_modify_requirements_nonexistent_file(tmp_path):
     assert nonexistent_file.exists()
     result = get_requirements_packages(str(nonexistent_file))
     assert "new_package==1.0.0" in result
+import subprocess
+import sys
+from pathlib import Path
+
+def test_requirements_install_format():
+    # Create a temporary requirements file
+    temp_req = Path("temp_requirements.txt")
+    temp_req.write_text("""
+click==8.1.7
+packaging==24.1
+requests==2.32.3
+toml==0.10.2
+tomlkit==0.13.0
+markdown2==2.5.0
+rich==13.7.1
+mdstream==0.3.4
+""".strip())
+
+    try:
+        # Run pip install with the requirements file
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", str(temp_req)],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        # Check if all packages are on one line
+        install_lines = [line for line in result.stdout.split('\n') if "Installing collected packages:" in line]
+        assert len(install_lines) == 1, "Expected all packages to be installed on one line"
+        
+        packages = install_lines[0].split(":")[1].strip().split(", ")
+        expected_packages = ["click", "packaging", "requests", "toml", "tomlkit", "markdown2", "rich", "mdstream"]
+        assert set(packages) == set(expected_packages), f"Mismatch in installed packages. Expected: {expected_packages}, Got: {packages}"
+
+    finally:
+        # Clean up
+        temp_req.unlink()
