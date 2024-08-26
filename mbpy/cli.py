@@ -68,69 +68,50 @@ def install_command(
     try:
         if requirements:
             requirements_file = requirements
-            req_packages = set(get_requirements_packages(requirements_file))
-            packages = set(packages)
-            packages.update(req_packages)
-            
             click.echo(f"Installing packages from {requirements_file}...")
             package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]
             if upgrade:
                 package_install_cmd.append("-U")
-            process = subprocess.Popen(package_install_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate()
-            click.echo(stdout)
-            if stderr:
-                click.echo(stderr, err=True)
-            if process.returncode != 0:
-                click.echo(f"Error: Installation failed with return code {process.returncode}", err=True)
-                sys.exit(process.returncode)
-        else:
-            requirements = "requirements.txt"
-            click.echo("Installing packages...")
+            click.echo(f"Running command: {' '.join(package_install_cmd)}")
+            result = subprocess.run(package_install_cmd, check=True, capture_output=True, text=True)
+            click.echo(result.stdout)
+            if result.stderr:
+                click.echo(result.stderr, err=True)
+        
+        if packages:
+            for package in packages:
+                package_install_cmd = [sys.executable, "-m", "pip", "install"]
+                if editable:
+                    package_install_cmd.append("-e")
+                if upgrade:
+                    package_install_cmd.append("-U")
+                package_install_cmd.append(package)
+                
+                click.echo(f"Installing {package}...")
+                click.echo(f"Running command: {' '.join(package_install_cmd)}")
+                result = subprocess.run(package_install_cmd, check=True, capture_output=True, text=True)
+                click.echo(result.stdout)
+                if result.stderr:
+                    click.echo(result.stderr, err=True)
 
-        packages = set(packages) if packages else set()
-        if not packages:
+                package_name, package_version = name_and_version(package, upgrade=upgrade)
+                modify_pyproject_toml(
+                    package_name,
+                    package_version,
+                    action="install",
+                    hatch_env=hatch_env,
+                    dependency_group=dependency_group,
+                )
+                modify_requirements(package_name, package_version, action="install", requirements="requirements.txt")
+
+        if not requirements and not packages:
             click.echo("No packages specified for installation.")
-            return
-
-        for package in packages:
-            package_install_cmd = [sys.executable, "-m", "pip", "install"]
-            if editable:
-                package_install_cmd.append("-e")
-            if upgrade:
-                package_install_cmd.append("-U")
-            package_install_cmd.append(package)
-            
-            process = subprocess.Popen(
-                package_install_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            stdout, stderr = process.communicate()
-
-            if process.returncode != 0:
-                click.echo(f"Error: Failed to install {package}.", err=True)
-                click.echo(stderr, err=True)
-                sys.exit(process.returncode)
-
-            click.echo(stdout)
-            if stderr:
-                click.echo(stderr, err=True)
-
-            package_name, package_version = name_and_version(package, upgrade=upgrade)
-            modify_pyproject_toml(
-                package_name,
-                package_version,
-                action="install",
-                hatch_env=hatch_env,
-                dependency_group=dependency_group,
-            )
-            modify_requirements(package_name, package_version, action="install", requirements=requirements)
 
     except subprocess.CalledProcessError as e:
-        click.echo(f"Error: Failed to install {package}.", err=True)
-        click.echo(f"Reason: {e}", err=True)
+        click.echo(f"Error: Installation failed.", err=True)
+        click.echo(f"Command: {e.cmd}", err=True)
+        click.echo(f"Return code: {e.returncode}", err=True)
+        click.echo(f"Output: {e.output}", err=True)
         sys.exit(e.returncode)
 
 

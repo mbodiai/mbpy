@@ -29,6 +29,7 @@ dependencies = []
     # Check the output
     assert result.returncode == 0
     assert "Installing packages from" in result.stdout
+    assert "Running command: " in result.stdout
     assert "-m pip install -r" in result.stdout
     assert "Successfully installed" in result.stdout or "Requirement already satisfied" in result.stdout
 
