@@ -78,23 +78,27 @@ def test_create_project_with_mkdocs(tmp_path):
     assert author in mkdocs_content
     assert description in mkdocs_content
 
-def test_create_project_without_cli(mock_cwd):
-    project_name = "no_cli_project"
-    author = "No CLI Author"
-    description = "No CLI Description"
-    deps = ["pytest"]
-
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text") as mock_write_text,
-        patch("mbpy.create.create_pyproject_toml"),
-        patch("mbpy.create.setup_documentation"),
-    ):
-        create_project(project_name, author, description, deps, add_cli=False)
-
-        # Check if __init__.py was created without cli import
-        mock_write_text.assert_any_call("")  # Empty __init__.py
-        mock_write_text.assert_any_call('__version__ = "0.1.0"')  # __about__.py content
+def test_create_project_without_cli():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_name = "test_project"
+        author = "Test Author"
+        description = "Test Description"
+        deps = ["pytest"]
+        
+        result = subprocess.run(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--no-cli"],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True
+        )
+        
+        assert result.returncode == 0
+        
+        project_path = Path(tmpdir) / project_name
+        assert project_path.exists()
+        assert (project_path / "__init__.py").exists()
+        assert (project_path / "__about__.py").exists()
+        assert not (project_path / "cli.py").exists()
 
 def test_create_project_custom_python_version():
     with tempfile.TemporaryDirectory() as tmpdir:
