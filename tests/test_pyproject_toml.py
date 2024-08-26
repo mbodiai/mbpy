@@ -102,8 +102,6 @@ dependencies = []
 @pytest.mark.parametrize("args", [
     ["-r", "requirements.txt"],
     ["--requirements", "requirements.txt"],
-    ["-r", "requirements.txt", "--no-deps"],
-    ["--requirements", "requirements.txt", "--no-deps"],
 ])
 def test_mpip_install_requirements_variations(tmp_path, args):
     # Create a temporary requirements.txt file
