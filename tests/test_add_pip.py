@@ -1,14 +1,11 @@
 import pytest
 import subprocess
 import sys
-from mbpy.create import create_pyproject_toml
-import tomlkit
-
-import pytest
-import subprocess
-import sys
+import tempfile
+import os
 from pathlib import Path
 import tomlkit
+from mbpy.create import create_project, setup_documentation, extract_docstrings, create_pyproject_toml
 
 def test_add_dependencies_to_pyproject(tmp_path):
     initial_pyproject = """
@@ -84,7 +81,7 @@ all = [
     pyproject_file = tmp_path / "pyproject.toml"
     pyproject_file.write_text(initial_pyproject)
 
-    new_dependencies = ["new_package1==1.0.0", "new_package2>=2.0.0"]
+    new_dependencies = ["pytest==7.3.1", "requests>=2.26.0"]
     
     # Run mbpy install command to add new dependencies
     for dep in new_dependencies:
@@ -94,7 +91,10 @@ all = [
             capture_output=True,
             text=True
         )
-        assert result.returncode == 0
+        print(f"Install output for {dep}:")
+        print(result.stdout)
+        print(result.stderr)
+        assert result.returncode == 0, f"Failed to install {dep}"
 
     # Read and parse the updated pyproject.toml
     updated_content = pyproject_file.read_text()

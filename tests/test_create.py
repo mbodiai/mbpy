@@ -96,92 +96,98 @@ def test_create_project_without_cli(mock_cwd):
         mock_write_text.assert_any_call("")  # Empty __init__.py
         mock_write_text.assert_any_call('__version__ = "0.1.0"')  # __about__.py content
 
-def test_create_project_custom_python_version(mock_cwd):
-    project_name = "custom_py_project"
-    author = "Custom Py Author"
-    description = "Custom Py Description"
-    deps = ["pytest"]
-    python_version = "3.9"
-
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
-        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
-        patch("mbpy.create.setup_documentation"),
-    ):
-        create_project(project_name, author, description, deps, python_version=python_version, add_cli=False)
-
-        # Check if create_pyproject_toml was called with correct python version and without CLI
-        mock_create_pyproject.assert_called_once_with(
-            project_name, 
-            author, 
-            description, 
-            deps, 
-            python_version=python_version, 
-            add_cli=False, 
-            existing_content=None
+def test_create_project_custom_python_version():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_name = "custom_py_project"
+        author = "Custom Py Author"
+        description = "Custom Py Description"
+        deps = ["pytest"]
+        python_version = "3.9"
+        
+        result = subprocess.run(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--python-version", python_version, "--no-cli"],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True
         )
+        
+        assert result.returncode == 0
+        
+        project_path = Path(tmpdir) / project_name
+        assert project_path.exists()
+        
+        with open(project_path / "pyproject.toml", "r") as f:
+            content = f.read()
+            assert f'requires-python = ">={python_version}"' in content
+        
+        assert not (project_path / "cli.py").exists()
 
-        # Check if CLI file was not created
-        assert not (mock_cwd / project_name / project_name / "cli.py").exists()
 
-
-def test_create_project_with_local_deps(mock_cwd):
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
-        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
-    ):
-        create_project(
-            "local_project",
-            "Local Author",
-            "local",
-            None,
-            python_version="3.11",
-            add_cli=False,
+def test_create_project_with_local_deps():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_name = "local_project"
+        author = "Local Author"
+        description = "local"
+        
+        result = subprocess.run(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", "local", "--python-version", "3.11", "--no-cli"],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True
         )
-        mock_create_pyproject.assert_called_once_with(
-            "local_project", 
-            "Local Author", 
-            "local", 
-            [], 
-            python_version='3.11', 
-            add_cli=False, 
-            existing_content=None
+        
+        assert result.returncode == 0
+        
+        project_path = Path(tmpdir) / project_name
+        assert project_path.exists()
+        
+        with open(project_path / "pyproject.toml", "r") as f:
+            content = f.read()
+            assert 'dependencies = []' in content
+
+
+def test_create_project_no_deps():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_name = "no_deps_project"
+        author = "No Deps Author"
+        
+        result = subprocess.run(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True
         )
+        
+        assert result.returncode == 0
+        
+        project_path = Path(tmpdir) / project_name
+        assert project_path.exists()
+        
+        with open(project_path / "pyproject.toml", "r") as f:
+            content = f.read()
+            assert 'dependencies = []' in content
 
 
-def test_create_project_no_deps(mock_cwd):
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
-    ):
-        create_project("no_deps_project", "No Deps Author")
-        mock_create_pyproject.assert_called_once_with(
-            "no_deps_project",
-            "No Deps Author",
-            "",
-            [],
-            python_version="3.11",
-            add_cli=True,
-            existing_content=None
+def test_create_project_existing_directory():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_name = "existing_project"
+        author = "Existing Author"
+        
+        # Create the project directory beforehand
+        os.mkdir(os.path.join(tmpdir, project_name))
+        
+        result = subprocess.run(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True
         )
-
-
-def test_create_project_existing_directory(mock_cwd):
-    with (
-        patch("mbpy.create.Path.mkdir") as mock_mkdir,
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
-    ):
-        create_project("existing_project", "Existing Author")
-
-        # All mkdir calls should have exist_ok=True
-        for call in mock_mkdir.call_args_list:
-            assert call[1].get("exist_ok", True) is True
+        
+        assert result.returncode == 0
+        
+        project_path = Path(tmpdir) / project_name
+        assert project_path.exists()
+        assert (project_path / "pyproject.toml").exists()
 
 def test_create_project_with_documentation(mock_cwd):
     with (
