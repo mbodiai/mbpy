@@ -312,13 +312,11 @@ def process_dependencies(dependencies, output_lines=None):
     if output_lines is None:
         output_lines = []
 
-
     dependencies, add_closing_bracket = parse_dependencies(dependencies)
     if add_closing_bracket:
         output_lines.append('[')
 
     deps_list = split_dependencies(dependencies)
-    
 
     for dep in deps_list:
         formatted_dep = format_dependency(dep)
@@ -327,8 +325,17 @@ def process_dependencies(dependencies, output_lines=None):
     if add_closing_bracket:
         output_lines.append(']')
 
-
     return output_lines
+
+def format_dependency(dep):
+    formatted_dep = dep.strip().strip('"').rstrip(',')
+    if '[' in formatted_dep and ']' in formatted_dep:
+        name, rest = formatted_dep.split('[', 1)
+        extras, *version = rest.split(']')
+        extras = extras.replace(',', ', ').strip()
+        version = ']'.join(version).strip()
+        formatted_dep = f'{name.strip()}[{extras}]{version}'
+    return f'"{formatted_dep}"'
 
 def format_dependency(dep):
     formatted_dep = dep.strip().strip('"').rstrip(',')  # Remove quotes and trailing comma
@@ -386,7 +393,8 @@ def write_pyproject(data, filename="pyproject.toml") -> None:
                 output_lines.append(line)
 
             f.write("\n".join(output_lines))
-    except Exception:
+    except Exception as e:
+        print(f"Error writing pyproject.toml: {e}")
         with Path(filename).open("w") as f:
             f.write(original_data)
 
