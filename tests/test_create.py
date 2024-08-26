@@ -385,19 +385,6 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
         stdout, stderr = process.communicate()
         print(f"Server STDOUT:\n{stdout.decode()}")
         print(f"Server STDERR:\n{stderr.decode()}")
-        print(f"STDOUT: {stdout.decode()}")
-        print(f"STDERR: {stderr.decode()}")
-        raise
-
-    finally:
-        print("Terminating MkDocs server")
-        # Terminate the server gracefully
-        process.send_signal(signal.SIGINT)
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            print("Server didn't terminate gracefully, forcing kill")
-            process.kill()
         
     print("Test completed successfully")
 
