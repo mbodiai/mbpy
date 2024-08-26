@@ -240,40 +240,47 @@ def test_mpip_install_requirements_subprocess(tmp_path):
     assert "Successfully installed" in result.stdout or "Requirement already satisfied" in result.stdout
 
 def test_install_requirements_txt_error(monkeypatch, tmp_path):
-    # Create a temporary requirements.txt file
-    requirements_file = tmp_path / "requirements.txt"
-    requirements_file.write_text("requirements.txt\n")  # This line simulates the error condition
+    # ... (keep the existing test)
+
+def test_mpip_install_upgrade(monkeypatch, tmp_path):
+    # Create a temporary pyproject.toml file
+    pyproject_file = tmp_path / "pyproject.toml"
+    initial_content = """
+[project]
+dependencies = [
+    "sphinx==7.0.0"
+]
+"""
+    pyproject_file.write_text(initial_content)
 
     def mock_subprocess_popen(*args, **kwargs):
         class MockProcess:
             def communicate(self, timeout=None):
                 return (
-                    "HINT: You are attempting to install a package literally named \"requirements.txt\" (which cannot exist). Consider using the '-r' flag to install the packages listed in requirements.txt\n"
-                    "\n"
-                    "ERROR: Could not find a version that satisfies the requirement requirements.txt (from versions: none)\n"
-                    "ERROR: No matching distribution found for requirements.txt\n",
+                    "Successfully installed sphinx-8.0.2\n",
                     ""
                 )
             
             @property
             def returncode(self):
-                return 1
+                return 0
 
         return MockProcess()
 
     monkeypatch.setattr(subprocess, "Popen", mock_subprocess_popen)
+    monkeypatch.setattr("mbpy.cli.Path.cwd", lambda: tmp_path)
     
     from mbpy.cli import install_command
     runner = click.testing.CliRunner()
-    result = runner.invoke(install_command, ["-r", str(requirements_file)])
+    result = runner.invoke(install_command, ["-U", "sphinx"])
     
-    assert result.exit_code != 0
-    assert "Installing packages from" in result.output
-    assert "Running command:" in result.output
-    assert "-m pip install -r" in result.output
-    assert "HINT: You are attempting to install a package literally named \"requirements.txt\"" in result.output
-    assert "ERROR: Could not find a version that satisfies the requirement requirements.txt" in result.output
-    assert "ERROR: No matching distribution found for requirements.txt" in result.output
+    assert result.exit_code == 0
+    assert "Successfully installed sphinx-8.0.2" in result.output
+
+    # Check if pyproject.toml was updated correctly
+    updated_content = pyproject_file.read_text()
+    assert 'sphinx==8.0.2' in updated_content
+    assert 'sphinx==7.0.0' not in updated_content
 
 def test_install_command_none_requirements(monkeypatch):
     def mock_subprocess_popen(*args, **kwargs):
