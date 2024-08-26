@@ -75,15 +75,17 @@ mdstream==0.3.4
         install_lines = [line for line in result.stdout.split('\n') if "Installing collected packages:" in line]
         already_satisfied_lines = [line for line in result.stdout.split('\n') if "Requirement already satisfied:" in line]
         
+        installed_packages = []
         if install_lines:
             assert len(install_lines) == 1, "Expected installed packages to be on one line"
-            packages = install_lines[0].split(":")[1].strip().split(", ")
-            print(f"Installed packages: {packages}")
+            installed_packages = install_lines[0].split(":")[1].strip().split(", ")
+            print(f"Installed packages: {installed_packages}")
         
-        if already_satisfied_lines:
-            print(f"Already satisfied packages: {len(already_satisfied_lines)}")
+        satisfied_packages = len(already_satisfied_lines)
+        if satisfied_packages:
+            print(f"Already satisfied packages: {satisfied_packages}")
         
-        total_packages = len(packages) if 'packages' in locals() else 0 + len(already_satisfied_lines)
+        total_packages = len(installed_packages) + satisfied_packages
         assert total_packages > 1, f"Expected multiple packages to be processed, but got {total_packages}"
         print(f"Total packages processed: {total_packages}")
 
