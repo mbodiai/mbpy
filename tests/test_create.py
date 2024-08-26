@@ -9,6 +9,8 @@ import signal
 from pathlib import Path
 from unittest.mock import patch, mock_open
 from mbpy.create import create_project, setup_documentation, extract_docstrings
+import tempfile
+import os
 
 def test_create_project(tmp_path):
     project_name = "test_project"
