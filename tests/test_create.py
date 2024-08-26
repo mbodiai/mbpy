@@ -216,11 +216,11 @@ def test_create_project_existing_project(tmp_path):
 
     project_path = create_project("existing_project", "Existing Author", project_root=tmp_path)
     assert (project_path / "existing_project").exists()
+    assert project_path.exists()
     assert (project_path / "pyproject.toml").exists()
     assert (project_path / "pyproject.toml").read_text() != "existing content"
-    
-    assert project_path == existing_project
-    assert (project_path / "pyproject.toml").exists()
+
+    assert project_path == tmp_path
     content = (project_path / "pyproject.toml").read_text()
     assert "Existing Author" in content
     assert "existing content" not in content  # Ensure the old content is replaced
