@@ -220,6 +220,7 @@ def test_create_project_existing_project(tmp_path):
     assert (project_path / "pyproject.toml").exists()
     content = (project_path / "pyproject.toml").read_text()
     assert "Existing Author" in content
+    assert "existing content" not in content  # Ensure the old content is replaced
 
 def test_extract_docstrings(tmp_path):
     project_path = tmp_path / "test_project"
