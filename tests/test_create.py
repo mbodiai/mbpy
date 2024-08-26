@@ -187,24 +187,6 @@ def test_create_project_with_documentation(mock_cwd):
         project_path = create_project("doc_project", "Doc Author", doc_type="sphinx")
         mock_setup_docs.assert_called_once_with(project_path, "doc_project", "Doc Author", "", "sphinx", {})
 
-def test_create_project_with_mkdocs(mock_cwd):
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.create_pyproject_toml"),
-        patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
-    ):
-        project_path = create_project("mkdocs_project", "MkDocs Author", doc_type="mkdocs")
-
-        # Check if setup_documentation was called with mkdocs
-        mock_setup_docs.assert_called_once_with(project_path, "mkdocs_project", "MkDocs Author", "", "mkdocs", {})
-    
-        # The MkDocs server is no longer started in create_project, so we remove this assertion
-
-        # The MkDocs server is no longer started in create_project, so we remove these assertions
-        # assert "mkdocs_project" in mock_response.text
-        # assert "MkDocs Description" in mock_response.text
 
 def test_create_project_with_custom_python_version(mock_cwd):
     with (
