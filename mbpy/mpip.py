@@ -428,30 +428,6 @@ def name_and_version(package_name, upgrade=False) -> tuple[str, str]:
     return package_name, None
 
 
-def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
-    """Modify the dependencies list for installing or uninstalling a package.
-
-    Args:
-        dependencies (List[str]): List of current dependencies.
-        package_version_str (str): Package with version string to modify.
-        action (str): Action to perform, either 'install' or 'uninstall'.
-
-    Returns:
-        List[str]: Modified list of dependencies.
-    """
-    package_name = base_name(package_version_str)
-    
-    dependencies = [
-        dep for dep in dependencies
-        if base_name(dep) != package_name
-    ]
-    if action == "install":
-        dependencies.append(package_version_str.strip())
-    dependencies.sort(key=lambda x: base_name(x).lower())  # Sort dependencies alphabetically
-    
-    return dependencies
-
-
 def modify_pyproject_toml(
     package_name: str,
     package_version: str = "",

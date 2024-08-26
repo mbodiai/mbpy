@@ -120,6 +120,7 @@ jobs:
 
 
 import ast
+from typing import Literal
 
 
 def create_project(
@@ -185,7 +186,7 @@ if __name__ == "__main__":
 
 
 
-def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None) -> None:
+def setup_documentation(project_root, project_name, author, description, doc_type='sphinx') -> None:
     project_root = Path(project_root)  # Convert to Path object if it's a string
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
