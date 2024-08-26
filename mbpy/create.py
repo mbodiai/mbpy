@@ -471,7 +471,10 @@ def create_pyproject_toml(
     pyproject["tool"]["pytest"] = {
         "ini_options": {
             "addopts": "--cov=src --cov-report=term-missing",
-            "testpaths": ["tests"]
+            "testpaths": ["tests"],
+            "markers": [
+                "network: marks tests that require network access (deselect with '-m \"not network\"')",
+            ]
         }
     }
 
