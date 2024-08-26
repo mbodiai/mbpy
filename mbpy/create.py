@@ -133,6 +133,7 @@ def create_project(
     add_cli=True,
     doc_type='sphinx',
     docstrings: dict = None,
+    project_root: Path = None,
 ) -> Path:
     print(f"Creating project: {project_name}")
     print(f"Author: {author}")
@@ -143,8 +144,9 @@ def create_project(
     print(f"Documentation type: {doc_type}")
 
     # Set project root directory
-    root = Path(getcwd())  # Convert getcwd() result to Path object
-    project_root = root / project_name
+    if project_root is None:
+        root = Path(getcwd())  # Convert getcwd() result to Path object
+        project_root = root / project_name
     print(f"Project root directory: {project_root}")
 
     # Validate project root
@@ -169,8 +171,8 @@ def create_project(
         root_about_file.write_text('__version__ = "0.1.0"')
 
     # Create pyproject.toml
-    existing_content = None
     pyproject_path = project_root / "pyproject.toml"
+    existing_content = None
     if pyproject_path.exists():
         with open(pyproject_path, "r") as f:
             existing_content = f.read()
