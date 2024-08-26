@@ -295,7 +295,7 @@ def setup_mkdocs(project_root: Path, project_name: str, author, description, doc
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True)
 
-    # Create mkdocs.yml
+    # Create mkdocs.yml in the project root
     mkdocs_content = f"""
 site_name: {project_name}
 site_description: {description}
@@ -324,7 +324,7 @@ plugins:
           rendering:
             show_source: true
 """
-    (docs_dir / "mkdocs.yml").write_text(mkdocs_content)
+    (project_root / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
     index_content = f"""
