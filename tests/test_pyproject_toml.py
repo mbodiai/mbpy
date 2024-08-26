@@ -344,6 +344,11 @@ def test_install_command_none_requirements(monkeypatch):
     assert "[notice] A new release of pip is available: 24.1 -> 24.2" not in result.output
     assert "[notice] To update, run: pip install --upgrade pip" not in result.output
 
+import subprocess
+import sys
+import tomlkit
+from pathlib import Path
+
 def test_create_pyproject_toml_existing_directory(tmp_path, monkeypatch):
     project_name = "test_project"
     author = "Test Author"
@@ -368,20 +373,26 @@ dependencies = [
 """
     (project_dir / "pyproject.toml").write_text(initial_pyproject)
 
-    def mock_input(prompt):
-        return 'y'
+    # Simulate user input for overwriting existing directory
+    monkeypatch.setattr('builtins.input', lambda _: 'y')
 
-    monkeypatch.setattr('builtins.input', mock_input)
-    monkeypatch.setattr('mbpy.create.getcwd', lambda: project_dir)
+    # Run mbpy create command
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, "--author", author],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        check=True
+    )
 
-    from mbpy.create import create_project
+    assert result.returncode == 0
+    assert f"Project '{project_name}' created successfully" in result.stdout
 
-    project_path = create_project(project_name, author, project_root=project_dir)
-
-    assert project_path == project_dir
-    assert (project_path / "__about__.py").exists()
-    assert (project_path / "__about__.py").read_text() == '__version__ = "0.1.0"'
+    # Check that the project structure is created correctly
+    assert (project_dir / "__about__.py").exists()
+    assert (project_dir / "__about__.py").read_text() == '__version__ = "0.1.0"'
     
+    # Read and parse the updated pyproject.toml
     new_pyproject = tomlkit.parse((project_dir / "pyproject.toml").read_text())
     
     # Check that the original dependencies are preserved
