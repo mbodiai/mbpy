@@ -314,13 +314,13 @@ def process_dependencies(dependencies, output_lines=None):
 
     dependencies, add_closing_bracket = parse_dependencies(dependencies)
     if add_closing_bracket:
-        output_lines.append('[')
+        output_lines.append('dependencies = [')
 
     deps_list = split_dependencies(dependencies)
 
     for dep in deps_list:
         formatted_dep = format_dependency(dep)
-        output_lines.append(formatted_dep)
+        output_lines.append(f'  "{formatted_dep}",')
 
     if add_closing_bracket:
         output_lines.append(']')
@@ -335,7 +335,7 @@ def format_dependency(dep):
         extras = extras.replace(',', ', ').strip()
         version = ']'.join(version).strip()
         formatted_dep = f'{name.strip()}[{extras}]{version}'
-    return f'"{formatted_dep}"'
+    return formatted_dep
 
 def format_dependency(dep):
     formatted_dep = dep.strip().strip('"').rstrip(',')  # Remove quotes and trailing comma
@@ -369,6 +369,8 @@ def write_pyproject(data, filename="pyproject.toml") -> None:
 
                 if "]" in line and inside_dependencies and "[" not in line:
                     inside_dependencies = False
+                    output_lines.append(line)
+                    continue
 
                 if inside_optional_dependencies:
                     process_dependencies(line, output_lines)
@@ -382,13 +384,11 @@ def write_pyproject(data, filename="pyproject.toml") -> None:
                 ):
                     inside_dependencies = True
                     inside_optional_dependencies = False
-                    output_lines.append(line[: line.index("[") + 1])
-                    process_dependencies(line[line.index("[") + 1 :], output_lines)
+                    output_lines.extend(process_dependencies(line))
                     continue
 
                 if inside_dependencies and not inside_optional_dependencies:
-                    process_dependencies(line, output_lines)
-                    continue
+                    continue  # Skip lines inside dependencies as they are handled by process_dependencies
 
                 output_lines.append(line)
 
