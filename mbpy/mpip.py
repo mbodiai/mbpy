@@ -320,7 +320,7 @@ def process_dependencies(dependencies, output_lines=None):
 
     for dep in deps_list:
         formatted_dep = format_dependency(dep)
-        output_lines.append(f'  "{formatted_dep}",')
+        output_lines.append(formatted_dep)
 
     if add_closing_bracket:
         output_lines.append(']')
@@ -345,8 +345,7 @@ def format_dependency(dep):
         extras = extras.replace(',', ', ').strip()
         version = ']'.join(version).strip()
         formatted_dep = f'{name.strip()}[{extras}]{version}'
-    escaped_dep = formatted_dep.replace('"', '\\"')
-    return f'  "{escaped_dep}"'  # Escape any remaining quotes
+    return f'  "{formatted_dep}"'
 
 
 def write_pyproject(data, filename="pyproject.toml") -> None:
@@ -475,7 +474,11 @@ def modify_pyproject_toml(
 
     with pyproject_path.open() as f:
         content = f.read()
-        pyproject = tomlkit.parse(content)
+        try:
+            pyproject = tomlkit.parse(content)
+        except tomlkit.exceptions.ParseError:
+            print(f"Error parsing {pyproject_path}. The file may be corrupted.")
+            return
 
     is_optional = dependency_group != "dependencies"
     is_hatch_env = hatch_env and "tool" in pyproject and "hatch" in pyproject.get("tool", {})
