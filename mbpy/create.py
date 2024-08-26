@@ -415,11 +415,21 @@ def create_pyproject_toml(
     ]
 
     # Dependencies
-    project["dependencies"] = tomlkit.array()
+    existing_deps = project.get("dependencies", tomlkit.array())
+    new_deps = tomlkit.array()
+    
+    # Add existing dependencies
+    for dep in existing_deps:
+        new_deps.append(dep)
+    
+    # Add new dependencies
     if deps:
-        new_deps = deps if isinstance(deps, list) else [deps]
-        for dep in new_deps:
-            project["dependencies"].append(dep)
+        deps_to_add = deps if isinstance(deps, list) else [deps]
+        for dep in deps_to_add:
+            if dep not in new_deps:
+                new_deps.append(dep)
+    
+    project["dependencies"] = new_deps
 
     if add_cli:
         scripts = project.setdefault("scripts", tomlkit.table())
