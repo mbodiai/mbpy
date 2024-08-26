@@ -128,6 +128,38 @@ def test_create_project_custom_python_version(tmp_path):
     assert not (project_path / project_name / "cli.py").exists()
 
 
+def test_create_project_classifiers_on_newlines(tmp_path):
+    project_name = "classifier_test"
+    author = "Test Author"
+    description = "Test Description"
+    python_version = "3.11"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--python-version", python_version, "--no-cli"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+
+    assert result.returncode == 0
+
+    project_path = tmp_path
+    pyproject_path = project_path / "pyproject.toml"
+    assert pyproject_path.exists()
+
+    with open(pyproject_path, "r") as f:
+        content = f.read()
+        
+    # Check that classifiers are on separate lines
+    classifiers_start = content.index("classifiers = [")
+    classifiers_end = content.index("]", classifiers_start)
+    classifiers_content = content[classifiers_start:classifiers_end]
+    
+    assert classifiers_content.count("\n") >= 6  # At least 6 newlines for 6 classifiers
+    assert f'"Programming Language :: Python :: {python_version}"' in classifiers_content
+    assert all(classifier.strip().startswith('"') for classifier in classifiers_content.split("\n")[1:-1])  # Check each classifier is on a new line and starts with a quote
+
+
 def test_create_project_with_local_deps(tmp_path):
     project_name = "local_project"
     author = "Local Author"

@@ -405,14 +405,17 @@ def create_pyproject_toml(
     project["authors"] = [{"name": author}]
 
     # Classifiers
-    project["classifiers"] = [
+    classifiers = tomlkit.array()
+    classifiers.multiline(True)  # Ensure each classifier is on a new line
+    classifiers.extend([
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         f"Programming Language :: Python :: {python_version}",
         "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-    ]
+    ])
+    project["classifiers"] = classifiers
 
     # Dependencies
     existing_deps = project.get("dependencies", tomlkit.array())
