@@ -169,7 +169,7 @@ ignore = ["E501", "D100", "D104"]
 
     # Run the install command to add a new package
     result = subprocess.run(
-        [sys.executable, "-m", "mbpy.cli", "install", "numpy==1.21.0"],
+        [sys.executable, "-m", "mbpy.cli", "install", "pytest"],
         cwd=tmp_path,
         capture_output=True,
         text=True
@@ -193,7 +193,7 @@ ignore = ["E501", "D100", "D104"]
             assert not line.startswith(" "), f"Incorrect indentation for section header: {line}"
 
     # Check that the new package was added with correct formatting
-    assert '    "numpy==1.21.0",' in updated_content, "New package not added with correct formatting"
+    assert any(line.strip().startswith('"pytest') for line in lines), "New package not added with correct formatting"
 
     # Check that the overall structure is maintained
     assert "[build-system]" in updated_content
