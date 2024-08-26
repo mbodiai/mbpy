@@ -270,7 +270,8 @@ from requests.exceptions import RequestException
 import socket
 import signal
 from pathlib import Path
-from mbpy.create import create_project
+from unittest.mock import patch, mock_open
+from mbpy.create import create_project, setup_documentation, extract_docstrings
 
 @pytest.mark.network
 def test_mpip_create_and_mkdocs_serve(tmp_path):
