@@ -138,3 +138,66 @@ all = [
     )
     assert "Version: 0.8.0" in installed_version.stdout
     assert "einops==0.8.0" in parsed_toml["project"]["optional-dependencies"]["all"]
+
+def test_upgrade_from_requirements_file(tmp_path):
+    # Create a temporary pyproject.toml file
+    pyproject_content = """
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "test-project"
+version = "0.1.0"
+description = "A test project"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "requests==2.26.0",
+    "click==8.0.3",
+]
+"""
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(pyproject_content)
+
+    # Create a requirements.txt file with upgraded versions
+    requirements_content = """
+requests==2.28.1
+click==8.1.3
+"""
+    requirements_path = tmp_path / "requirements.txt"
+    requirements_path.write_text(requirements_content)
+
+    # Run the upgrade command
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "install", "-r", str(requirements_path), "-U"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 0, f"Upgrade failed: {result.stderr}"
+
+    # Read and parse the updated pyproject.toml
+    updated_pyproject_content = pyproject_path.read_text()
+    updated_pyproject = tomlkit.parse(updated_pyproject_content)
+
+    # Check if the dependencies were updated correctly
+    dependencies = updated_pyproject["project"]["dependencies"]
+    assert any(dep.startswith("requests==") for dep in dependencies), f"requests not found in {dependencies}"
+    assert any(dep.startswith("click==") for dep in dependencies), f"click not found in {dependencies}"
+
+    # Ensure the rest of the pyproject.toml content remains unchanged
+    assert updated_pyproject["build-system"]["requires"] == ["hatchling"]
+    assert updated_pyproject["build-system"]["build-backend"] == "hatchling.build"
+    assert updated_pyproject["project"]["name"] == "test-project"
+    assert updated_pyproject["project"]["version"] == "0.1.0"
+    assert updated_pyproject["project"]["description"] == "A test project"
+    assert updated_pyproject["project"]["readme"] == "README.md"
+    assert updated_pyproject["project"]["requires-python"] == ">=3.10"
+    assert updated_pyproject["project"]["license"] == "MIT"
+
+    # Check if the requirements.txt file was updated
+    updated_requirements = requirements_path.read_text()
+    assert any(line.startswith("requests==") for line in updated_requirements.splitlines()), f"requests not found in {updated_requirements}"
+    assert any(line.startswith("click==") for line in updated_requirements.splitlines()), f"click not found in {updated_requirements}"

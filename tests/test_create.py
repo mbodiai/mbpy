@@ -320,7 +320,7 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
     assert project_path.exists(), f"Project path {project_path} does not exist"
     docs_path = tmp_path / "docs"
     assert docs_path.exists(), f"Docs path {docs_path} does not exist"
-    assert (project_path / "mkdocs.yml").exists(), "mkdocs.yml does not exist"
+    assert (docs_path / "mkdocs.yml").exists(), "mkdocs.yml does not exist"
     assert (docs_path / "index.md").exists(), "index.md does not exist"
 
     # Find an available port
