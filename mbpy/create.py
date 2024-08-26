@@ -185,19 +185,19 @@ if __name__ == "__main__":
 
 
 
-def setup_documentation(project_root, project_name, author, description, doc_type='sphinx') -> None:
+def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None) -> None:
     project_root = Path(project_root)  # Convert to Path object if it's a string
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
 
     if doc_type == 'sphinx':
-        setup_sphinx_docs(docs_dir, project_name, author, description, docstrings)
+        setup_sphinx_docs(docs_dir, project_name, author, description, docstrings or {})
     elif doc_type == 'mkdocs':
-        setup_mkdocs(project_root, project_name, author, description, docstrings)
+        setup_mkdocs(project_root, project_name, author, description, docstrings or {})
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
-def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings) -> None:
+def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings=None) -> None:
     # Create conf.py
     conf_content = f"""
 # Configuration file for the Sphinx documentation builder.
