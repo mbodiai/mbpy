@@ -49,6 +49,21 @@ def test_create_project(tmp_path):
     # Check if documentation was set up
     assert (project_root / "docs" / "conf.py").exists()
 
+    # Check pyproject.toml content
+    pyproject_content = (project_root / "pyproject.toml").read_text()
+    assert project_name in pyproject_content
+    assert author in pyproject_content
+    assert description in pyproject_content
+    for dep in deps:
+        assert dep in pyproject_content
+
+    # Check __about__.py content
+    about_content = (project_root / project_name / "__about__.py").read_text()
+    assert '__version__ = "0.1.0"' in about_content
+
+    # Check if documentation was set up
+    assert (project_root / "docs" / "conf.py").exists()
+
 def test_create_project_with_mkdocs(mock_cwd):
     project_name = "mkdocs_project"
     author = "MkDocs Author"
