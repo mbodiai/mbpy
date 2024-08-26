@@ -7,7 +7,9 @@ from requests.exceptions import RequestException
 import socket
 import signal
 from pathlib import Path
-from unittest.mock import patch, mock_open
+import subprocess
+import tempfile
+import os
 from mbpy.create import create_project, setup_documentation, extract_docstrings
 import tempfile
 import os
@@ -260,10 +262,11 @@ def test_create_project_existing_project(tmp_path):
     assert "[project]" in content  # Ensure the new TOML structure is created
     assert 'name = "existing_project"' in content  # Ensure the project name is set correctly
 
-def test_extract_docstrings(tmp_path):
-    project_path = tmp_path / "test_project"
-    project_path.mkdir()
-    (project_path / "test_module.py").write_text('''
+def test_extract_docstrings():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_path = Path(tmpdir) / "test_project"
+        project_path.mkdir()
+        (project_path / "test_module.py").write_text('''
 def test_function():
     """This is a test function docstring."""
     pass
@@ -272,13 +275,15 @@ class TestClass:
     """This is a test class docstring."""
     pass
 ''')
-    
-    with patch("mbpy.create.importlib.import_module") as mock_import:
-        mock_module = mock_import.return_value
-        mock_module.test_function.__doc__ = "This is a test function docstring."
-        mock_module.TestClass.__doc__ = "This is a test class docstring."
         
-        docstrings = extract_docstrings(project_path)
+        result = subprocess.run(
+            [sys.executable, "-c", f"from mbpy.create import extract_docstrings; print(extract_docstrings('{project_path}'))"],
+            capture_output=True,
+            text=True
+        )
+        
+        assert result.returncode == 0
+        docstrings = eval(result.stdout)
         
         assert docstrings == {
             "test_module.test_function": "This is a test function docstring.",
@@ -396,36 +401,38 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
         
     print("Test completed successfully")
 
-def test_setup_documentation(tmp_path):
-    project_name = "test_docs"
-    author = "Test Author"
-    description = "Test Description"
-    doc_type = "sphinx"
-    
-    with patch("mbpy.create.setup_sphinx_docs") as mock_setup_sphinx:
-        setup_documentation(tmp_path, project_name, author, description, doc_type)
+def test_setup_documentation():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_name = "test_docs"
+        author = "Test Author"
+        description = "Test Description"
         
-        mock_setup_sphinx.assert_called_once_with(
-            tmp_path / "docs",
-            project_name,
-            author,
-            description,
-            None  # docstrings parameter
+        # Test with Sphinx
+        doc_type = "sphinx"
+        result = subprocess.run(
+            [sys.executable, "-c", f"from mbpy.create import setup_documentation; setup_documentation('{tmpdir}', '{project_name}', '{author}', '{description}', '{doc_type}')"],
+            capture_output=True,
+            text=True
         )
-    
-    # Test with MkDocs
-    doc_type = "mkdocs"
-    with patch("mbpy.create.setup_mkdocs") as mock_setup_mkdocs:
-        setup_documentation(tmp_path, project_name, author, description, doc_type)
+        assert result.returncode == 0
+        assert (Path(tmpdir) / "docs" / "conf.py").exists()
         
-        mock_setup_mkdocs.assert_called_once_with(
-            tmp_path / "docs",
-            project_name,
-            author,
-            description,
-            None  # docstrings parameter
+        # Test with MkDocs
+        doc_type = "mkdocs"
+        result = subprocess.run(
+            [sys.executable, "-c", f"from mbpy.create import setup_documentation; setup_documentation('{tmpdir}', '{project_name}', '{author}', '{description}', '{doc_type}')"],
+            capture_output=True,
+            text=True
         )
-    
-    # Test with invalid doc_type
-    with pytest.raises(ValueError, match="Invalid doc_type. Choose 'sphinx' or 'mkdocs'."):
-        setup_documentation(tmp_path, project_name, author, description, "invalid_type")
+        assert result.returncode == 0
+        assert (Path(tmpdir) / "docs" / "index.md").exists()
+        
+        # Test with invalid doc_type
+        doc_type = "invalid_type"
+        result = subprocess.run(
+            [sys.executable, "-c", f"from mbpy.create import setup_documentation; setup_documentation('{tmpdir}', '{project_name}', '{author}', '{description}', '{doc_type}')"],
+            capture_output=True,
+            text=True
+        )
+        assert result.returncode != 0
+        assert "Invalid doc_type. Choose 'sphinx' or 'mkdocs'." in result.stderr
