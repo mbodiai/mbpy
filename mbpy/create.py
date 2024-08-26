@@ -407,17 +407,13 @@ def create_pyproject_toml(
     pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
 
     # Build system
-    if "build-system" not in pyproject:
-        pyproject["build-system"] = {
-            "requires": ["hatchling"],
-            "build-backend": "hatchling.build"
-        }
+    pyproject.setdefault("build-system", {
+        "requires": ["hatchling"],
+        "build-backend": "hatchling.build"
+    })
 
     # Project metadata
-    if "project" not in pyproject:
-        pyproject["project"] = tomlkit.table()
-
-    project = pyproject["project"]
+    project = pyproject.setdefault("project", tomlkit.table())
     project.setdefault("name", project_name)
     project.setdefault("version", "0.1.0")
     project.setdefault("description", desc)
@@ -426,38 +422,36 @@ def create_pyproject_toml(
     project.setdefault("license", "MIT")
     project.setdefault("authors", [{"name": author}])
 
+    # Dependencies
     if "dependencies" not in project:
-        project["dependencies"] = []
-    
+        project["dependencies"] = tomlkit.array()
     if deps:
         new_deps = deps if isinstance(deps, list) else [deps]
-        project["dependencies"].extend(new_deps)
+        for dep in new_deps:
+            if dep not in project["dependencies"]:
+                project["dependencies"].append(dep)
 
     if add_cli:
-        if "scripts" not in project:
-            project["scripts"] = tomlkit.table()
-        project["scripts"][project_name] = f"{project_name}.cli:main"
+        scripts = project.setdefault("scripts", tomlkit.table())
+        scripts.setdefault(project_name, f"{project_name}.cli:main")
 
-    # Hatch configuration
-    if "tool" not in pyproject:
-        pyproject["tool"] = tomlkit.table()
+    # Tool configurations
+    tool = pyproject.setdefault("tool", tomlkit.table())
     
-    pyproject["tool"].setdefault("hatch", {
-        "version": {
-            "path": f"{project_name}/__about__.py"
-        },
-        "envs": {
-            "default": {
-                "dependencies": [
-                    "pytest",
-                    "pytest-cov"
-                ]
-            }
+    # Hatch configuration
+    hatch = tool.setdefault("hatch", tomlkit.table())
+    hatch.setdefault("version", {"path": f"{project_name}/__about__.py"})
+    hatch.setdefault("envs", {
+        "default": {
+            "dependencies": [
+                "pytest",
+                "pytest-cov"
+            ]
         }
     })
 
     # Ruff configuration
-    pyproject["tool"].setdefault("ruff", {
+    tool.setdefault("ruff", {
         "line-length": 120,
         "select": [
             "E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"
@@ -470,7 +464,7 @@ def create_pyproject_toml(
     })
 
     # Pytest configuration
-    pyproject["tool"].setdefault("pytest", {
+    tool.setdefault("pytest", {
         "ini_options": {
             "addopts": "--cov=src --cov-report=term-missing",
             "testpaths": ["tests"],
