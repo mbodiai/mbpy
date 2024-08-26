@@ -1,14 +1,6 @@
 import pytest
 import sys
 import subprocess
-from unittest.mock import patch, call, MagicMock, mock_open
-from mbpy.create import create_project, extract_docstrings, setup_documentation
-import requests
-
-
-import pytest
-import subprocess
-import sys
 from pathlib import Path
 
 def test_create_project(tmp_path):
@@ -49,64 +41,35 @@ def test_create_project(tmp_path):
     # Check if documentation was set up
     assert (project_root / "docs" / "conf.py").exists()
 
-    # Check pyproject.toml content
-    pyproject_content = (project_root / "pyproject.toml").read_text()
-    assert project_name in pyproject_content
-    assert author in pyproject_content
-    assert description in pyproject_content
-    for dep in deps:
-        assert dep in pyproject_content
-
-    # Check __about__.py content
-    about_content = (project_root / project_name / "__about__.py").read_text()
-    assert '__version__ = "0.1.0"' in about_content
-
-    # Check if documentation was set up
-    assert (project_root / "docs" / "conf.py").exists()
-
-def test_create_project_with_mkdocs(mock_cwd):
+def test_create_project_with_mkdocs(tmp_path):
     project_name = "mkdocs_project"
     author = "MkDocs Author"
     description = "MkDocs Description"
     deps = ["pytest"]
 
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
-        patch("mbpy.create.create_pyproject_toml"),
-        patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("subprocess.Popen") as mock_popen,
-        patch("requests.get") as mock_get,
-    ):
-        # Mock the subprocess.Popen to simulate the MkDocs server
-        mock_process = MagicMock()
-        mock_process.returncode = 0
-        mock_popen.return_value = mock_process
+    result = subprocess.run(
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--doc-type", "mkdocs"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True
+    )
 
-        # Mock the requests.get to simulate a successful response from the MkDocs server
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = f"<html><body>{project_name}{description}</body></html>"
-        mock_get.return_value = mock_response
+    assert result.returncode == 0
+    assert f"Project {project_name} created successfully" in result.stdout
 
-        project_path = create_project(project_name, author, description, deps, doc_type='mkdocs')
+    project_root = tmp_path / project_name
+    assert project_root.exists()
+    assert (project_root / "pyproject.toml").exists()
+    assert (project_root / project_name / "__about__.py").exists()
+    assert (project_root / project_name / "__init__.py").exists()
+    assert (project_root / "docs").exists()
+    assert (project_root / "mkdocs.yml").exists()
 
-        # Check if setup_documentation was called with mkdocs
-        mock_setup_docs.assert_called_once_with(mock_cwd, project_name, author, description, 'mkdocs', {})
-
-        # Check if the MkDocs server was started
-        mock_popen.assert_called_once_with(
-            ["mkdocs", "serve", "-a", "localhost:8000"],
-            cwd=str(project_path),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        # Check if the documentation is servable
-        mock_get.assert_called_once_with("http://localhost:8000")
-        assert project_name in mock_response.text
-        assert description in mock_response.text
+    # Check mkdocs.yml content
+    mkdocs_content = (project_root / "mkdocs.yml").read_text()
+    assert project_name in mkdocs_content
+    assert author in mkdocs_content
+    assert description in mkdocs_content
 
 def test_create_project_without_cli(mock_cwd):
     project_name = "no_cli_project"
