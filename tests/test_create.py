@@ -195,66 +195,31 @@ def test_create_project_existing_directory():
         assert project_path.exists()
         assert (project_path / "pyproject.toml").exists()
 
-def test_create_project_with_documentation(mock_cwd):
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.create_pyproject_toml"),
-        patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("mbpy.create.getcwd", return_value=str(mock_cwd)),
-    ):
-        project_path = create_project("doc_project", "Doc Author", doc_type="sphinx")
-        mock_setup_docs.assert_called_once_with(project_path, "doc_project", "Doc Author", "", "sphinx", {})
+def test_create_project_with_documentation(tmp_path):
+    project_path = create_project("doc_project", "Doc Author", doc_type="sphinx", project_root=tmp_path)
+    assert (project_path / "docs").exists()
+    assert (project_path / "docs" / "conf.py").exists()
+    assert (project_path / "docs" / "index.rst").exists()
 
 
-def test_create_project_with_custom_python_version(mock_cwd):
-    with (
-        patch("mbpy.create.Path.mkdir"),
-        patch("mbpy.create.Path.write_text"),
-        patch("mbpy.create.Path.touch"),
-        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
-    ):
-        create_project("custom_py_project", "Custom Py Author", python_version="3.9")
-        mock_create_pyproject.assert_called_once_with(
-            "custom_py_project",
-            "Custom Py Author",
-            "",
-            [],
-            python_version="3.9",
-            add_cli=True,
-            existing_content=None
-        )
+def test_create_project_with_custom_python_version(tmp_path):
+    project_path = create_project("custom_py_project", "Custom Py Author", python_version="3.9", project_root=tmp_path)
+    pyproject_path = project_path / "pyproject.toml"
+    assert pyproject_path.exists()
+    content = pyproject_path.read_text()
+    assert 'requires-python = ">=3.9"' in content
 
-def test_create_project_existing_project(mock_cwd):
-    existing_project = mock_cwd / "existing_project"
+def test_create_project_existing_project(tmp_path):
+    existing_project = tmp_path / "existing_project"
     existing_project.mkdir()
     (existing_project / "pyproject.toml").write_text("existing content")
 
-    with (
-        patch("mbpy.create.Path.mkdir", side_effect=lambda *args, **kwargs: None),
-        patch("mbpy.create.Path.write_text"),
-        patch("builtins.input", return_value="y"),  # Simulate user input to overwrite
-        patch("mbpy.create.create_pyproject_toml") as mock_create_pyproject,
-        patch("mbpy.create.setup_documentation") as mock_setup_docs,
-        patch("mbpy.create.getcwd", return_value=mock_cwd),
-        patch("builtins.open", mock_open(read_data="existing content")),
-        patch("mbpy.create.DEFAULT_PYTHON", "3.11"),
-    ):
-        project_path = create_project("existing_project", "Existing Author")
+    project_path = create_project("existing_project", "Existing Author", project_root=tmp_path)
     
-        assert project_path == existing_project
-        mock_create_pyproject.assert_called_once()
-        mock_setup_docs.assert_called_once()
-        mock_create_pyproject.assert_called_once_with(
-            "existing_project",
-            "Existing Author",
-            "",
-            [],
-            python_version="3.11",
-            add_cli=True,
-            existing_content="existing content"
-        )
-        mock_setup_docs.assert_called_once()
+    assert project_path == existing_project
+    assert (project_path / "pyproject.toml").exists()
+    content = (project_path / "pyproject.toml").read_text()
+    assert "Existing Author" in content
 
 def test_extract_docstrings(tmp_path):
     project_path = tmp_path / "test_project"
