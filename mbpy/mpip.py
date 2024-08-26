@@ -345,7 +345,7 @@ def format_dependency(dep):
         extras = extras.replace(',', ', ').strip()
         version = ']'.join(version).strip()
         formatted_dep = f'{name.strip()}[{extras}]{version}'
-    return f'  "{formatted_dep}"'
+    return f'  "{formatted_dep.replace('"', '\\"')}"'  # Escape any remaining quotes
 
 
 def write_pyproject(data, filename="pyproject.toml") -> None:
@@ -507,16 +507,7 @@ def modify_pyproject_toml(
         modify_requirements(package_name, package_version, action, str(requirements_path))
 
 def modify_dependencies(dependencies, package_version_str, action):
-    """Modify the dependencies list for installing or uninstalling a package.
-
-    Args:
-        dependencies (list): List of current dependencies.
-        package_version_str (str): Package with version string.
-        action (str): Action to perform, either 'install' or 'uninstall'.
-
-    Returns:
-        list: Modified list of dependencies.
-    """
+    """Modify the dependencies list for installing or uninstalling a package."""
     package_name = base_name(package_version_str)
     dependencies = [
         dep for dep in dependencies
@@ -525,7 +516,7 @@ def modify_dependencies(dependencies, package_version_str, action):
     if action == "install":
         dependencies.append(package_version_str.strip())
     dependencies.sort(key=lambda x: base_name(x).lower())  # Sort dependencies alphabetically
-    return dependencies
+    return [format_dependency(dep) for dep in dependencies]  # Format each dependency
 
 
 def get_pip_freeze():
