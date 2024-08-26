@@ -378,16 +378,13 @@ dependencies = [
 """
     (project_dir / "pyproject.toml").write_text(initial_pyproject)
 
-    # Simulate user input for overwriting existing directory
-    monkeypatch.setattr('builtins.input', lambda _: 'y')
-
     # Run mbpy create command
     result = subprocess.run(
-        [sys.executable, "-m", "mbpy.cli", "create", project_name, "--author", author],
+        [sys.executable, "-m", "mbpy.cli", "create", project_name, "--author", author, "--yes"],
         cwd=project_dir,
         capture_output=True,
         text=True,
-        check=True
+        check=False
     )
 
     assert result.returncode == 0
