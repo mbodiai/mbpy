@@ -120,7 +120,6 @@ jobs:
 
 
 import ast
-from typing import Literal
 
 
 def create_project(
