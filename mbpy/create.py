@@ -408,7 +408,11 @@ def create_pyproject_toml(
     print(f"Creating pyproject.toml for {project_name}")
     print(f"Existing content: {existing_content}")
     
-    pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
+    try:
+        pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
+    except tomlkit.exceptions.ParseError:
+        print("Warning: Existing pyproject.toml content is invalid. Creating a new TOML document.")
+        pyproject = tomlkit.document()
 
     # Build system
     pyproject.setdefault("build-system", {
@@ -418,44 +422,42 @@ def create_pyproject_toml(
 
     # Project metadata
     project = pyproject.setdefault("project", tomlkit.table())
-    project.setdefault("name", project_name)
-    project.setdefault("version", "0.1.0")
-    project.setdefault("description", desc)
-    project.setdefault("readme", "README.md")
-    project.setdefault("requires-python", f">={python_version}")
-    project.setdefault("license", "MIT")
-    project.setdefault("authors", [{"name": author}])
+    project["name"] = project_name
+    project["version"] = "0.1.0"
+    project["description"] = desc
+    project["readme"] = "README.md"
+    project["requires-python"] = f">={python_version}"
+    project["license"] = "MIT"
+    project["authors"] = [{"name": author}]
 
     # Dependencies
-    if "dependencies" not in project:
-        project["dependencies"] = tomlkit.array()
+    project["dependencies"] = tomlkit.array()
     if deps:
         new_deps = deps if isinstance(deps, list) else [deps]
         for dep in new_deps:
-            if dep not in project["dependencies"]:
-                project["dependencies"].append(dep)
+            project["dependencies"].append(dep)
 
     if add_cli:
         scripts = project.setdefault("scripts", tomlkit.table())
-        scripts.setdefault(project_name, f"{project_name}.cli:main")
+        scripts[project_name] = f"{project_name}.cli:main"
 
     # Tool configurations
     tool = pyproject.setdefault("tool", tomlkit.table())
     
     # Hatch configuration
     hatch = tool.setdefault("hatch", tomlkit.table())
-    hatch.setdefault("version", {"path": f"{project_name}/__about__.py"})
-    hatch.setdefault("envs", {
+    hatch["version"] = {"path": f"{project_name}/__about__.py"}
+    hatch["envs"] = {
         "default": {
             "dependencies": [
                 "pytest",
                 "pytest-cov"
             ]
         }
-    })
+    }
 
     # Ruff configuration
-    tool.setdefault("ruff", {
+    tool["ruff"] = {
         "line-length": 120,
         "select": [
             "E", "F", "W", "I", "N", "D", "UP", "S", "B", "A"
@@ -465,10 +467,10 @@ def create_pyproject_toml(
             "D100",  # Missing docstring in public module
             "D104",  # Missing docstring in public package
         ]
-    })
+    }
 
     # Pytest configuration
-    tool.setdefault("pytest", {
+    tool["pytest"] = {
         "ini_options": {
             "addopts": "--cov=src --cov-report=term-missing",
             "testpaths": ["tests"],
@@ -476,7 +478,7 @@ def create_pyproject_toml(
                 "network: marks tests that require network access (deselect with '-m \"not network\"')",
             ]
         }
-    })
+    }
 
     result = tomlkit.dumps(pyproject)
     print(f"Final pyproject.toml content: {result}")

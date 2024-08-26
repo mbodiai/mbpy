@@ -221,6 +221,8 @@ def test_create_project_existing_project(tmp_path):
     content = (project_path / "pyproject.toml").read_text()
     assert "Existing Author" in content
     assert "existing content" not in content  # Ensure the old content is replaced
+    assert "[project]" in content  # Ensure the new TOML structure is created
+    assert 'name = "existing_project"' in content  # Ensure the project name is set correctly
 
 def test_extract_docstrings(tmp_path):
     project_path = tmp_path / "test_project"
