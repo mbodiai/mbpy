@@ -195,7 +195,7 @@ def setup_documentation(project_root, project_name, author, description, doc_typ
     if doc_type == 'sphinx':
         setup_sphinx_docs(docs_dir, project_name, author, description, docstrings)
     elif doc_type == 'mkdocs':
-        setup_mkdocs(docs_dir, project_name, author, description, docstrings)
+        setup_mkdocs(project_root, project_name, author, description, docstrings)
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
@@ -291,7 +291,10 @@ def extract_docstrings(project_path):
             print(f"Warning: Unable to parse {py_file}: {e}")
     return docstrings
 
-def setup_mkdocs(docs_dir: Path, project_name: str, author, description, docstrings):
+def setup_mkdocs(project_root: Path, project_name: str, author, description, docstrings):
+    docs_dir = project_root / "docs"
+    docs_dir.mkdir(exist_ok=True)
+
     # Create mkdocs.yml
     mkdocs_content = f"""
 site_name: {project_name}
@@ -321,7 +324,7 @@ plugins:
           rendering:
             show_source: true
 """
-    (docs_dir.parent / "mkdocs.yml").write_text(mkdocs_content)
+    (project_root / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
     index_content = f"""
