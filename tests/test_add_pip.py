@@ -102,8 +102,8 @@ all = [
 
     # Check if the new dependencies were added correctly
     project_dependencies = parsed_toml["project"]["dependencies"]
-    assert "new_package1==1.0.0" in project_dependencies
-    assert "new_package2>=2.0.0" in project_dependencies
+    assert "pytest==7.3.1" in project_dependencies
+    assert "requests>=2.26.0" in project_dependencies
 
     # Check if the original dependencies are still present
     assert "gymnasium==0.29.1" in project_dependencies
