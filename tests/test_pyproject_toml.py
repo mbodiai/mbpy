@@ -71,6 +71,12 @@ dependencies = [
     assert 'sphinx==7.0.0' not in updated_toml["project"]["dependencies"]
     assert any(dep.startswith("sphinx==") for dep in updated_toml["project"]["dependencies"])
 
+    # Check if requirements.txt was created and updated
+    requirements_file = tmp_path / "requirements.txt"
+    assert requirements_file.exists()
+    requirements_content = requirements_file.read_text()
+    assert any(line.startswith("sphinx==") for line in requirements_content.splitlines())
+
 def test_mpip_install_new_dependency(tmp_path):
     # Create a temporary pyproject.toml file
     pyproject_file = tmp_path / "pyproject.toml"
@@ -98,6 +104,12 @@ dependencies = []
     updated_toml = tomlkit.parse(updated_content)
     
     assert any(dep.startswith("requests") for dep in updated_toml["project"]["dependencies"])
+
+    # Check if requirements.txt was created and updated
+    requirements_file = tmp_path / "requirements.txt"
+    assert requirements_file.exists()
+    requirements_content = requirements_file.read_text()
+    assert any(line.startswith("requests") for line in requirements_content.splitlines())
 
 @pytest.mark.parametrize("args", [
     ["-r", "requirements.txt"],

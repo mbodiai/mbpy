@@ -84,7 +84,22 @@ def install_command(
                 installed_packages = [line.strip() for line in req_file if line.strip() and not line.startswith('#')]
         
         if packages:
-            installed_packages.extend(packages)
+            for package in packages:
+                package_install_cmd = [sys.executable, "-m", "pip", "install"]
+                if editable:
+                    package_install_cmd.append("-e")
+                if upgrade:
+                    package_install_cmd.append("-U")
+                package_install_cmd.append(package)
+                
+                click.echo(f"Installing {package}...")
+                click.echo(f"Running command: {' '.join(package_install_cmd)}")
+                result = subprocess.run(package_install_cmd, check=True, capture_output=True, text=True)
+                click.echo(result.stdout)
+                if result.stderr:
+                    click.echo(result.stderr, err=True)
+                
+                installed_packages.append(package)
         
         for package in installed_packages:
             package_name, package_version = name_and_version(package, upgrade=upgrade)
