@@ -450,6 +450,7 @@ def modify_pyproject_toml(
         FileNotFoundError: If pyproject.toml is not found.
         ValueError: If Hatch environment is specified but not found in pyproject.toml.
     """
+    pyproject_path = find_toml_file(pyproject_path)
     pyproject_path = Path(pyproject_path)
 
     if not pyproject_path.exists():
@@ -549,6 +550,22 @@ def is_package_in_requirements(
     with Path(requirements_path).open() as f:
         return any(base_name(package_name) == base_name(line) for line in f)
 
+
+def find_toml_file(path=None):
+    """Find the pyproject.toml file in the current directory or parent directories."""
+    current_dir = Path.cwd()
+    path = path or "pyproject.toml"
+    toml_file = current_dir / path
+    it = 0
+    while not toml_file.exists() and current_dir != toml_file.parent:
+        logger.debug(f"Checking {current_dir}")
+        if it > 3:
+            break
+        current_dir = current_dir.parent
+        toml_file = current_dir / "pyproject.toml"
+    if not toml_file.exists():
+        raise FileNotFoundError("pyproject.toml file not found in current or parent directories.")
+    return toml_file
 
 def get_requirements_packages(requirements="requirements.txt", as_set=True) -> set[str] | list[str]:
     """Get the list of packages from the requirements.txt file.

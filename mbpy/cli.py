@@ -152,6 +152,7 @@ def uninstall_command(packages, hatch_env, dependency_group) -> None:
                 action="uninstall",
                 hatch_env=hatch_env,
                 dependency_group=dependency_group,
+                pyproject_path=find_toml_file(),
             )
             click.echo(f"Successfully uninstalled {package_name}")
         except subprocess.CalledProcessError as e:
@@ -163,7 +164,7 @@ def uninstall_command(packages, hatch_env, dependency_group) -> None:
                 f"Unexpected error occurred while trying to uninstall {package_name}:",
                 err=True,
             )
-            print(Traceback.from_exception(e))
+            print(Traceback.from_exception(e.__class__, e, e.__traceback__))
             sys.exit(1)
 
 
@@ -175,8 +176,9 @@ def show_command(hatch_env) -> None:
     Args:
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
     """
+    toml_path = find_toml_file()
     try:
-        with Path("pyproject.toml").open() as f:
+        with Path(toml_path).open() as f:
             content = f.read()
             pyproject = tomlkit.parse(content)
 
