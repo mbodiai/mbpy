@@ -59,6 +59,7 @@ docs = [
 [project.scripts]
 mpip = "mbpy.cli:cli"
 mbpy = "mbpy.cli:cli"
+mbpip = "mbpy.cli:cli"
 
 
 [project.urls]
