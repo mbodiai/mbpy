@@ -10,6 +10,7 @@ load_dotenv()
 # Setup logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 def append_notion_table_row(new_data, page_content=None, debug=False) -> None:
     """Appends a new row to a Notion table using the Notion SDK. Supports fields like `title`, `select`, `multi_select`, `checkbox`, and `rich_text`. Optionally adds page content if provided.
 
@@ -20,7 +21,9 @@ def append_notion_table_row(new_data, page_content=None, debug=False) -> None:
             - `multi_select` (list of str): Multiple options from a predefined list.
             - `checkbox` (bool): True/False field.
             - `rich_text` (str): Text with formatting support.
-
+        page_content (list, optional): A list of blocks (e.g., paragraphs, bullet points) to append to the page linked to the first column (`Instruction`).
+        debug (bool, optional): If True, logs debug information about the created row and response.
+    
     Example:
         new_data = {
             "Instruction": "New Task",  # Title
@@ -30,15 +33,11 @@ def append_notion_table_row(new_data, page_content=None, debug=False) -> None:
             "Comments": "Sample comment"  # Rich Text
         }
 
-    page_content (list, optional): A list of blocks (e.g., paragraphs, bullet points) to append to the page linked to the first column (`Instruction`).
-
     Example:
         page_content = [
             {"type": "paragraph", "content": "Task description"},
             {"type": "bulleted_list_item", "content": "First action point"}
         ]
-
-    debug (bool): If True, logs debug information about the created row and response.
 
     Returns:
         None
@@ -61,27 +60,31 @@ def append_notion_table_row(new_data, page_content=None, debug=False) -> None:
 
     # Populate the properties for the new row based on the provided data
     for key, value in new_data.items():
+        if key not in database_properties:
+            logger.error(f"KeyError: '{key}' does not exist in the database schema.")
+            continue  # Skip this key and move on to the next one
+
         property_type = database_properties[key]["type"]
 
         if property_type == "title":  # Title field
             new_row["properties"][key] = {
-                "title": [{"text": {"content": value}}]
+                "title": [{"text": {"content": value}}],
             }
         elif property_type == "select":  # Select field
             new_row["properties"][key] = {
-                "select": {"name": value}
+                "select": {"name": value},
             }
         elif property_type == "multi_select":  # MultiSelect field
             new_row["properties"][key] = {
-                "multi_select": [{"name": tag} for tag in value]
+                "multi_select": [{"name": tag} for tag in value],
             }
         elif property_type == "checkbox":  # Checkbox field
             new_row["properties"][key] = {
-                "checkbox": value
+                "checkbox": value,
             }
         elif property_type == "rich_text":  # Rich text field
             new_row["properties"][key] = {
-                "rich_text": [{"text": {"content": value}}]
+                "rich_text": [{"text": {"content": value}}],
             }
 
     # Add the new row to the database
@@ -98,13 +101,13 @@ def append_notion_table_row(new_data, page_content=None, debug=False) -> None:
                 blocks.append({
                     "object": "block",
                     "type": "paragraph",
-                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": item["content"]}}]}
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": item["content"]}}]},
                 })
             elif item["type"] == "bulleted_list_item":
                 blocks.append({
                     "object": "block",
                     "type": "bulleted_list_item",
-                    "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": item["content"]}}]}
+                    "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": item["content"]}}]},
                 })
         
         # Append the blocks to the page inside the 'Instruction' column
@@ -142,5 +145,3 @@ if __name__ == "__main__":
 
     # Call the function to append a new row with additional page content
     append_notion_table_row(new_data, page_content=page_content, debug=True)
-
-

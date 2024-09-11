@@ -17,6 +17,7 @@ from mbpy.mpip import (
     modify_requirements,
     name_and_version,
 )
+from mbpy.publish import append_notion_table_row
 
 
 @click.group(invoke_without_command=True)
@@ -280,6 +281,41 @@ def create_command(project_name, author, description, deps, python_version="3.10
     except Exception:
         traceback.print_exc()
         sys.exit(1)
+
+
+@cli.command("publish")
+@click.argument("new_data", type=click.STRING)  # This can be adapted to the expected input format
+@click.option("--page-content", default=None, help="Content to be added to the page")
+@click.option("--debug", is_flag=True, help="Enable debug mode")
+def publish_command(new_data, page_content, debug) -> None:
+    """Publish data to Notion."""
+    import json
+
+    # Convert new_data to a dict if it's passed as a JSON string
+    try:
+        new_data = json.loads(new_data)  # Assuming new_data is passed as a JSON string
+    except json.JSONDecodeError:
+        click.echo("Error: Invalid JSON format for new_data.", err=True)
+        return
+
+    # Ensure 'Instruction' key is present in new_data
+    if "Instruction" not in new_data:
+        click.echo("Error: 'Instruction' is required in new_data.", err=True)
+        return
+
+    # Convert page_content into a format compatible with append_notion_table_row
+    if page_content:
+        try:
+            page_content = json.loads(page_content)
+        except json.JSONDecodeError:
+            click.echo("Error: Invalid JSON format for page_content.", err=True)
+            return
+
+    # Call the function from publish.py with error handling
+    try:
+        append_notion_table_row(new_data=new_data, page_content=page_content, debug=debug)
+    except Exception as e:
+        click.echo(f"Error: Failed to publish data to Notion. Reason: {str(e)}", err=True)
 
 
 if __name__ == "__main__":
