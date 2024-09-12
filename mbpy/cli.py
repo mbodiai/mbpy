@@ -1,22 +1,53 @@
+import io
 import subprocess
 import sys
+import tempfile
 import traceback
 from pathlib import Path
+from time import time
+from typing import Iterator
 
 import click
+import pexpect
+import pexpect.popen_spawn
 import tomlkit
-from mrender.md import Markdown
 from rich import print
 from rich.traceback import Traceback
 
 from mbpy.create import create_project
 from mbpy.mpip import (
+    ADDITONAL_KEYS,
+    INFO_KEYS,
     find_and_sort,
+    find_toml_file,
     get_package_info,
     modify_pyproject_toml,
     modify_requirements,
     name_and_version,
 )
+from mrender.md import Markdown
+
+
+def run_command(command: str|list[str], timout=10) -> Iterator[str]:
+    lines = []
+    start = time()
+
+    exec_, *args = command if isinstance(command, list) else command.split()
+    print(f"Running command: {exec_} {' '.join(args)}")
+    try:
+        child = pexpect.spawn(exec_ , args=args)
+        while time() - start < timout and not child.eof():
+            
+                line: str = child.readline().decode("utf-8").replace("\\r", "").replace("\\n", "\n").replace("\\t", "\t")
+                lines.append(line)
+                yield line
+        # remaining = child.logfile_read() if isinstance(logfile, Path) else child.logfile_read.getvalue()
+        # yield remaining.decode("utf-8").replace("\\r", "").replace("\\n", "\n").replace("\\t", "\t")
+    except Exception as e:
+        yield traceback.format_exc() + str(e)
+
+
+        
 
 
 @click.group(invoke_without_command=True)
@@ -68,16 +99,11 @@ def install_command(
         installed_packages = []
         if requirements:
             requirements_file = requirements
-            click.echo(f"Installing packages from {requirements_file}...")
             package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]
             if upgrade:
                 package_install_cmd.append("-U")
-            click.echo(f"Running command: {' '.join(package_install_cmd)}")
-            result = subprocess.run(package_install_cmd, check=True, capture_output=True, text=True, shell=False)
-            click.echo(result.stdout)
-            if result.stderr:
-                click.echo(result.stderr, err=True)
-            
+            for line in run_command(package_install_cmd):
+                click.echo(line)
             # Get installed packages from requirements file
             with Path(requirements_file).open() as req_file:
                 installed_packages = [line.strip() for line in req_file if line.strip() and not line.startswith('#')]
@@ -91,13 +117,8 @@ def install_command(
                     package_install_cmd.append("-U")
                 package_install_cmd.append(package)
                 
-                click.echo(f"Installing {package}...")
-                click.echo(f"Running command: {' '.join(package_install_cmd)}")
-                result = subprocess.run(package_install_cmd, check=True, capture_output=True, text=True)
-                click.echo(result.stdout)
-                if result.stderr:
-                    click.echo(result.stderr, err=True)
-                
+                for line in run_command(package_install_cmd):
+                    click.echo(line)
                 installed_packages.append(package)
         
         for package in installed_packages:
@@ -143,9 +164,7 @@ def uninstall_command(packages, hatch_env, dependency_group) -> None:
         package_name = package.split("==")[0].split("[")[0]  # Handle extras
 
         try:
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "uninstall", package_name, "-y"],
-            )
+   
             modify_requirements(package_name, action="uninstall")
             modify_pyproject_toml(
                 package_name,
@@ -169,13 +188,21 @@ def uninstall_command(packages, hatch_env, dependency_group) -> None:
 
 
 @cli.command("show")
+@click.argument("package", default=None)
 @click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
-def show_command(hatch_env) -> None:
+def show_command(package, hatch_env) -> None:
     """Show the dependencies from the pyproject.toml file.
 
     Args:
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
     """
+    if package:
+        try:
+            package_info = get_package_info(package)
+            md = Markdown(package_info)
+            md.stream()
+        except Exception:
+            traceback.print_exc()
     toml_path = find_toml_file()
     try:
         with Path(toml_path).open() as f:
@@ -202,39 +229,27 @@ def show_command(hatch_env) -> None:
         click.echo(f"An error occurred: {str(e)}")
 
 
-@cli.command("find")
-@click.argument("package")
-@click.option("--limit", default=5, help="Limit the number of results")
-@click.option("--sort", default="downloads", help="Sort key to use")
-def find_command(package, limit, sort) -> None:
-    """Find a package on PyPI and optionally sort the results.
 
-    Args:
+SEARCH_DOC =  """Find a package on PyPI and optionally sort the results.\n
+
+    Args:\n
         package (str): The package to search for.
         limit (int, optional): Limit the number of results. Defaults to 5.
         sort (str, optional): Sort key to use. Defaults to "downloads".
-    """
-    try:
-        packages = find_and_sort(package, limit, sort)
-        md = Markdown(packages)
-        md.stream()
-    except Exception:
-        traceback.print_exc()
-
-@cli.command("search") # Alias for find
+        include (str, optional): Include pre-release versions. Defaults to None.
+        release (str, optional): Release type to use. Defaults to None.
+        full list of options:
+    """  # noqa: D205
+@cli.command("search", help= SEARCH_DOC+ "\n\nFull list of include options:\n\n" + str(INFO_KEYS + ADDITONAL_KEYS))
 @click.argument("package")
 @click.option("--limit", default=10, help="Limit the number of results")
 @click.option("--sort", default="downloads", help="Sort key to use")
-def search_command(package, limit, sort) -> None:
-    """Find a package on PyPI and optionally sort the results.
-
-    Args:
-        package (str): The package to search for.
-        limit (int, optional): Limit the number of results. Defaults to 5.
-        sort (str, optional): Sort key to use. Defaults to "downloads".
-    """  # noqa: D205
+@click.option("--include", default=None, help="Include pre-release versions")
+@click.option("--release", default=None, help="Release type to use")
+def search_command(package, limit, sort, include, release) -> None:
+    __doc__ =SEARCH_DOC
     try:
-        packages = find_and_sort(package, limit, sort)
+        packages = find_and_sort(package, limit, sort, include=include, release=release)
         md = Markdown(packages)
         md.stream()
     except Exception:

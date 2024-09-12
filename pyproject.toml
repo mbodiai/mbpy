@@ -25,14 +25,17 @@ classifiers = [
 "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-"click==8.1.7",
-"mrender",
-"packaging==24.1",
-"requests==2.32.3",
-"rich==13.7.1",
-"toml==0.10.2",
-"tomlkit==0.13.0",
-"lager",
+    'click==8.1.7',
+    'lager',
+    'markdown2==2.5.0',
+    'mdstream==0.3.4',
+    'mrender',
+    'packaging==24.1',
+    'pexpect==4.9.0',
+    'requests==2.32.3',
+    'rich==13.8.1',
+    'toml==0.10.2',
+    'tomlkit==0.13.2',
 ]
 
 [project.optional-dependencies]
@@ -56,6 +59,8 @@ docs = [
 "mkdocs",
 "mkdocs-material",
 ]
+defeault = ["click==8.1.7", "markdown2==2.5.0", "mdstream==0.3.4", "packaging==24.1", "pexpect==4.9.0", "requests==2.32.3", "rich==13.8.1", "toml==0.10.2", "tomlkit==0.13.2"]
+all = ["click==8.1.7", "markdown2==2.5.0", "mdstream==0.3.4", "packaging==24.1", "pexpect==4.9.0", "requests==2.32.3", "rich==13.8.1", "toml==0.10.2", "tomlkit==0.13.2"]
 [project.scripts]
 mpip = "mbpy.cli:cli"
 

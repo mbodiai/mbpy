@@ -139,7 +139,7 @@ def get_package_names(query_key) -> list[str]:
 def get_package_info(package_name, verbose=False, include=None, release=None) -> dict:
     """Retrieve detailed package information from PyPI JSON API."""
     package_url = f"https://pypi.org/pypi/{package_name}/json"
-    response = requests.get(package_url, timeout=5)
+    response = requests.get(package_url, timeout=10)
     response.raise_for_status()
     package_data = response.json()
     info = package_data.get("info", {})
@@ -148,36 +148,41 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     if not info:
         raise ValueError(f"Package not found: {package_name} {'for release' + str(release) if release else ''}")
     
-    downloads = package_data.get("downloads", {}).get("last_month", 0)
+    downloads = package_data.get("downloads", "unavailable")
     package_info = {
         "name": info.get("name", ""),
         "version": info.get("version", ""),
         "summary": info.get("summary", ""),
         "downloads": downloads,
-        "urls": info.get("project_urls", {}),
+        "upload_time": info.get("upload_time", ""),
+        "urls": info.get("project_urls", info.get("urls", {})),
+        # "description": info.get("description", ""),
     }
+
     if verbose:
         package_info["description"] = info.get("description", "")
-    project_urls = info.get("project_urls", {})
+
+    project_urls = info.get("project_urls", info.get("urls", {}))
     try:
         package_info["github_url"] = next(
-            (url for _, url in project_urls.items() if "github.com" in url.lower()),
-            None,
+            (url for _, url in project_urls.items() if "github.com" in url.lower()), None
         )
     except (StopIteration, TypeError, AttributeError):
         package_info["github_url"] = None
-    
+
     include = [include] if isinstance(include, str) else include
     if include and "all" in include:
         include = INFO_KEYS + ADDITONAL_KEYS
+    package_info["releases"] = package_info.get("releases", {})
+    package_releases = package_info["releases"]
     if include and isinstance(include, list):
         for key in include:
             if key == "releases":
                 releases = list(package_data.get(key, {}).keys())
-                package_info[key] = {}
+                package_releases[key] = {}
                 for release in releases:
-                    package_info[key][release] = {
-                        "upload_time", package_data[key][release][0]["upload_time"]
+                    package_releases[key][release] = {
+                        release : package_data[key][release][0].get("upload_time", "")
                     }
                 continue
             if key in ADDITONAL_KEYS:
@@ -186,7 +191,9 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
                 package_info[key] = info.get(key, "")
             else:
                 raise ValueError(f"Invalid key: {key}")
-    
+
+    package_info["releases"] = dict(sorted(package_info["releases"].items(), key=lambda item: item[1], reverse=True))
+
 
     return package_info
 
@@ -554,10 +561,11 @@ def is_package_in_requirements(
 def find_toml_file(path=None):
     """Find the pyproject.toml file in the current directory or parent directories."""
     current_dir = Path.cwd()
-    path = path or "pyproject.toml"
-    toml_file = current_dir / path
+    path = Path(str(path)) or Path("pyproject.toml")
+
+    toml_file = current_dir / path if (str(current_dir) not in str(path)) else path
     it = 0
-    while not toml_file.exists() and current_dir != toml_file.parent:
+    while not toml_file.exists():
         logger.debug(f"Checking {current_dir}")
         if it > 3:
             break
