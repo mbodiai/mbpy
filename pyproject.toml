@@ -26,13 +26,11 @@ classifiers = [
 ]
 dependencies = [
     'click==8.1.7',
-    'lager',
     'markdown2==2.5.0',
-    'mdstream==0.3.4',
-    'mrender',
+    'mrender==1.0.1',
     'packaging==24.1',
     'pexpect==4.9.0',
-    'requests==2.32.3',
+    'requests',
     'rich==13.8.1',
     'toml==0.10.2',
     'tomlkit==0.13.2',
@@ -59,8 +57,6 @@ docs = [
 "mkdocs",
 "mkdocs-material",
 ]
-defeault = ["click==8.1.7", "markdown2==2.5.0", "mdstream==0.3.4", "packaging==24.1", "pexpect==4.9.0", "requests==2.32.3", "rich==13.8.1", "toml==0.10.2", "tomlkit==0.13.2"]
-all = ["click==8.1.7", "markdown2==2.5.0", "mdstream==0.3.4", "packaging==24.1", "pexpect==4.9.0", "requests==2.32.3", "rich==13.8.1", "toml==0.10.2", "tomlkit==0.13.2"]
 [project.scripts]
 mpip = "mbpy.cli:cli"
 mbpip = "mbpy.cli:cli"
@@ -84,6 +80,18 @@ dependencies = [
   "sphinx-rtd-theme",
   "sphinx-click",
   "myst-parser"
+]
+[tool.hatch.envs.test]
+python = "3.11"
+path=".mpip/envs/test"
+dependencies = [
+  "pyclean==3.0.0",
+  "pytest",
+  "sphinx",
+  "sphinx-rtd-theme",
+  "sphinx-click",
+  "myst-parser"
+
 ]
 [tool.hatch.envs.default.scripts]
 docs = "sphinx-build -b html docs docs/_build"
