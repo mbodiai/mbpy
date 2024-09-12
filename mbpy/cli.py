@@ -1,7 +1,5 @@
-import io
 import subprocess
 import sys
-import tempfile
 import traceback
 from pathlib import Path
 from time import time
@@ -11,6 +9,7 @@ import click
 import pexpect
 import pexpect.popen_spawn
 import tomlkit
+from mrender.md import Markdown
 from rich import print
 from rich.traceback import Traceback
 
@@ -25,10 +24,10 @@ from mbpy.mpip import (
     modify_requirements,
     name_and_version,
 )
-from mrender.md import Markdown
 
 
 def run_command(command: str|list[str], timout=10) -> Iterator[str]:
+    """Run a command and yield the output line by line."""
     lines = []
     start = time()
 
@@ -41,8 +40,6 @@ def run_command(command: str|list[str], timout=10) -> Iterator[str]:
                 line: str = child.readline().decode("utf-8").replace("\\r", "").replace("\\n", "\n").replace("\\t", "\t")
                 lines.append(line)
                 yield line
-        # remaining = child.logfile_read() if isinstance(logfile, Path) else child.logfile_read.getvalue()
-        # yield remaining.decode("utf-8").replace("\\r", "").replace("\\n", "\n").replace("\\t", "\t")
     except Exception as e:
         yield traceback.format_exc() + str(e)
 
@@ -94,7 +91,16 @@ def install_command(
     hatch_env,
     dependency_group,
 ) -> None:
-    """Install packages and update requirements.txt and pyproject.toml accordingly."""
+    """Install packages and update requirements.txt and pyproject.toml accordingly.
+
+    Args:
+        packages (tuple): Packages to install.
+        requirements (str, optional): Requirements file to install packages from. Defaults to None.
+        upgrade (bool, optional): Upgrade the package(s). Defaults to False.
+        editable (bool, optional): Install a package in editable mode. Defaults to False.
+        hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
+        dependency_group (str, optional): The dependency group to use. Defaults to "dependencies".
+    """
     try:
         installed_packages = []
         if requirements:
@@ -194,6 +200,7 @@ def show_command(package, hatch_env) -> None:
     """Show the dependencies from the pyproject.toml file.
 
     Args:
+        package (str, optional): The package to show information about. Defaults to None.
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
     """
     if package:
@@ -259,16 +266,16 @@ def search_command(package, limit, sort, include, release) -> None:
 
 @cli.command("info")
 @click.argument("package")
-@click.option("--detailed", "-d", is_flag=True, help="Show verbose output")
-def info_command(package, detailed) -> None:
+@click.option("--verbose", "-v", is_flag=True, help="Show verbose output")
+def info_command(package, verbose) -> None:
     """Get information about a package from PyPI.
 
     Args:
         package (str): The package to get information about.
-        detailed (bool, optional): Show detailed output. Defaults to False.
+        verbose (bool, optional): Show detailed output. Defaults to False.
     """
     try:
-        package_info = get_package_info(package, detailed)
+        package_info = get_package_info(package, verbose)
         md = Markdown(package_info)
         md.stream()
     except Exception:
@@ -281,12 +288,13 @@ def info_command(package, detailed) -> None:
 @click.argument("author")
 @click.option("--description", default="", help="Project description")
 @click.option("--deps", default=None, help="Dependencies separated by commas")
-@click.option("--python-version", default="3.10", help="Python version to use")
+@click.option("--python", default="3.12", help="Python version to use")
 @click.option("--no-cli", is_flag=True, help="Do not add a CLI")
 @click.option("--doc-type", type=click.Choice(['sphinx', 'mkdocs']), default='sphinx', 
               help="Documentation type to use")
-def create_command(project_name, author, description, deps, python_version="3.10", no_cli=False, doc_type='sphinx') -> None:
+def create_command(project_name, author, description, deps, python="3.12", no_cli=False, doc_type='sphinx') -> None:
     """Create a new Python project. Optionally add dependencies and a CLI."""
+    python_version= python
     try:
         if deps:
             deps = deps.split(",")
