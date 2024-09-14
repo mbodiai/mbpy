@@ -11,12 +11,13 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import time
-from typing import Iterator
+from typing import Iterator, Literal, Generic, TypeVar
 
 import click
 import pexpect
 import pexpect.popen_spawn
 import tomlkit
+from mrender.md import Markdown
 from rich.console import Console
 from rich.traceback import Traceback
 
@@ -32,21 +33,22 @@ from mbpy.mpip import (
     modify_requirements,
     name_and_version,
 )
-from mrender.md import Markdown
 
 atexit.register(sys.stdout.flush)
-class CommandContext:
+
+T = TypeVar("T", bound=pexpect.spawnbase.SpawnBase)
+class CommandContext(Generic[T]):
     def __init__(self, callable_command, timeout=0.1, cwd=None, logfile=None, **callable_kwargs):
-        logfile = callable_kwargs.pop("logfile", None)
-        self.logfle = Path(str(logfile)).open("ab+") if logfile else NamedTemporaryFile("ab+")  # noqa: SIM115
+        self.logfle = callable_kwargs.pop("logfile", logfile)
         self.callable_command_no_log = partial(callable_command, timeout=timeout, cwd=cwd,  **callable_kwargs)
         self.cwd = cwd or Path.cwd()
         self.timeout = timeout
-        self.output = []
-        self.process: pexpect.pty_spawn.Spawn | None = None
+        self.stdout = []
+        self.stderr = []
+        self.process: T | None = None
         self.started = 0
         self.thread = None
-
+    
     @contextmanager
     def to_thread(self, printlines=False, timeout=10) -> Iterator[str]:
         try:
@@ -54,22 +56,19 @@ class CommandContext:
             self.thread.start()
             yield self
         finally:
-            self.logfile.close()
+            self.logfile.close() if self.logfile is not None and hasattr(self.logfile, "close") else None
             self.thread.join(timeout) if self.thread else None
 
-
-    
-
-    def start(self) -> pexpect.pty_spawn.ptyprocess.PtyProcess:
-        self.process: pexpect.pty_spawn.ptyprocess.PtyProcess = self.callable_command_no_log(logfile=self.logfle)
+    def start(self) -> T:
+        self.process: T = self.callable_command_no_log(logfile=self.logfle)
         self.started = time()
         return self.process
 
-
-    def generate_output(self, printlines=False) -> Iterator[str]:
+    def streamlines(self, printlines=False) -> Iterator[str]:
         process = self.process or self.start()
         try:
             while not process.eof() and time() - self.started < self.timeout:
+                prelude = process.stdout
                 print(f"Time elapsed: {time() - self.started}")
                 self.started = time()
                 line = process.readline().decode("utf-8").strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
@@ -93,10 +92,37 @@ class CommandContext:
             self.logfle.close()
             self.process.close() if self.process else None
     
+
+class PtyCommand:
+    def __init__(self, callable_command, timeout=0.1, cwd=None, logfile=None, **callable_kwargs):
+        self.logfle = callable_kwargs.pop("logfile", logfile)
+        self.callable_command_no_log = partial(callable_command, timeout=timeout, cwd=cwd,  **callable_kwargs)
+        self.cwd = cwd or Path.cwd()
+        self.timeout = timeout
+        self.output = []
+        self.process: pexpect.pty_spawn.Spawn | None = None
+        self.started = 0
+        self.thread = None
+
+    @contextmanager
+    def to_thread(self, printlines=False, timeout=10) -> Iterator[str]:
+        try:
+            self.thread = Thread(target=self.readlines, daemon=True, kwargs={"printlines": printlines})
+            self.thread.start()
+            yield self
+        finally:
+            self.logfile.close()
+            self.thread.join(timeout) if self.thread else None
+
+
+    
+
+   
+
+  
     def readlines(self, printlines=True):
         process = self.process or self.start()
-        print(f"Reading lines from process: {process}")    
-        return "".join(list(self))
+        return "".join([line for line in process])
 
     def readline(self):
         process = self.process or self.start()
@@ -133,13 +159,13 @@ class CommandContext:
 console = Console(force_terminal=True)
 def run_command(
     command: str | list[str],
-    timeout: int = 10,
     cwd: str | None = None,
-    wait_and_collect: bool = False,
-    run_in_background=False,
+    mode: Literal["block_until_done", "stream", "background"] = "block_until_done",
     logfile=None,
+    timeout: int = 10,
     buffer_size=2000,  # Reduced buffer size to prevent overflow
     debug=False,
+    remote=False
 ) -> Iterator[str]:
     """Run a command and yield the output line by line."""
     if sys.flags.debug or debug:
@@ -150,13 +176,16 @@ def run_command(
     exec_, *args = command if isinstance(command, list) else command.split()
     console.print(f"Running command: {exec_} {' '.join([arg.strip() for arg in args])}")
     console.print(f"command: {exec_}".replace("\n", "newline"))
-    
+    if remote:
+        process = pexpect
     process = CommandContext(pexpect.spawn, logfile=logfile, timeout=timeout, cwd=cwd, maxread=buffer_size, command=exec_, args=args)
     if wait_and_collect:
         return process.readlines()  
     if run_in_background:
         return process.to_thread()
     return process
+
+
 
 @click.group(invoke_without_command=True)
 @click.pass_context
