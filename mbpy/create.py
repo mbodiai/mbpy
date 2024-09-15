@@ -422,6 +422,7 @@ def create_pyproject_toml(
     project["requires-python"] = f">={python_version}"
     project["license"] = "MIT"
     project["authors"] = [{"name": author}]
+    project["urls"] = [{"source": f"https://github.com/{author}/{project_name}"}]
 
     # Classifiers
     classifiers = tomlkit.array()
