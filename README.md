@@ -17,10 +17,15 @@
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Usage](#usage)
-- [Documentation](#documentation)
-- [License](#license)
+- [mbpy - Manage Python Projects with Ease](#mbpy---manage-python-projects-with-ease)
+  - [Features](#features)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Documentation](#documentation)
+    - [Sphinx](#sphinx)
+    - [MkDocs](#mkdocs)
+  - [License](#license)
 
 ## Installation
 
@@ -33,7 +38,7 @@ pip install mbpy
 To create a new project:
 
 ```console
-mbpy create <project_name> --author "<Your Name>" --description "<Project Description>"
+mbpip create <project_name> --author "<Your Name>" --description "<Project Description>"
 ```
 
 To manage dependencies:

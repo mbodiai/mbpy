@@ -61,16 +61,16 @@ mpip = "mbpy.cli:cli"
 
 
 [project.urls]
-Documentation = "https://github.com/mbodiai/mpip#readme"
-Issues = "https://github.com/mbodiai/mpip/issues"
-Source = "https://github.com/mbodiai/mpip"
+Documentation = "https://github.com/mbodiai/mbpy#readme"
+Issues = "https://github.com/mbodiai/mbpy/issues"
+Source = "https://github.com/mbodiai/mbpy"
 
 
 [tool.hatch.version]
 path = "mbpy/__about__.py"
 [tool.hatch.envs.default]
-python = "3.10"
-path = ".mpip/envs/mpip"
+python = "3.12"
+path = ".envs/mbpy"
 dependencies = [
   "pyclean==3.0.0",
   "pytest",
@@ -81,24 +81,24 @@ dependencies = [
 ]
 [tool.hatch.envs.default.scripts]
 docs = "sphinx-build -b html docs docs/_build"
-[tool.hatch.envs.types]
 extra-dependencies = [
 "mypy>=1.0.0",
 ]
-[tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:mbpy/mpip tests}"
+
+
 
 [tool.coverage.run]
 source_pkgs = ["mpip", "tests"]
 branch = true
 parallel = true
 omit = [
-"mbpy/mpip/__about__.py",
+"mbpy/mbpy/__about__.py",
 ]
 
 [tool.coverage.paths]
-mpip = ["mbpy/mpip", "*/mpip/mbpy/mpip"]
-tests = ["tests", "*/mpip/tests"]
+mbpy = ["mbpy/mbpy", "*/mpip/mbpy/mpip"]
+tests = ["tests", "*/mbpy/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -144,3 +144,4 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "**/{tests,docs}/*" = ["ALL"]
 "**__init__.py" = ["F401"]
+[tool.unidep]

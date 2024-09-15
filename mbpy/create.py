@@ -242,7 +242,7 @@ Indices and tables
     (docs_dir / "index.rst").write_text(index_content)
 
     # Create api.rst
-    api_content = """
+    api_content = f"""
 API Reference
 =============
 
@@ -276,17 +276,21 @@ def extract_docstrings(project_path) -> dict[str, str]:
     docstrings = {}
     project_path = Path(project_path)  # Convert to Path object if it's a string
     for py_file in project_path.glob('**/*.py'):
-        module_name = '.'.join(py_file.relative_to(project_path).with_suffix('').parts)
-        try:
-            with py_file.open() as file:
-                tree = ast.parse(file.read())
+        # Look for __init__.py files
+        if py_file.name == "__init__.py":
+            break
+    try:
+        with py_file.open() as file:
+            tree = ast.parse(file.read())
+        for subnode in py_file.parent.glob('**/*.py'):
+            tree = ast.parse(file.read())
             for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef | ast.ClassDef):
-                    docstring = ast.get_docstring(node)
-                    if docstring:
-                        docstrings[f"{module_name}.{node.name}"] = docstring.strip()
-        except Exception:
-            pass
+              if isinstance(node, ast.FunctionDef | ast.ClassDef, ast.Module, ast.ParamSpec):
+                  docstring = ast.get_docstring(node)
+                  if docstring:
+                      docstrings[node.__qualname__] = docstring.strip()
+    except Exception:
+        pass
     return docstrings
 
 def setup_mkdocs(project_root: Path, project_name: str, author, description, docstrings) -> None:
@@ -325,55 +329,12 @@ plugins:
     (project_root / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
-    index_content = f"""
-# Welcome to {project_name}
+    index_content = Path("README.md").read_text() if (project_root / "README.md").exists() else f""
 
-{description}
-
-## Installation
-
-```bash
-pip install {project_name}
-```
-
-## Usage
-
-Here's a simple example:
-
-```python
-def test_function():
-    \"\"\"This is a test docstring.\"\"\"
-    pass
-
-# Use the function
-test_function()
-```
-
-## API Documentation
-
-For detailed API documentation, please see the [API](api.md) page.
-"""
     (docs_dir / "index.md").write_text(index_content)
 
     # Create api.md with extracted docstrings
-    api_content = f"""
-# API Reference
-
-This page contains the API reference for {project_name}.
-
-## test_function
-
-```python
-def test_function():
-    \"\"\"This is a test docstring.\"\"\"
-    pass
-```
-
-This is a test docstring.
-
----
-
-"""
+    api_content = f"# API Reference\n\n" + description + "\n\n"
     if docstrings:
         for full_name, docstring in docstrings.items():
             module_name, obj_name = full_name.rsplit('.', 1)
@@ -409,7 +370,7 @@ def create_pyproject_toml(
 
     # Build system
     pyproject.setdefault("build-system", {
-        "requires": ["hatchling"],
+        "requires": ["hatchling", "unidep"],
         "build-backend": "hatchling.build"
     })
 
@@ -463,7 +424,6 @@ def create_pyproject_toml(
     
     # Hatch configuration
     hatch = tool.setdefault("hatch", tomlkit.table())
-    hatch["version"] = {"path": f"{project_name}/__about__.py"}
     hatch["envs"] = {
         "default": {
             "dependencies": [
@@ -502,17 +462,6 @@ def create_pyproject_toml(
     ruff_lint_per_file_ignores = ruff_lint.setdefault("per-file-ignores", tomlkit.table())
     ruff_lint_per_file_ignores["**/{tests,docs}/*"] = ["ALL"]
     ruff_lint_per_file_ignores["**__init__.py"] = ["F401"]
-
-    tool["codeflash"] = {
-        "module-root": project_name,
-        "tests-root": "tests",
-        "test-framework": "pytest",
-        "ignore-paths": [],
-        "formatter-cmds": [
-            "hatch run ruff check --exit-zero --fix $file",
-            "hatch run ruff format $file"
-        ]
-    }
 
     tool["pytest"] = {
         "ini_options": {
