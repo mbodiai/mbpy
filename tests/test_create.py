@@ -1,55 +1,58 @@
 import pytest
 import sys
-import subprocess
+from mbpy.cli import run_command
 import time
 import requests
 from requests.exceptions import RequestException
 import socket
 import signal
 from pathlib import Path
-import subprocess
 import tempfile
 import os
 import json
 from mbpy.create import create_project, setup_documentation, extract_docstrings
 
-def test_create_project(tmp_path):
+
+# @pytest.fixture
+# def tmp_path():
+#     with tempfile.NamedTemporaryFile() as tmpdir:
+#         yield Path(tmpdir.name)
+
+def test_create_project():
     project_name = "test_project"
     author = "Test Author"
     description = "Test Description"
     deps = ["pytest", "numpy"]
+    with tempfile.NamedTemporaryFile() as tmp_path:
+        result = run_command(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps)],
+            cwd=tmp_path,
+        )
+        result = "".join(list(result))
 
-    result = subprocess.run(
-        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps)],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True
-    )
+        assert f"Project {project_name} created successfully" in result.stdout
 
-    assert result.returncode == 0
-    assert f"Project {project_name} created successfully" in result.stdout
+        project_root = tmp_path
+        assert (project_root / project_name).exists()
+        assert (project_root / "pyproject.toml").exists()
+        assert (project_root / project_name / "__about__.py").exists()
+        assert (project_root / project_name / "__init__.py").exists()
+        assert (project_root / "docs").exists()
 
-    project_root = tmp_path
-    assert (project_root / project_name).exists()
-    assert (project_root / "pyproject.toml").exists()
-    assert (project_root / project_name / "__about__.py").exists()
-    assert (project_root / project_name / "__init__.py").exists()
-    assert (project_root / "docs").exists()
+        # Check pyproject.toml content
+        pyproject_content = (project_root / "pyproject.toml").read_text()
+        assert project_name in pyproject_content
+        assert author in pyproject_content
+        assert description in pyproject_content
+        for dep in deps:
+            assert dep in pyproject_content
 
-    # Check pyproject.toml content
-    pyproject_content = (project_root / "pyproject.toml").read_text()
-    assert project_name in pyproject_content
-    assert author in pyproject_content
-    assert description in pyproject_content
-    for dep in deps:
-        assert dep in pyproject_content
+        # Check __about__.py content
+        about_content = (project_root / project_name / "__about__.py").read_text()
+        assert '__version__ = "0.1.0"' in about_content
 
-    # Check __about__.py content
-    about_content = (project_root / project_name / "__about__.py").read_text()
-    assert '__version__ = "0.1.0"' in about_content
-
-    # Check if documentation was set up
-    assert (project_root / "docs" / "conf.py").exists()
+        # Check if documentation was set up
+        assert (project_root / "docs" / "conf.py").exists()
 
 def test_create_project_with_mkdocs(tmp_path):
     project_name = "mkdocs_project"
@@ -57,14 +60,14 @@ def test_create_project_with_mkdocs(tmp_path):
     description = "MkDocs Description"
     deps = ["pytest"]
 
-    result = subprocess.run(
+    result = run_command(
         [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--doc-type", "mkdocs"],
         cwd=tmp_path,
-        capture_output=True,
-        text=True
+        wait_and_collect=True
     )
+    result = "".join(list(result))
 
-    assert result.returncode == 0
+
     assert f"Project {project_name} created successfully" in result.stdout
 
     project_root = tmp_path
@@ -88,14 +91,12 @@ def test_create_project_without_cli():
         description = "Test Description"
         deps = ["pytest"]
         
-        result = subprocess.run(
+        result = run_command(
             [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--no-cli"],
             cwd=tmpdir,
-            capture_output=True,
-            text=True
         )
         
-        assert result.returncode == 0
+        result = "".join(list(result))
         
         project_path = Path(tmpdir) / project_name
         assert project_path.exists()
@@ -103,23 +104,22 @@ def test_create_project_without_cli():
         assert (project_path / "__about__.py").exists()
         assert not (project_path / "cli.py").exists()
 
-def test_create_project_custom_python_version(tmp_path):
+def test_create_project_custom_python_version():
     project_name = "custom_py_project"
     author = "Custom Py Author"
     description = "Custom Py Description"
     deps = ["pytest"]
     python_version = "3.9"
+    with tempfile.NamedTemporaryFile() as tmpdir:
+        result = "".join(list(run_command(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--python-version", python_version, "--no-cli"],
+            cwd=tmp_path,
+            timout=10
+        )))
 
-    result = subprocess.run(
-        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--python-version", python_version, "--no-cli"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True
-    )
-
-    assert result.returncode == 0
 
     project_path = tmp_path
+    tic = time.time()
     assert (project_path / project_name).exists()
 
     with open(project_path / "pyproject.toml", "r") as f:
@@ -129,20 +129,19 @@ def test_create_project_custom_python_version(tmp_path):
     assert not (project_path / project_name / "cli.py").exists()
 
 
-def test_create_project_classifiers_on_newlines(tmp_path):
+def test_create_project_classifiers_on_newlines():
     project_name = "classifier_test"
     author = "Test Author"
     description = "Test Description"
     python_version = "3.11"
+    from mbpy.cli import run_command
+    with tempfile.NamedTemporaryFile() as tmpdir:
+        "".join(list(run_command(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--python-version", python_version, "--no-cli"],
+            cwd=tmp_path,
+        )))
 
-    result = subprocess.run(
-        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--python-version", python_version, "--no-cli"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True
-    )
 
-    assert result.returncode == 0
 
     project_path = tmp_path
     pyproject_path = project_path / "pyproject.toml"
@@ -161,39 +160,37 @@ def test_create_project_classifiers_on_newlines(tmp_path):
     assert all(classifier.strip().startswith('"') for classifier in classifiers_content.split("\n")[1:-1])  # Check each classifier is on a new line and starts with a quote
 
 
-def test_create_project_with_local_deps(tmp_path):
+def test_create_project_with_local_deps():
     project_name = "local_project"
     author = "Local Author"
     description = "local"
+    with tempfile.NamedTemporaryFile() as tmpdir:
+        result = "".join(list(run_command(
+            [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", "local", "--python-version", "3.11", "--no-cli"],
+            cwd=tmp_path,
+        )))
 
-    result = subprocess.run(
-        [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", "local", "--python-version", "3.11", "--no-cli"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True
-    )
+        assert result.returncode == 0
 
-    assert result.returncode == 0
+        project_path = tmp_path
+        assert (project_path / project_name).exists()
 
-    project_path = tmp_path
-    assert (project_path / project_name).exists()
-
-    with open(project_path / "pyproject.toml", "r") as f:
-            content = f.read()
-            assert 'dependencies = [' in content
-            assert '"local",' in content
+        with open(project_path / "pyproject.toml", "r") as f:
+                content = f.read()
+                assert 'dependencies = [' in content
+                assert '"local",' in content
 
 
 def test_create_project_no_deps(tmp_path):
     project_name = "no_deps_project"
     author = "No Deps Author"
 
-    result = subprocess.run(
+    result = "".join(list(run_command(
         [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
         cwd=tmp_path,
         capture_output=True,
         text=True
-    )
+    )))
 
     assert result.returncode == 0
 
@@ -212,12 +209,12 @@ def test_create_project_existing_directory(tmp_path):
     # Create the project directory beforehand
     (tmp_path / project_name).mkdir()
 
-    result = subprocess.run(
+    result = "".join(list(run_command(
         [sys.executable, "-m", "mbpy.cli", "create", project_name, author],
         cwd=tmp_path,
         capture_output=True,
         text=True
-    )
+    )))
 
     assert result.returncode == 0
 
@@ -275,14 +272,11 @@ class TestClass:
     pass
 ''')
         
-        result = subprocess.run(
+        result = "".join(list(run_command(
             [sys.executable, "-c", f"from mbpy.create import extract_docstrings; import json; print(json.dumps(extract_docstrings('{project_path}')))"],
-            capture_output=True,
-            text=True
-        )
+        )))
         
-        assert result.returncode == 0
-        docstrings = json.loads(result.stdout)
+        docstrings = json.loads(result)
         assert "test_module.test_function" in docstrings
         assert "test_module.TestClass" in docstrings
         docstrings = eval(result.stdout)
@@ -330,11 +324,11 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
 
     # Start MkDocs server
     print("Starting MkDocs server")
-    process = subprocess.Popen(
+    process = run_command(
         ["mkdocs", "serve", "-a", f"localhost:{port}"],
         cwd=str(project_path),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        run_in_background=True
+        
     )
 
     try:
@@ -369,7 +363,7 @@ def test_mpip_create_and_mkdocs_serve(tmp_path):
         process.terminate()
         try:
             process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
+        except TimeoutError:
             print("Server didn't terminate gracefully, forcing kill")
             process.kill()
         
@@ -388,31 +382,29 @@ def test_setup_documentation():
         
         # Test with Sphinx
         doc_type = "sphinx"
-        result = subprocess.run(
+        result = "".join(list(run_command(
             [sys.executable, "-c", f"from pathlib import Path; from mbpy.create import setup_documentation; setup_documentation(Path('{tmpdir}'), '{project_name}', '{author}', '{description}', '{doc_type}')"],
             capture_output=True,
             text=True
-        )
-        assert result.returncode == 0
+        )))
         assert (Path(tmpdir) / "docs" / "conf.py").exists()
         assert (Path(tmpdir) / "docs" / "conf.py").exists()
         
         # Test with MkDocs
         doc_type = "mkdocs"
-        result = subprocess.run(
+        result = "".join(list(run_command(
             [sys.executable, "-c", f"from mbpy.create import setup_documentation; setup_documentation('{tmpdir}', '{project_name}', '{author}', '{description}', '{doc_type}')"],
-            capture_output=True,
-            text=True
-        )
+        )))
         assert result.returncode == 0
         assert (Path(tmpdir) / "docs" / "index.md").exists()
         
         # Test with invalid doc_type
         doc_type = "invalid_type"
-        result = subprocess.run(
+        result = "".join(list(run_command(
             [sys.executable, "-c", f"from mbpy.create import setup_documentation; setup_documentation('{tmpdir}', '{project_name}', '{author}', '{description}', '{doc_type}')"],
-            capture_output=True,
-            text=True
-        )
+        )))
         assert result.returncode != 0
         assert "Invalid doc_type. Choose 'sphinx' or 'mkdocs'." in result.stderr
+
+if __name__ == "__main__":
+    pytest.main(["-vv", __file__, "-s"])

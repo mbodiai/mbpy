@@ -139,7 +139,7 @@ def create_project(
     project_path = project_root
 
     # Create project structure
-    src_dir = project_path / project_name
+    src_dir = project_path / project_name.replace("-", "_")
     src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "__init__.py").write_text("")
     
@@ -383,6 +383,7 @@ def create_pyproject_toml(
     project["requires-python"] = f">={python_version}"
     project["license"] = "MIT"
     project["authors"] = [{"name": author}]
+    project["urls"] = [{"source": f"https://github.com/{author}/{project_name}"}]
 
     # Classifiers
     classifiers = tomlkit.array()
