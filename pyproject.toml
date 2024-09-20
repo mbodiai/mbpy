@@ -5,11 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "mbpy"
 dynamic = ["version"]
-description = "Test Description"
+description = 'Install and manage pyproject.toml with pip commands.'
 readme = "README.md"
-requires-python = "<=3.13"
-license = "MIT"
+requires-python = ">=3.8"
+license = "apache-2.0"
 keywords = []
+authors = [
+{ name = "Sebastian Peralta", email = "sebastian@mbodi.ai" },
+]
 classifiers = [
 "Development Status :: 4 - Beta",
 "Programming Language :: Python",
@@ -18,83 +21,59 @@ classifiers = [
 "Programming Language :: Python :: 3.10",
 "Programming Language :: Python :: 3.11",
 "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3 :: Only",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+"Programming Language :: Python :: Implementation :: CPython",
+"Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    'aiostream==0.6.2',
-    'click==8.1.7',
-    'linkify-it-py',
-    'markdown-it-py==3.0.0',
-    'markdown2==2.5.0',
-    'mbpy==1.0.1',
-    'more_itertools==10.5.0',
-    'mrender==1.0.1',
-    'numpy',
-    'packaging==24.1',
-    'pexpect==4.9.0',
-    'pytest==8.3.3',
-    'pytest-ranking',
-    'requests',
-    'rich==13.8.1',
-    'sphinx==8.0.2',
-    'toml==0.10.2',
-    'tomlkit==0.13.2',
-]
-
-[[project.authors]]
-name = "Test Author"
-[project.optional-dependencies]
-sphinx = [
-"sphinx",
-"sphinx-rtd-theme",
-"sphinx-click",
-"myst-parser",
-"sphinx-autodoc-typehints",
-]
-mkdocs = [
-"mkdocs",
-"mkdocs-material",
-]
-docs = [
-"sphinx",
-"sphinx-rtd-theme",
-"sphinx-click",
-"myst-parser",
-"sphinx-autodoc-typehints",
-"mkdocs",
-"mkdocs-material",
+    "click==8.1.7",
+    "packaging==24.1",
+    "requests==2.32.3",
+    "rich==13.7.1",
+    "toml==0.10.2",
+    "tomlkit==0.13.0",
+    "mbpy",
 ]
 [project.scripts]
 mpip = "mbpy.cli:cli"
-mbpip = "mbpy.cli:cli"
-mbpy = "mbpy.cli:cli"
-test_project = "test_project.cli:main"
+
 
 [project.urls]
-Documentation = "https://github.com/mbodiai/mbpy#readme"
-Issues = "https://github.com/mbodiai/mbpy/issues"
-Source = "https://github.com/mbodiai/mbpy"
+Documentation = "https://github.com/mbodiai/mpip#readme"
+Issues = "https://github.com/mbodiai/mpip/issues"
+Source = "https://github.com/mbodiai/mpip"
 
 
 [tool.hatch.version]
 path = "mbpy/__about__.py"
+sphinx = [
+"sphinx",
+
+]
 [tool.hatch.envs.default]
-path = ".envs/default"
-python = "3.11"
-dependencies = ["pytest", "pytest-cov"]
+python = "3.10"
+path = ".mpip/envs/mpip"
+dependencies = [
+"pyclean==3.0.0",
+"pytest",
+]
+[tool.hatch.envs.types]
+extra-dependencies = [
+"mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:mbpy/mpip tests}"
+
 [tool.coverage.run]
 source_pkgs = ["mpip", "tests"]
 branch = true
 parallel = true
 omit = [
-"mbpy/mbpy/__about__.py",
+"mbpy/mpip/__about__.py",
 ]
 
 [tool.coverage.paths]
-mbpy = ["mbpy/mbpy", "*/mpip/mbpy/mpip"]
-tests = ["tests", "*/mbpy/tests"]
+mpip = ["mbpy/mpip", "*/mpip/mbpy/mpip"]
+tests = ["tests", "*/mpip/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -102,19 +81,10 @@ exclude_lines = [
 "if __name__ == .__main__.:",
 "if TYPE_CHECKING:",
 ]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-markers = ["network: marks tests that require network access (deselect with '-m \"not network\"')"]
-
 [tool.ruff]
 line-length = 120
 indent-width = 4
-target-version = "py311"
-select = ["A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN", "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"]
-ignore = ["D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102", "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202", "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"]
-fixable = ["ALL"]
-unfixable = []
+target-version = "py310"
 
 [tool.ruff.lint]
 extend-unsafe-fixes = ["ALL"]
