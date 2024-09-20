@@ -123,9 +123,9 @@ import ast
 
 
 def create_project(
-    project_name,
-    author,
-    description="",
+    project_name: str,
+    author: str,
+    description: str = "",
     deps: list[str] | Literal["local"] | None = None,
     python_version=DEFAULT_PYTHON,
     add_cli=True,
@@ -139,10 +139,13 @@ def create_project(
     project_path = project_root
 
     # Create project structure
-    src_dir = project_path / project_name.replace("-", "_")
+    src_dir = project_path / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "__init__.py").write_text("")
-    
+    (src_dir / "__init__.py").write_text("""from rich.pretty import install
+from rich.traceback import install as install_traceback
+
+install(max_length=10, max_string=80)
+install_traceback(show_locals=True)""")
     # Always create or update __about__.py
     about_file = src_dir / "__about__.py"
     about_file.write_text('__version__ = "0.1.0"')
@@ -191,9 +194,9 @@ def setup_documentation(project_root, project_name, author, description, doc_typ
     docs_dir.mkdir(exist_ok=True, parents=True)
 
     if doc_type == 'sphinx':
-        setup_sphinx_docs(docs_dir, project_name, author, description, docstrings or {})
+        setup_sphinx_docs(docs_dir, project_name, author, description, docstrings or extract_docstrings(project_root))
     elif doc_type == 'mkdocs':
-        setup_mkdocs(project_root, project_name, author, description, docstrings or {})
+        setup_mkdocs(project_root, project_name, author, description, docstrings or extract_docstrings(project_root))
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
@@ -335,6 +338,7 @@ plugins:
 
     # Create api.md with extracted docstrings
     api_content = f"# API Reference\n\n" + description + "\n\n"
+    docstrings = docstrings or extract_docstrings(project_root)
     if docstrings:
         for full_name, docstring in docstrings.items():
             module_name, obj_name = full_name.rsplit('.', 1)
@@ -383,7 +387,6 @@ def create_pyproject_toml(
     project["requires-python"] = f">={python_version}"
     project["license"] = "MIT"
     project["authors"] = [{"name": author}]
-    project["urls"] = [{"source": f"https://github.com/{author}/{project_name}"}]
 
     # Classifiers
     classifiers = tomlkit.array()
@@ -463,6 +466,7 @@ def create_pyproject_toml(
     ruff_lint_per_file_ignores = ruff_lint.setdefault("per-file-ignores", tomlkit.table())
     ruff_lint_per_file_ignores["**/{tests,docs}/*"] = ["ALL"]
     ruff_lint_per_file_ignores["**__init__.py"] = ["F401"]
+
 
     tool["pytest"] = {
         "ini_options": {

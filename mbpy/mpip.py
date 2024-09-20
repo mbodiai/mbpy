@@ -9,7 +9,7 @@ import click
 import requests
 import tomlkit
 from rich.logging import RichHandler
-
+import argparse
 logger = logging.getLogger(__name__)
 logger.addHandler(RichHandler())
 logger.setLevel(logging.INFO)
@@ -193,6 +193,8 @@ def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, re
         return []
 
 
+
+
 def modify_requirements(
     package_name,
     package_version=None,
@@ -248,7 +250,6 @@ def modify_requirements(
             for line in lines
             if base_package_name != line.split("[")[0].split("==")[0]
         ]
-    print(lines)
     # Ensure each line ends with a newline character
     lines = [line + "\n" for line in lines]
     with Path(requirements).open("w") as f:
@@ -261,7 +262,6 @@ def is_group(line) -> bool:
         and "]" in line
         and '"' not in line[line.index("[") : line.index("]")]
     )
-
 
 def parse_dependencies(dependencies) -> list[str]:
     if isinstance(dependencies, str):

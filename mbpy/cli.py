@@ -1,26 +1,27 @@
 import atexit
 import inspect
 import logging
+import logging.handlers
 import subprocess
 import sys
 import tempfile
 import traceback
+from asyncio.subprocess import PIPE
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from threading import Thread
 from time import time
-from typing import Iterator, Literal, Generic, TypeVar
+from typing import Generic, Iterator, Literal, TypeVar, Union
 
 import click
-import pexpect
-import pexpect.popen_spawn
 import tomlkit
 from mrender.md import Markdown
-from rich.console import Console
+from rich.logging import RichHandler
 from rich.traceback import Traceback
 
+from mbpy.commands import run_command
 from mbpy.create import create_project
 from mbpy.mpip import (
     ADDITONAL_KEYS,
@@ -34,158 +35,7 @@ from mbpy.mpip import (
     name_and_version,
 )
 
-atexit.register(sys.stdout.flush)
-
-T = TypeVar("T", bound=pexpect.spawnbase.SpawnBase)
-class CommandContext(Generic[T]):
-    def __init__(self, callable_command, timeout=0.1, cwd=None, logfile=None, **callable_kwargs):
-        self.logfle = callable_kwargs.pop("logfile", logfile)
-        self.callable_command_no_log = partial(callable_command, timeout=timeout, cwd=cwd,  **callable_kwargs)
-        self.cwd = cwd or Path.cwd()
-        self.timeout = timeout
-        self.stdout = []
-        self.stderr = []
-        self.process: T | None = None
-        self.started = 0
-        self.thread = None
-    
-    @contextmanager
-    def to_thread(self, printlines=False, timeout=10) -> Iterator[str]:
-        try:
-            self.thread = Thread(target=self.readlines, daemon=True, kwargs={"printlines": printlines})
-            self.thread.start()
-            yield self
-        finally:
-            self.logfile.close() if self.logfile is not None and hasattr(self.logfile, "close") else None
-            self.thread.join(timeout) if self.thread else None
-
-    def start(self) -> T:
-        self.process: T = self.callable_command_no_log(logfile=self.logfle)
-        self.started = time()
-        return self.process
-
-    def streamlines(self, printlines=False) -> Iterator[str]:
-        process = self.process or self.start()
-        try:
-            while not process.eof() and time() - self.started < self.timeout:
-                prelude = process.stdout
-                print(f"Time elapsed: {time() - self.started}")
-                self.started = time()
-                line = process.readline().decode("utf-8").strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
-                if printlines:
-                    print(line)
-                print(line)
-                self.output.append(line)
-                yield line
-            return
-        except pexpect.exceptions.TIMEOUT as e:
-            if process.isalive():
-                process.terminate(force=True)
-            yield f"Command timed out: {e}"
-        except Exception as e:
-            process.terminate(force=True) if process.isalive() else None
-            process.close()
-
-            traceback.print_exc()
-            raise e
-        finally:
-            self.logfle.close()
-            self.process.close() if self.process else None
-    
-
-class PtyCommand:
-    def __init__(self, callable_command, timeout=0.1, cwd=None, logfile=None, **callable_kwargs):
-        self.logfle = callable_kwargs.pop("logfile", logfile)
-        self.callable_command_no_log = partial(callable_command, timeout=timeout, cwd=cwd,  **callable_kwargs)
-        self.cwd = cwd or Path.cwd()
-        self.timeout = timeout
-        self.output = []
-        self.process: pexpect.pty_spawn.Spawn | None = None
-        self.started = 0
-        self.thread = None
-
-    @contextmanager
-    def to_thread(self, printlines=False, timeout=10) -> Iterator[str]:
-        try:
-            self.thread = Thread(target=self.readlines, daemon=True, kwargs={"printlines": printlines})
-            self.thread.start()
-            yield self
-        finally:
-            self.logfile.close()
-            self.thread.join(timeout) if self.thread else None
-
-
-    
-
-   
-
-  
-    def readlines(self, printlines=True):
-        process = self.process or self.start()
-        return "".join([line for line in process])
-
-    def readline(self):
-        process = self.process or self.start()
-        if not process.isalive() or time() - self.started > self.timeout:
-            return
-        try:
-            line = process.readline().decode("utf-8").strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
-            self.output.append(line)
-            yield line
-            return
-
-        except pexpect.exceptions.TIMEOUT as e:
-            if process.isalive():
-                self.process.terminate(force=True)
-            yield f"Command timed out: {e}"
-        finally:
-            process.close()
-    
-    def __iter__(self):
-        return self.generate_output()
-
-    def __str__(self):
-        return self.readlines()
-        
-    def __enter__(self) -> pexpect.spawnbase.SpawnBase:
-        return self.generate_output()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.process.terminate() if self.process and self.process.isalive() else None
-        self.process.close() if self.process else None
-        return self.logfle().flush() if self.logfle else None
-
-
-console = Console(force_terminal=True)
-def run_command(
-    command: str | list[str],
-    cwd: str | None = None,
-    mode: Literal["block_until_done", "stream", "background"] = "block_until_done",
-    logfile=None,
-    timeout: int = 10,
-    buffer_size=2000,  # Reduced buffer size to prevent overflow
-    debug=False,
-    remote=False
-) -> Iterator[str]:
-    """Run a command and yield the output line by line."""
-    if sys.flags.debug or debug:
-        logging.basicConfig(level=logging.DEBUG, force=True)
-        console.print("Debug logging enabled.")
-    # Create logfile if not provided
-    logfile = Path(logfile).open if logfile else tempfile.NamedTemporaryFile
-    exec_, *args = command if isinstance(command, list) else command.split()
-    console.print(f"Running command: {exec_} {' '.join([arg.strip() for arg in args])}")
-    console.print(f"command: {exec_}".replace("\n", "newline"))
-    if remote:
-        process = pexpect
-    process = CommandContext(pexpect.spawn, logfile=logfile, timeout=timeout, cwd=cwd, maxread=buffer_size, command=exec_, args=args)
-    if wait_and_collect:
-        return process.readlines()  
-    if run_in_background:
-        return process.to_thread()
-    return process
-
-
+logging.handlers = [RichHandler()]
 
 @click.group(invoke_without_command=True)
 @click.pass_context
@@ -253,7 +103,7 @@ def install_command(
     """
     if sys.flags.debug or debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
-        print("Debug logging enabled.")
+        logging.info("Debug logging enabled.")
     try:
         installed_packages = []
         if requirements:
@@ -290,7 +140,7 @@ def install_command(
                 hatch_env=hatch_env,
                 dependency_group=dependency_group,
             )
-            console.print(f"Successfully installed {package_name} to {find_toml_file()} {'for ' + hatch_env if hatch_env else ''}",end="")
+            logging.info(f"Successfully installed {package_name} to {find_toml_file()} {'for ' + hatch_env if hatch_env else ''}",end="")
 
 
         if not requirements and not packages:
@@ -302,7 +152,7 @@ def install_command(
         click.echo(f"Return code: {e.returncode}", err=True)
         click.echo(f"Output: {e.output}", err=True)
     finally:
-        print("", flush=True)
+        logging.info("", flush=True)
 
 
 @cli.command("uninstall")
@@ -338,9 +188,12 @@ def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
                 dependency_group=dependency_group,
                 pyproject_path=find_toml_file(),
             )
+            print_success = None
+            print(f"Uninstalling {package_name}...")
             for line in run_command([sys.executable, "-m", "pip", "uninstall", "-y", package_name]):
                 click.echo(line, nl=False)
-            click.echo(f"Successfully uninstalled {package_name}")
+                print_success = partial(click.echo, f"Successfully uninstalled {package_name}")
+            print_success() if print_success else None
         except subprocess.CalledProcessError as e:
             click.echo(f"Error: Failed to uninstall {package_name}.", err=True)
             click.echo(f"Reason: {e}", err=True)
@@ -462,7 +315,8 @@ def create_command(project_name, author, description, deps, python="3.12", no_cl
     try:
         if deps:
             deps = deps.split(",")
-        create_project(project_name, author, description, deps, python_version, not no_cli, doc_type)
+        create_project(project_name=project_name, author=author, description=description, python_version=python_version,
+                          dependencies=deps, add_cli=not no_cli, doc_type=doc_type)
         click.echo(f"Project {project_name} created successfully with {doc_type} documentation.")
     except Exception:
         traceback.print_exc()

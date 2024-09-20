@@ -5,14 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "mbpy"
 dynamic = ["version"]
-description = 'Install and manage pyproject.toml with pip commands.'
+description = "Test Description"
 readme = "README.md"
-requires-python = ">=3.8"
-license = "apache-2.0"
+requires-python = "<=3.13"
+license = "MIT"
 keywords = []
-authors = [
-{ name = "Sebastian Peralta", email = "sebastian@mbodi.ai" },
-]
 classifiers = [
 "Development Status :: 4 - Beta",
 "Programming Language :: Python",
@@ -21,21 +18,33 @@ classifiers = [
 "Programming Language :: Python :: 3.10",
 "Programming Language :: Python :: 3.11",
 "Programming Language :: Python :: 3.12",
-"Programming Language :: Python :: Implementation :: CPython",
-"Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
 ]
 dependencies = [
+    'aiostream==0.6.2',
     'click==8.1.7',
+    'linkify-it-py',
+    'markdown-it-py==3.0.0',
     'markdown2==2.5.0',
+    'mbpy==1.0.1',
+    'more_itertools==10.5.0',
     'mrender==1.0.1',
+    'numpy',
     'packaging==24.1',
     'pexpect==4.9.0',
+    'pytest==8.3.3',
+    'pytest-ranking',
     'requests',
     'rich==13.8.1',
+    'sphinx==8.0.2',
     'toml==0.10.2',
     'tomlkit==0.13.2',
 ]
 
+[[project.authors]]
+name = "Test Author"
 [project.optional-dependencies]
 sphinx = [
 "sphinx",
@@ -61,6 +70,7 @@ docs = [
 mpip = "mbpy.cli:cli"
 mbpip = "mbpy.cli:cli"
 mbpy = "mbpy.cli:cli"
+test_project = "test_project.cli:main"
 
 [project.urls]
 Documentation = "https://github.com/mbodiai/mbpy#readme"
@@ -71,37 +81,9 @@ Source = "https://github.com/mbodiai/mbpy"
 [tool.hatch.version]
 path = "mbpy/__about__.py"
 [tool.hatch.envs.default]
-python = "3.12"
-path = ".envs/mbpy"
-dependencies = [
-  "pyclean==3.0.0",
-  "pytest",
-  "sphinx",
-  "sphinx-rtd-theme",
-  "sphinx-click",
-  "myst-parser"
-]
-[tool.hatch.envs.test]
+path = ".envs/default"
 python = "3.11"
-path=".mpip/envs/test"
-dependencies = [
-  "pyclean==3.0.0",
-  "pytest",
-  "sphinx",
-  "sphinx-rtd-theme",
-  "sphinx-click",
-  "myst-parser"
-
-]
-[tool.hatch.envs.default.scripts]
-docs = "sphinx-build -b html docs docs/_build"
-extra-dependencies = [
-"mypy>=1.0.0",
-]
-check = "mypy --install-types --non-interactive {args:mbpy/mpip tests}"
-
-
-
+dependencies = ["pytest", "pytest-cov"]
 [tool.coverage.run]
 source_pkgs = ["mpip", "tests"]
 branch = true
@@ -122,14 +104,17 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-markers = [
-    "network: marks tests that require network access (deselect with '-m \"not network\"')",
-]
-addopts = "-m 'not network'"
+testpaths = ["tests"]
+markers = ["network: marks tests that require network access (deselect with '-m \"not network\"')"]
+
 [tool.ruff]
 line-length = 120
 indent-width = 4
-target-version = "py310"
+target-version = "py311"
+select = ["A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN", "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"]
+ignore = ["D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102", "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202", "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"]
+fixable = ["ALL"]
+unfixable = []
 
 [tool.ruff.lint]
 extend-unsafe-fixes = ["ALL"]
@@ -158,4 +143,3 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "**/{tests,docs}/*" = ["ALL"]
 "**__init__.py" = ["F401"]
-[tool.unidep]

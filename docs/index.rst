@@ -1,12 +1,13 @@
-Welcome to mpip's documentation!
-================================
+
+Welcome to test_project's documentation!
+==========================================
+
+Test Description
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   installation
-   usage
    api
 
 Indices and tables

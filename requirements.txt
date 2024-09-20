@@ -8,3 +8,16 @@ rich==13.8.1
 mdstream==0.3.4
 pexpect==4.9.0
 mrender==1.0.1
+linkify==1.4
+markdown_init
+markdown_it
+markdown-it-py==3.0.0
+linkify_it
+linkify-it-py==2.0.3
+pytest-rank
+aiostream==0.6.2
+pytest-ranking
+more_itertools==10.5.0
+pytest==8.3.3
+mbpy==1.0.1
+sphinx==8.0.2

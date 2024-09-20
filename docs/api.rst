@@ -1,20 +1,8 @@
-===
-API
-===
 
-This section provides detailed information about the mpip API.
+API Reference
+=============
 
-.. automodule:: mbpy.mpip
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: mbpy.create
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: mbpy.profile
+.. automodule:: test_project
    :members:
    :undoc-members:
    :show-inheritance:
