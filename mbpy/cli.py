@@ -141,7 +141,7 @@ def install_command(
                 hatch_env=hatch_env,
                 dependency_group=dependency_group,
             )
-            logging.info(f"Successfully installed {package_name} to {find_toml_file()} {'for ' + hatch_env if hatch_env else ''}",end="")
+            logging.info(f"Successfully installed {package_name} to {find_toml_file()} {'for ' + hatch_env if hatch_env else ''}")
 
 
         if not requirements and not packages:
@@ -153,7 +153,7 @@ def install_command(
         click.echo(f"Return code: {e.returncode}", err=True)
         click.echo(f"Output: {e.output}", err=True)
     finally:
-        logging.info("", flush=True)
+        logging.info("")
 
 
 @cli.command("uninstall")
