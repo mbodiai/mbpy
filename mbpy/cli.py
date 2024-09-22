@@ -34,6 +34,7 @@ from mbpy.mpip import (
     modify_requirements,
     name_and_version,
 )
+from mbpy.publish import append_notion_table_row
 
 logging.handlers = [RichHandler()]
 
