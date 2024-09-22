@@ -20,7 +20,7 @@ from pprint import pprint
 from threading import Thread
 from time import time
 from typing import Any, Generic, Iterator, Literal, Optional, TypeVar, Union, get_type_hints
-
+import configargparse
 import pexpect
 import pexpect.socket_pexpect
 from aiostream.pipe import map, merge
@@ -30,7 +30,20 @@ from rich import print_json
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+import fcntl
+import signal
+import struct
+import termios
 
+import pexpect
+from typer import Typer, echo_via_pager
+from typer.core import TyperArgument, TyperOption
+from typing import Annotated
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
+import random
+from rich.console import Console
+
+app = Typer()
 T = TypeVar("T")
 
 
@@ -278,7 +291,7 @@ console = Console()
 
 # Create an argument parser using argparse
 def create_parser():
-    parser = argparse.ArgumentParser(description="Rich CLI Tool Example", formatter_class=argparse.RawTextHelpFormatter)
+    parser = configargparse.ArgumentParser(description="Rich CLI Tool Example", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument(
         "-a",
         "--action",
@@ -519,20 +532,108 @@ async def arun_command(
     return
 
 
-# Main function to handle the CLI logic
-def main():
-    parser = create_parser()
-    args = parser.parse_args()
 
-    display_header()
+def sigwinch_passthrough(sig, data, p):
+    s = struct.pack("HHHH", 0, 0, 0, 0)
+    a = struct.unpack("hhhh", fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, s))
+    if not p.closed:
+        p.setwinsize(a[0], a[1])
 
-    if args.action == 1:
-        run_tests()
-    elif args.action == 2:
-        display_status()
-    elif args.action == 3:
-        console.print("[bold red]Exiting...[/bold red]")
+
+@app.command()
+def run_cmd(cmd: str):
+    p = pexpect.spawn(cmd[0], cmd[1:])
+    signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
+    p.interact()
+
+
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    no_args_is_help=True,
+)
+def interact(
+    cmd: Annotated[str, TyperArgument(
+        type=list[str],
+        param_decls=["cmd"],
+        help="Command to run in interactive mode",
+        required=True,
+        nargs=-1,
+    )]
+):  
+    out = []
+    for i in cmd.split():
+        if i.startswith("~"):
+            out.append(str(Path(i).expanduser().resolve()))
+        elif i.startswith("."):
+            out.append(str(Path(i).resolve()))
+        else:
+            out.append(i)
+    run_cmd(["bash", "-c", " ".join(out)])
+
+
+@app.command()
+def progress(query: str):
+    from rich.panel import Panel
+    from rich.rule import Rule
+    from rich.syntax import Syntax
+    from rich.table import Table
+
+    syntax = Syntax(
+        '''def loop_last(values: Iterable[T]) -> Iterable[Tuple[bool, T]]:
+    """Iterate and generate a tuple with a flag for last value."""
+    iter_values = iter(values)
+    try:
+        previous_value = next(iter_values)
+    except StopIteration:
+        return
+    for value in iter_values:
+        yield False, previous_value
+        previous_value = value
+    yield True, previous_value''',
+        "python",
+        line_numbers=True,
+    )
+
+    table = Table("foo", "bar", "baz")
+    table.add_row("1", "2", "3")
+
+    progress_renderables = [
+        "Text may be printed while the progress bars are rendering.",
+        Panel("In fact, [i]any[/i] renderable will work"),
+        "Such as [magenta]tables[/]...",
+        table,
+        "Pretty printed structures...",
+        {"type": "example", "text": "Pretty printed"},
+        "Syntax...",
+        syntax,
+        Rule("Give it a try!"),
+    ]
+
+    from itertools import cycle
+
+    examples = cycle(progress_renderables)
+
+    console = Console(record=True)
+
+    with Progress(
+        SpinnerColumn(),
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+    ) as progress:
+        task1 = progress.add_task("[red]Downloading", total=1000)
+        task2 = progress.add_task("[green]Processing", total=1000)
+        task3 = progress.add_task("[yellow]Thinking", total=None)
+
+        while not progress.finished:
+            progress.update(task1, advance=0.5)
+            progress.update(task2, advance=0.3)
+            time.sleep(0.01)
+            if random.randint(0, 100) < 1:  # noqa
+                progress.log(next(examples))
 
 
 if __name__ == "__main__":
-    main()
+    app()
+
