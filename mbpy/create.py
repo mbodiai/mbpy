@@ -429,7 +429,7 @@ def create_pyproject_toml(
         pyproject = tomlkit.document()
 
     # Build system
-    pyproject.setdefault("build-system", {managers[manager]})
+    pyproject.setdefault("build-system", tomlkit.table()).update(managers[manager])
 
     # Project metadata
     project = pyproject.setdefault("project", tomlkit.table())

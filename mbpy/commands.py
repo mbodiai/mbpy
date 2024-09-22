@@ -484,9 +484,8 @@ def run_command(
     print(f"command: {exec_}".replace("\n", "newline"))
     if host is not None and port is not None:
         return TCPConnection(exec_, host=host, port=port, cwd=cwd, timeout=timeout)
-    return PtyCommand(
-        partial(pexpect.pty_spawn.spawn, exec_), cwd=cwd, timeout=timeout, **{"args": args}
-    )
+    return run_cmd(exec_ + " " + " ".join(args), cwd=cwd, timeout=timeout, logfile=logfile)
+    
 
 
 async def arun_command(
@@ -540,11 +539,38 @@ def sigwinch_passthrough(sig, data, p):
         p.setwinsize(a[0], a[1])
 
 
-@app.command()
-def run_cmd(cmd: str):
-    p = pexpect.spawn(cmd[0], cmd[1:])
-    signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
-    p.interact()
+@app.command(no_args_is_help=True)
+def run_cmd(cmd: Annotated[
+    str, TyperArgument(
+        type=list[str],
+        param_decls=["cmd"],
+        help="Command to run",
+        nargs=-1,
+    )
+], 
+    args: Annotated[
+        str, TyperOption(
+            param_decls=["-a", "--args"],
+            help="Arguments to pass to the command",
+            nargs=-1,
+        )
+    ] = None,
+    **kwargs,
+):
+    def _run_cmd(cmd, args, **kwargs):
+        p = pexpect.spawn(cmd, **kwargs)
+        signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
+        p.interact()
+    out = []
+    for i in cmd.split():
+        if i.startswith("~"):
+            out.append(str(Path(i).expanduser().resolve()))
+        elif i.startswith("."):
+            out.append(str(Path(i).resolve()))
+        else:
+            out.append(i)
+    _run_cmd("bash", ["-c",*out], **kwargs)
+
 
 
 @app.command(
@@ -560,15 +586,8 @@ def interact(
         nargs=-1,
     )]
 ):  
-    out = []
-    for i in cmd.split():
-        if i.startswith("~"):
-            out.append(str(Path(i).expanduser().resolve()))
-        elif i.startswith("."):
-            out.append(str(Path(i).resolve()))
-        else:
-            out.append(i)
-    run_cmd(["bash", "-c", " ".join(out)])
+   
+   run_cmd(cmd)
 
 
 @app.command()

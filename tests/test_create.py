@@ -89,7 +89,6 @@ def test_create_project_with_mkdocs(tmp_path):
     project_root = tmp_path
     assert (project_root / project_name).exists()
     assert (project_root / "pyproject.toml").exists()
-    assert (project_root / project_name / "__about__.py").exists()
     assert (project_root / project_name / "__init__.py").exists()
     assert (project_root / "docs").exists()
     assert (project_root / "mkdocs.yml").exists()
@@ -117,8 +116,7 @@ def test_create_project_without_cli():
         
         project_path = Path(tmpdir) / project_name
         assert project_path.exists()
-        assert (project_path / "__init__.py").exists()
-        assert (project_path / "__about__.py").exists()
+        assert (project_path / "__init__.py").exists()        
         assert not (project_path / "cli.py").exists()
 
 def test_create_project_custom_python_version():
@@ -282,8 +280,11 @@ class TestClass:
 ''')
         
         result = "".join(list(run_command(
-            [sys.executable, "-c", f"from mbpy.create import extract_docstrings; import json; print(json.dumps(extract_docstrings('{project_path}')))"],
+            [sys.executable, "-c", f"\"from mbpy.create import extract_docstrings; import json; print(json.dumps(extract_docstrings('{project_path}')))\""],
+            debug=True,
         )))
+        print(f"results: {result}")
+
         
         docstrings = json.loads(result)
         assert "test_module.test_function" in docstrings

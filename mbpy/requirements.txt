@@ -7,4 +7,4 @@ markdown2==2.5.0
 rich==13.8.1
 mdstream==0.3.4
 pexpect==4.9.0
-mrender==1.0.0
+mrender
