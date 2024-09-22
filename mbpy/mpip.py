@@ -1,8 +1,6 @@
 """Synchronizes requirements and hatch pyproject."""
 
 import logging
-import subprocess
-import sys
 import traceback
 from pathlib import Path
 from typing import List
@@ -11,7 +9,7 @@ import click
 import requests
 import tomlkit
 from rich.logging import RichHandler
-
+import argparse
 logger = logging.getLogger(__name__)
 logger.addHandler(RichHandler())
 logger.setLevel(logging.INFO)
@@ -72,40 +70,6 @@ def get_latest_version(package_name: str) -> str | None:
         logging.exception(f"Unexpected error fetching latest version for {package_name}: {e}")
     return None
 
-
-def search_package(package_name) -> dict:
-    """Search for a package on PyPI and return the description, details, and GitHub URL if available.
-
-    Args:
-        package_name (str): The name of the package to search for.
-
-    Returns:
-        dict: The package information.
-    """
-    package_info = {}
-    try:
-        response = requests.get(f"https://pypi.org/pypi/{package_name}/json", timeout=5)
-        response.raise_for_status()  # Raises stored HTTPError, if one occurred.
-        data = response.json()
-        info = data.get("info", {})
-
-        package_info["description"] = info.get("summary", "")
-        package_info["details"] = info.get("description", "")
-        logging.debug("Package : %s", package_info)
-        # Get GitHub URL if available
-        project_urls = info.get("project_urls", {})
-        package_info["github_url"] = next(
-            (url for _, url in project_urls.items() if "github.com" in url.lower()),
-            None,
-        )
-    except requests.RequestException:
-        pass
-    except Exception:
-        logging.exception("Error fetching package info: %s", traceback.format_exc())
-
-    return package_info
-
-
 def get_package_names(query_key) -> list[str]:
     """Fetch package names from PyPI search results."""
     search_url = f"https://pypi.org/search/?q={query_key}"
@@ -114,9 +78,9 @@ def get_package_names(query_key) -> list[str]:
     page_content = response.text
 
     # Extract package names from search results
-    start_token = '<a class="package-snippet"'
-    end_token = "</a>"
-    name_token = '<span class="package-snippet__name">'
+    start_token = '<a class="package-snippet"' # noqa
+    end_token = "</a>" # noqa
+    name_token = '<span class="package-snippet__name">' # noqa
 
     package_names = []
     start = 0
@@ -156,7 +120,7 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
         "downloads": downloads,
         "upload_time": info.get("upload_time", ""),
         "urls": info.get("project_urls", info.get("urls", {})),
-        # "description": info.get("description", ""),
+        "description": info.get("description", "")[:100],
     }
 
     if verbose:
@@ -229,6 +193,8 @@ def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, re
         return []
 
 
+
+
 def modify_requirements(
     package_name,
     package_version=None,
@@ -247,7 +213,7 @@ def modify_requirements(
         FileNotFoundError: If the requirements.txt file does not exist when attempting to read.
     """
     lines = get_requirements_packages(requirements, as_set=False)
-
+    logging.debug(f"modifying {package_name} {package_version} {action} {requirements}")
     # Extract the base package name and optional extras
     base_package_name, *extras = package_name.split("[")
     extras_str = "[" + ",".join(extras) if extras else ""
@@ -284,7 +250,6 @@ def modify_requirements(
             for line in lines
             if base_package_name != line.split("[")[0].split("==")[0]
         ]
-
     # Ensure each line ends with a newline character
     lines = [line + "\n" for line in lines]
     with Path(requirements).open("w") as f:
@@ -297,7 +262,6 @@ def is_group(line) -> bool:
         and "]" in line
         and '"' not in line[line.index("[") : line.index("]")]
     )
-
 
 def parse_dependencies(dependencies) -> list[str]:
     if isinstance(dependencies, str):
@@ -315,14 +279,6 @@ def split_dependencies(dependencies) -> list[str]:
         return [dep.strip() for dep in re.findall(pattern, dependencies)]
     return dependencies
 
-def format_dependency(dep) -> str:
-    formatted_dep = dep.strip().strip('"')
-    if '[' in formatted_dep and ']' in formatted_dep:
-        name, rest = formatted_dep.split('[', 1)
-        extras, version = rest.rsplit(']', 1)
-        extras = extras.replace(',', ', ').strip()
-        formatted_dep = f'{name.strip()}[{extras}]{version}'
-    return f'  "{formatted_dep}",'
 
 def process_dependencies(dependencies, output_lines=None) -> list[str]:
     if output_lines is None:
@@ -342,16 +298,6 @@ def process_dependencies(dependencies, output_lines=None) -> list[str]:
         output_lines.append(']')
 
     return output_lines
-
-def format_dependency(dep) -> str:
-    formatted_dep = dep.strip().strip('"').rstrip(',')
-    if '[' in formatted_dep and ']' in formatted_dep:
-        name, rest = formatted_dep.split('[', 1)
-        extras, *version = rest.split(']')
-        extras = extras.replace(',', ', ').strip()
-        version = ']'.join(version).strip()
-        formatted_dep = f'{name.strip()}[{extras}]{version}'
-    return formatted_dep.replace('"', '\\"')  # Escape any remaining quotes
 
 def format_dependency(dep) -> str:
     formatted_dep = dep.strip().strip('"').rstrip(',')  # Remove quotes and trailing comma
@@ -457,9 +403,9 @@ def modify_pyproject_toml(
         FileNotFoundError: If pyproject.toml is not found.
         ValueError: If Hatch environment is specified but not found in pyproject.toml.
     """
+    logging.debug(f"modifying {package_name} {package_version} {action} {hatch_env} {dependency_group}")
     pyproject_path = find_toml_file(pyproject_path)
-    pyproject_path = Path(pyproject_path)
-
+    logging.debug(f"modifying {pyproject_path}")
     if not pyproject_path.exists():
         raise FileNotFoundError("pyproject.toml not found.")
 
@@ -492,10 +438,10 @@ def modify_pyproject_toml(
     if "dependencies" in base_project:
         base_project["dependencies"] = tomlkit.array(base_project["dependencies"])
         base_project["dependencies"].multiline(True)
-
+        logging.debug(f"dependencies: {base_project['dependencies']}")
     with pyproject_path.open("w") as f:
         f.write(tomlkit.dumps(pyproject))
-
+    print(f"Successfully {action}ed {package_name} {package_version or ''} in {pyproject_path}")  
     # Update requirements.txt if it exists
     requirements_path = pyproject_path.parent / "requirements.txt"
     if requirements_path.exists():
@@ -525,52 +471,24 @@ def modify_dependencies(dependencies: List[str], package_version_str: str, actio
     return dependencies
 
 
-def get_pip_freeze() -> list[str]:
-    """Get the list of installed packages as a set.
 
-    Returns:
-        set: Set of installed packages with their versions.
-    """
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "freeze", "--local"],
-        stdout=subprocess.PIPE,
-        check=False,
-    )
-    return set(result.stdout.decode().splitlines())
-
-
-def is_package_in_requirements(
-    package_name,
-    requirements_path="requirements.txt",
-) -> bool:
-    """Check if a package is listed in the requirements.txt file.
-
-    Args:
-        package_name (str): The name of the package.
-        requirements_path (str): The path to the requirements file. Defaults to "requirements.txt".
-
-    Returns:
-        bool: True if the package is listed in requirements.txt, False otherwise.
-    """
-    if not Path(requirements_path).exists():
-        raise FileNotFoundError("requirements.txt file not found.")
-    with Path(requirements_path).open() as f:
-        return any(base_name(package_name) == base_name(line) for line in f)
-
-
-def find_toml_file(path=None):
-    """Find the pyproject.toml file in the current directory or parent directories."""
-    current_dir = Path.cwd()
-    path = Path(str(path)) or Path("pyproject.toml")
-
-    toml_file = current_dir / path if (str(current_dir) not in str(path)) else path
+def search_parents_for_file(file_name, max_levels=3, cwd: str | None = None) -> Path:
+    """Search parent directories for a file."""
+    current_dir = Path(cwd) if cwd else Path.cwd()
     it = 0
-    while not toml_file.exists():
+    target_file = Path(str(file_name))
+    while not target_file.exists():
         logger.debug(f"Checking {current_dir}")
-        if it > 3:
+        if it > max_levels:
             break
         current_dir = current_dir.parent
-        toml_file = current_dir / "pyproject.toml"
+        target_file = current_dir / file_name
+    return target_file
+
+def find_toml_file(path: str | Path = "pyproject.toml") -> Path:
+    """Find the pyproject.toml file in the current directory or parent directories."""
+    path = path or "pyproject.toml"
+    toml_file = search_parents_for_file(path, max_levels=3)
     if not toml_file.exists():
         raise FileNotFoundError("pyproject.toml file not found in current or parent directories.")
     return toml_file
@@ -585,7 +503,7 @@ def get_requirements_packages(requirements="requirements.txt", as_set=True) -> s
     Returns:
         set or list: Packages listed in the requirements file.
     """
-    requirements_path = Path(requirements)
+    requirements_path = search_parents_for_file(requirements, max_levels=3)
     if not requirements_path.exists():
         click.echo(
             f"\033[93mWarning: Requirements file '{requirements}' not found. Creating an empty one.\033[0m"
@@ -599,38 +517,6 @@ def get_requirements_packages(requirements="requirements.txt", as_set=True) -> s
         if line.strip() and not line.strip().startswith("#")
     ]
     return set(lines) if as_set else lines
-
-
-def is_package_in_pyproject(
-    package_name,
-    hatch_env=None,
-    pyproject_path="pyproject.toml",
-) -> bool:
-    """Check if a package is listed in the pyproject.toml file for a given Hatch environment.
-
-    Args:
-        package_name (str): The name of the package.
-        hatch_env (str, optional): The Hatch environment to check in. Defaults to None.
-        pyproject_path (str): The path to the pyproject.toml file. Defaults to "pyproject.toml".
-
-    Returns:
-        bool: True if the package is listed in pyproject.toml, False otherwise.
-    """
-    if not Path(pyproject_path).exists():
-        raise FileNotFoundError("pyproject.toml file not found.")
-    with Path(pyproject_path).open() as f:
-        content = f.read()
-        pyproject = tomlkit.parse(content)
-    is_hatch_env = hatch_env and "tool" in pyproject and "hatch" in pyproject["tool"]
-    if hatch_env and not is_hatch_env:
-        raise ValueError(
-            "Hatch environment specified but hatch tool not found in pyproject.toml.",
-        )
-    if is_hatch_env:
-        dependencies = pyproject["tool"]["hatch"]["envs"][hatch_env]["dependencies"]
-    else:
-        dependencies = pyproject.get("dependencies", [])
-    return any(package_name in dep for dep in dependencies)
 
 
 def main() -> None:

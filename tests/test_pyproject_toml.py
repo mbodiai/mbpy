@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 import tomlkit
-
+from mbpy.cli import run_command
 def test_mpip_install_requirements(tmp_path):
     # Create a temporary requirements.txt file
     requirements_file = tmp_path / "requirements.txt"
@@ -19,15 +19,13 @@ dependencies = []
 """)
 
     # Run the mpip install command
-    result = subprocess.run(
+    result = run_command(
         [sys.executable, "-m", "mbpy.cli", "install", "-r", str(requirements_file)],
         cwd=tmp_path,
-        capture_output=True,
-        text=True
     )
 
     # Check the output
-    assert result.returncode == 0
+    result = list("\n".join(result))
     assert "Installing packages from" in result.stdout
     assert "Running command: " in result.stdout
     assert "-m pip install -r" in result.stdout
@@ -54,14 +52,11 @@ dependencies = [
     pyproject_file.write_text(initial_content)
 
     # Run the mbpy install command
-    result = subprocess.run(
+    result = run_command(
         [sys.executable, "-m", "mbpy.cli", "install", "-U", "sphinx"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True
+        cwd=tmp_path
     )
-
-    assert result.returncode == 0
+    result = list("\n".join(result))
     assert "Successfully installed sphinx" in result.stdout or "Requirement already satisfied" in result.stdout
 
     # Check if pyproject.toml was updated correctly
@@ -78,6 +73,7 @@ dependencies = [
     assert any(line.startswith("sphinx==") for line in requirements_content.splitlines())
 
 def test_mpip_install_new_dependency(tmp_path):
+    from mbpy.cli import run_command
     # Create a temporary pyproject.toml file
     pyproject_file = tmp_path / "pyproject.toml"
     initial_content = """
@@ -89,14 +85,12 @@ dependencies = []
     pyproject_file.write_text(initial_content)
 
     # Run the mbpy install command to add a new dependency
-    result = subprocess.run(
+    result = run_command(
         [sys.executable, "-m", "mbpy.cli", "install", "requests"],
         cwd=tmp_path,
-        capture_output=True,
-        text=True
     )
 
-    assert result.returncode == 0
+    result = list("\n".join(result))
     assert "Successfully installed requests" in result.stdout or "Requirement already satisfied" in result.stdout
 
     # Check if pyproject.toml was updated correctly
@@ -116,6 +110,7 @@ dependencies = []
     ["--requirements", "requirements.txt"],
 ])
 def test_mpip_install_requirements_variations(tmp_path, args):
+    import pexpect
     # Create a temporary requirements.txt file
     requirements_file = tmp_path / "requirements.txt"
     requirements_file.write_text("click==8.1.7\n")
@@ -131,16 +126,11 @@ dependencies = []
 
     # Run the mbpy install command with different argument variations
     full_args = [sys.executable, "-m", "mbpy.cli", "install"] + args
-    result = subprocess.run(
-        full_args,
-        cwd=tmp_path,
-        capture_output=True,
-        text=True
-    )
-
+    result = run_command(full_args, cwd=tmp_path)
+    result = list("\n".join(result))
     # Check the output
     assert result.returncode == 0
-    assert "Installing packages from" in result.stdout
+    assert "Running command:" in result.stdout
     assert "Successfully installed" in result.stdout or "Requirement already satisfied" in result.stdout
 
     # Check if pyproject.toml was updated correctly

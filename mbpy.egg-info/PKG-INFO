@@ -1,0 +1,151 @@
+Metadata-Version: 2.1
+Name: mbpy
+Version: 1.11.2
+Summary: Install and manage pyproject.toml with pip commands.
+Author-email: Sebastian Peralta <sebastian@mbodi.ai>
+Project-URL: Documentation, https://github.com/mbodiai/mpip#readme
+Project-URL: Issues, https://github.com/mbodiai/mpip/issues
+Project-URL: Source, https://github.com/mbodiai/mpip
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiostream==0.6.2
+Requires-Dist: anyio==4.6.0
+Requires-Dist: beautifulsoup4==4.12.3
+Requires-Dist: certifi==2024.8.30
+Requires-Dist: charset-normalizer==3.3.2
+Requires-Dist: click==8.1.7
+Requires-Dist: configargparse==1.7
+Requires-Dist: funkify==0.4.5
+Requires-Dist: h11==0.14.0
+Requires-Dist: html2text==2024.2.26
+Requires-Dist: httpcore==1.0.5
+Requires-Dist: httpx==0.27.2
+Requires-Dist: idna==3.10
+Requires-Dist: loguru==0.7.2
+Requires-Dist: markdown-it-py==3.0.0
+Requires-Dist: markdownify==0.13.1
+Requires-Dist: mdurl==0.1.2
+Requires-Dist: mrender==1.0.1
+Requires-Dist: notion-client==2.2.1
+Requires-Dist: packaging==24.1
+Requires-Dist: pexpect==4.9.0
+Requires-Dist: ptyprocess==0.7.0
+Requires-Dist: pygments==2.18.0
+Requires-Dist: python-dotenv==1.0.1
+Requires-Dist: requests==2.32.3
+Requires-Dist: rich==13.7.1
+Requires-Dist: shellingham==1.5.4
+Requires-Dist: six==1.16.0
+Requires-Dist: sniffio==1.3.1
+Requires-Dist: soupsieve==2.6
+Requires-Dist: toml==0.10.2
+Requires-Dist: tomlkit==0.13.0
+Requires-Dist: twine>=5.1.1
+Requires-Dist: typer==0.12.5
+Requires-Dist: typing-extensions==4.12.2
+Requires-Dist: urllib3==2.2.3
+Provides-Extra: sphinx
+Requires-Dist: sphinx; extra == "sphinx"
+Provides-Extra: extra-dependencies
+Requires-Dist: mypy>=1.0.0; extra == "extra-dependencies"
+
+# mbpy - Manage Python Projects with Ease
+
+[![PyPI - Version](https://img.shields.io/pypi/v/mbpy.svg)](https://pypi.org/project/mbpy)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mbpy.svg)](https://pypi.org/project/mbpy)
+
+-----
+
+`mbpy` is a powerful tool for creating, managing, and documenting Python projects. It simplifies the process of setting up project structures, managing dependencies, and generating documentation.
+
+## Features
+
+- Create new Python projects with customizable structures
+- Manage project dependencies using pyproject.toml
+- Set up documentation using Sphinx or MkDocs
+- Generate GitHub Actions workflows for CI/CD
+- Simplify package installation and management with pip-like commands
+
+## Table of Contents
+
+- [mbpy - Manage Python Projects with Ease](#mbpy---manage-python-projects-with-ease)
+  - [Features](#features)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Documentation](#documentation)
+    - [Sphinx](#sphinx)
+    - [MkDocs](#mkdocs)
+  - [License](#license)
+
+## Installation
+
+```console
+pip install mbpy
+```
+
+## Usage
+
+To create a new project:
+
+```console
+mbpip create <project_name> --author "<Your Name>" --description "<Project Description>"
+```
+
+To manage dependencies:
+
+```console
+mpip install <package_name>
+mpip uninstall <package_name>
+mpip show
+```
+
+For more detailed usage instructions, run:
+
+```console
+mbpy --help
+```
+
+or
+
+```console
+mpip --help
+```
+
+## Documentation
+
+To view the full documentation, you have two options:
+
+### Sphinx
+
+1. Build the docs:
+   ```
+   hatch run docs
+   ```
+2. Open `docs/_build/html/index.html` in your web browser.
+
+### MkDocs
+
+1. Install MkDocs if you haven't already:
+   ```
+   pip install mkdocs
+   ```
+2. Build and serve the docs:
+   ```
+   mkdocs serve
+   ```
+3. Open your web browser and go to `http://127.0.0.1:8000/`
+
+## License
+
+`mbpy` is distributed under the terms of the [MIT License](LICENSE).

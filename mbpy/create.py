@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from typing import Literal
 
@@ -26,20 +25,28 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-latest]
+        python-version: ["3.12", "3.10"]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
-          python-version: 3.11
+          python-version: ${{ matrix.python-version }}
 
-      - name: Run install script
-        run: |
-            python -m pip install --upgrade pip
-            python -m pip install hatch
+
+      - name: python
+
+        steps:
+          - uses: actions/checkout@v4
+
+          - name: Install uv
+            uses: astral-sh/setup-uv@v2
+
+          - name: Set up Python ${{ matrix.python-version }}
+            run: uv python install ${{ matrix.python-version }}
 
       - name: Cache packages
         uses: actions/cache@v3
@@ -64,10 +71,13 @@ jobs:
       - name: Check disk usage after cleanup
         run: df -h
 
+      - name: Install the project
+        run: uv sync --all-extras --dev
+
       - name: Run tests
-        run: |
-          hatch run pip install '.'
-          hatch run test"""
+        # For example, using `pytest`
+        run: uv run pytest tests"""
+
 
 WORKFLOW_MAC = """name: "MacOS | Python 3.12|3.11|3.10"
 
@@ -99,10 +109,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run install script
-        run: |
-            python -m pip install --upgrade pip
-            python -m pip install hatch
+      - name: python
+
+        steps:
+          - uses: actions/checkout@v4
+
+          - name: Install uv
+            uses: astral-sh/setup-uv@v2
+
+          - name: Set up Python ${{ matrix.python-version }}
+            run: uv python install ${{ matrix.python-version }}
+
 
       - name: Cache packages
         uses: actions/cache@v3
@@ -113,23 +130,26 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('install.bash') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
+     
+      - name: Install the project
+        run: uv sync --all-extras --dev
+
       - name: Run tests
-        run: |
-          hatch run pip install '.'
-          hatch run test"""
+        # For example, using `pytest`
+        run: uv run pytest tests"""
 
 
 import ast
 
 
 def create_project(
-    project_name,
-    author,
-    description="",
-    deps: list[str] | Literal["local"] | None = None,
+    project_name: str,
+    author: str,
+    description: str = "",
+    dependencies: list[str] | Literal["local"] | None = None,
     python_version=DEFAULT_PYTHON,
     add_cli=True,
-    doc_type='sphinx',
+    doc_type="sphinx",
     docstrings: dict = None,
     project_root: Path = None,
 ) -> Path:
@@ -139,13 +159,13 @@ def create_project(
     project_path = project_root
 
     # Create project structure
-    src_dir = project_path / project_name.replace("-", "_")
+    src_dir = project_path / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "__init__.py").write_text("")
-    
-    # Always create or update __about__.py
-    about_file = src_dir / "__about__.py"
-    about_file.write_text('__version__ = "0.1.0"')
+    (src_dir / "__init__.py").write_text("""from rich.pretty import install
+from rich.traceback import install as install_traceback
+
+install(max_length=10, max_string=80)
+install_traceback(show_locals=True)""")
 
     # Create pyproject.toml
     pyproject_path = project_path / "pyproject.toml"
@@ -153,20 +173,22 @@ def create_project(
     if pyproject_path.exists():
         with pyproject_path.open() as f:
             existing_content = f.read()
-    
+
     pyproject_content = create_pyproject_toml(
         project_name,
         author,
         description,
-        deps if deps is not None else [],
+        dependencies if dependencies is not None else [],
         python_version=python_version,
         add_cli=add_cli,
-        existing_content=existing_content
+        existing_content=existing_content,
     )
     pyproject_path.write_text(pyproject_content)
 
     # Setup documentation
-    setup_documentation(project_path, project_name, author, description, doc_type, docstrings or {})
+    setup_documentation(
+        project_path, project_name, author, description, doc_type, docstrings or {}
+    )
 
     if add_cli:
         cli_content = f"""
@@ -184,20 +206,36 @@ if __name__ == "__main__":
     return project_path  # Return the project path
 
 
-
-def setup_documentation(project_root, project_name, author, description, doc_type='sphinx', docstrings=None) -> None:
+def setup_documentation(
+    project_root, project_name, author, description, doc_type="sphinx", docstrings=None
+) -> None:
     project_root = Path(project_root)  # Convert to Path object if it's a string
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
 
-    if doc_type == 'sphinx':
-        setup_sphinx_docs(docs_dir, project_name, author, description, docstrings or {})
-    elif doc_type == 'mkdocs':
-        setup_mkdocs(project_root, project_name, author, description, docstrings or {})
+    if doc_type == "sphinx":
+        setup_sphinx_docs(
+            docs_dir,
+            project_name,
+            author,
+            description,
+            docstrings or extract_docstrings(project_root),
+        )
+    elif doc_type == "mkdocs":
+        setup_mkdocs(
+            project_root,
+            project_name,
+            author,
+            description,
+            docstrings or extract_docstrings(project_root),
+        )
     else:
         raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
-def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings=None) -> None:
+
+def setup_sphinx_docs(
+    docs_dir, project_name, author, description, docstrings=None
+) -> None:
     # Create conf.py
     conf_content = f"""
 # Configuration file for the Sphinx documentation builder.
@@ -242,7 +280,7 @@ Indices and tables
     (docs_dir / "index.rst").write_text(index_content)
 
     # Create api.rst
-    api_content = """
+    api_content = f"""
 API Reference
 =============
 
@@ -272,24 +310,34 @@ help:
 """
     (docs_dir / "Makefile").write_text(makefile_content)
 
+
 def extract_docstrings(project_path) -> dict[str, str]:
     docstrings = {}
     project_path = Path(project_path)  # Convert to Path object if it's a string
-    for py_file in project_path.glob('**/*.py'):
-        module_name = '.'.join(py_file.relative_to(project_path).with_suffix('').parts)
-        try:
-            with py_file.open() as file:
-                tree = ast.parse(file.read())
+    for py_file in project_path.glob("**/*.py"):
+        # Look for __init__.py files
+        if py_file.name == "__init__.py":
+            break
+    try:
+        with py_file.open() as file:
+            tree = ast.parse(file.read())
+        for subnode in py_file.parent.glob("**/*.py"):
+            tree = ast.parse(file.read())
             for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef | ast.ClassDef):
+                if isinstance(
+                    node, ast.FunctionDef | ast.ClassDef, ast.Module, ast.Param
+                ):
                     docstring = ast.get_docstring(node)
                     if docstring:
-                        docstrings[f"{module_name}.{node.name}"] = docstring.strip()
-        except Exception:
-            pass
+                        docstrings[node.__qualname__] = docstring.strip()
+    except Exception:
+        pass
     return docstrings
 
-def setup_mkdocs(project_root: Path, project_name: str, author, description, docstrings) -> None:
+
+def setup_mkdocs(
+    project_root: Path, project_name: str, author, description, docstrings
+) -> None:
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True)
 
@@ -325,58 +373,18 @@ plugins:
     (project_root / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
-    index_content = f"""
-# Welcome to {project_name}
+    index_content = (
+        Path("README.md").read_text() if (project_root / "README.md").exists() else f""
+    )
 
-{description}
-
-## Installation
-
-```bash
-pip install {project_name}
-```
-
-## Usage
-
-Here's a simple example:
-
-```python
-def test_function():
-    \"\"\"This is a test docstring.\"\"\"
-    pass
-
-# Use the function
-test_function()
-```
-
-## API Documentation
-
-For detailed API documentation, please see the [API](api.md) page.
-"""
     (docs_dir / "index.md").write_text(index_content)
 
     # Create api.md with extracted docstrings
-    api_content = f"""
-# API Reference
-
-This page contains the API reference for {project_name}.
-
-## test_function
-
-```python
-def test_function():
-    \"\"\"This is a test docstring.\"\"\"
-    pass
-```
-
-This is a test docstring.
-
----
-
-"""
+    api_content = f"# API Reference\n\n" + description + "\n\n"
+    docstrings = docstrings or extract_docstrings(project_root)
     if docstrings:
         for full_name, docstring in docstrings.items():
-            module_name, obj_name = full_name.rsplit('.', 1)
+            module_name, obj_name = full_name.rsplit(".", 1)
             api_content += f"""
 ## {obj_name}
 
@@ -392,6 +400,16 @@ from {module_name} import {obj_name}
 
     (docs_dir / "api.md").write_text(api_content)
 
+
+managers = {
+    "uv": {
+        "requires": ["setuptools>=68", "setuptools_scm[toml]>=8"],
+        "build-backend": "setuptools.build_meta",
+    },
+    "hatch": {"requires": ["hatchling"], "build-backend": "hatchling.build"},
+}
+
+
 def create_pyproject_toml(
     project_name,
     author,
@@ -399,19 +417,19 @@ def create_pyproject_toml(
     deps=None,
     python_version="3.10",
     add_cli=True,
-    existing_content=None
+    existing_content=None,
+    manager="uv",
 ) -> str:
     """Create a pyproject.toml file for a Hatch project."""
     try:
-        pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
+        pyproject = (
+            tomlkit.parse(existing_content) if existing_content else tomlkit.document()
+        )
     except tomlkit.exceptions.ParseError:
         pyproject = tomlkit.document()
 
     # Build system
-    pyproject.setdefault("build-system", {
-        "requires": ["hatchling"],
-        "build-backend": "hatchling.build"
-    })
+    pyproject.setdefault("build-system", tomlkit.table()).update(managers[manager])
 
     # Project metadata
     project = pyproject.setdefault("project", tomlkit.table())
@@ -420,39 +438,39 @@ def create_pyproject_toml(
     project["description"] = desc
     project["readme"] = "README.md"
     project["requires-python"] = f">={python_version}"
-    project["license"] = "MIT"
     project["authors"] = [{"name": author}]
-    project["urls"] = [{"source": f"https://github.com/{author}/{project_name}"}]
 
     # Classifiers
     classifiers = tomlkit.array()
     classifiers.multiline(True)  # Ensure each classifier is on a new line
-    classifiers.extend([
-        "Development Status :: 3 - Alpha",
-        "Intended Audience :: Developers",
-        f"Programming Language :: Python :: {python_version}",
-        "Programming Language :: Python :: 3 :: Only",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-    ])
+    classifiers.extend(
+        [
+            "Development Status :: 3 - Alpha",
+            "Intended Audience :: Developers",
+            f"Programming Language :: Python :: {python_version}",
+            "Programming Language :: Python :: 3 :: Only",
+            "License :: OSI Approved :: MIT License",
+            "Operating System :: OS Independent",
+        ]
+    )
     project["classifiers"] = classifiers
 
     # Dependencies
     existing_deps = project.get("dependencies", tomlkit.array())
     new_deps = tomlkit.array()
     new_deps.multiline(True)  # Ensure each dependency is on a new line
-    
+
     # Add existing dependencies
     for dep in existing_deps:
         new_deps.append(dep)
-    
+
     # Add new dependencies
     if deps:
         deps_to_add = deps if isinstance(deps, list) else [deps]
         for dep in deps_to_add:
             if dep not in new_deps:
                 new_deps.append(dep)
-    
+
     project["dependencies"] = new_deps
 
     if add_cli:
@@ -461,30 +479,64 @@ def create_pyproject_toml(
 
     # Tool configurations
     tool = pyproject.setdefault("tool", tomlkit.table())
-    
-    # Hatch configuration
-    hatch = tool.setdefault("hatch", tomlkit.table())
-    hatch["version"] = {"path": f"{project_name}/__about__.py"}
-    hatch["envs"] = {
-        "default": {
-            "dependencies": [
-                "pytest",
-                "pytest-cov"
-            ]
-        }
-    }
+    if manager == "hatch":
+        # Hatch configuration
+        hatch = tool.setdefault("hatch", tomlkit.table())
+        hatch["envs"] = {"default": {"dependencies": ["pytest", "pytest-cov"]}}
+    elif manager == "uv":
+        scm = tool.setdefault("setuptools_scm", tomlkit.table())
+        scm["write_to"] = f"{project_name}/__version__.py"
+        # Uvicorn configuration
 
-    # Ruff configuration
     ruff = tool.setdefault("ruff", tomlkit.table())
     ruff["line-length"] = 120
     ruff["select"] = [
-        "A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN",
-        "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"
+        "A",
+        "COM812",
+        "C4",
+        "D",
+        "E",
+        "F",
+        "UP",
+        "B",
+        "SIM",
+        "N",
+        "ANN",
+        "ASYNC",
+        "S",
+        "T20",
+        "RET",
+        "SIM",
+        "ARG",
+        "PTH",
+        "ERA",
+        "PD",
+        "I",
+        "PLW",
     ]
     ruff["ignore"] = [
-        "D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102",
-        "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202",
-        "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"
+        "D105",
+        "PGH004",
+        "D100",
+        "D101",
+        "D104",
+        "D106",
+        "ANN101",
+        "ANN102",
+        "ANN003",
+        "ANN204",
+        "UP009",
+        "B026",
+        "ANN001",
+        "ANN401",
+        "ANN202",
+        "D107",
+        "D102",
+        "D103",
+        "E731",
+        "UP006",
+        "UP035",
+        "ANN002",
     ]
     ruff["fixable"] = ["ALL"]
     ruff["unfixable"] = []
@@ -500,28 +552,19 @@ def create_pyproject_toml(
     ruff_lint_pydocstyle = ruff_lint.setdefault("pydocstyle", tomlkit.table())
     ruff_lint_pydocstyle["convention"] = "google"
 
-    ruff_lint_per_file_ignores = ruff_lint.setdefault("per-file-ignores", tomlkit.table())
+    ruff_lint_per_file_ignores = ruff_lint.setdefault(
+        "per-file-ignores", tomlkit.table()
+    )
     ruff_lint_per_file_ignores["**/{tests,docs}/*"] = ["ALL"]
     ruff_lint_per_file_ignores["**__init__.py"] = ["F401"]
-
-    tool["codeflash"] = {
-        "module-root": project_name,
-        "tests-root": "tests",
-        "test-framework": "pytest",
-        "ignore-paths": [],
-        "formatter-cmds": [
-            "hatch run ruff check --exit-zero --fix $file",
-            "hatch run ruff format $file"
-        ]
-    }
 
     tool["pytest"] = {
         "ini_options": {
             "addopts": "-m 'not network'",
-            "markers": "network: marks tests that make network calls (deselect with '-m \"not network\"')"
+            "markers": "network: marks tests that make network calls (deselect with '-m \"not network\"')",
         }
     }
-    
+
     # Add additional Ruff configurations from the current pyproject.toml
     current_ruff = pyproject.get("tool", {}).get("ruff", {})
     for key, value in current_ruff.items():
@@ -537,9 +580,8 @@ def create_pyproject_toml(
             "testpaths": ["tests"],
             "markers": [
                 "network: marks tests that require network access (deselect with '-m \"not network\"')",
-            ]
+            ],
         }
     }
 
     return tomlkit.dumps(pyproject)
-

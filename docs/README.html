@@ -1,0 +1,86 @@
+<section id="mbpy-manage-python-projects-with-ease">
+<h1>mbpy - Manage Python Projects with Ease</h1>
+<p><a class="reference external image-reference" href="https://pypi.org/project/mbpy"><img alt="PyPI - Version" src="https://img.shields.io/pypi/v/mbpy.svg" /></a>
+<a class="reference external image-reference" href="https://pypi.org/project/mbpy"><img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/mbpy.svg" /></a></p>
+<hr class="docutils" />
+<p><span class="docutils literal">mbpy</span> is a powerful tool for creating, managing, and documenting Python projects. It simplifies the process of setting up project structures, managing dependencies, and generating documentation.</p>
+<section id="features">
+<h2>Features</h2>
+<ul class="simple">
+<li><p>Create new Python projects with customizable structures</p></li>
+<li><p>Manage project dependencies using pyproject.toml</p></li>
+<li><p>Set up documentation using Sphinx or MkDocs</p></li>
+<li><p>Generate GitHub Actions workflows for CI/CD</p></li>
+<li><p>Simplify package installation and management with pip-like commands</p></li>
+</ul>
+</section>
+<section id="table-of-contents">
+<h2>Table of Contents</h2>
+<ul class="simple">
+<li><p><a class="reference external" href="#mbpy---manage-python-projects-with-ease">mbpy - Manage Python Projects with Ease</a></p>
+<ul>
+<li><p><a class="reference external" href="#features">Features</a></p></li>
+<li><p><a class="reference external" href="#table-of-contents">Table of Contents</a></p></li>
+<li><p><a class="reference external" href="#installation">Installation</a></p></li>
+<li><p><a class="reference external" href="#usage">Usage</a></p></li>
+<li><p><a class="reference external" href="#documentation">Documentation</a></p>
+<ul>
+<li><p><a class="reference external" href="#sphinx">Sphinx</a></p></li>
+<li><p><a class="reference external" href="#mkdocs">MkDocs</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#license">License</a></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="installation">
+<h2>Installation</h2>
+<pre class="code console literal-block"><code><span class="go">pip install mbpy</span></code></pre>
+</section>
+<section id="usage">
+<h2>Usage</h2>
+<p>To create a new project:</p>
+<pre class="code console literal-block"><code><span class="go">mbpip create &lt;project_name&gt; --author &quot;&lt;Your Name&gt;&quot; --description &quot;&lt;Project Description&gt;&quot;</span></code></pre>
+<p>To manage dependencies:</p>
+<pre class="code console literal-block"><code><span class="go">mpip install &lt;package_name&gt;
+mpip uninstall &lt;package_name&gt;
+mpip show</span></code></pre>
+<p>For more detailed usage instructions, run:</p>
+<pre class="code console literal-block"><code><span class="go">mbpy --help</span></code></pre>
+<p>or</p>
+<pre class="code console literal-block"><code><span class="go">mpip --help</span></code></pre>
+</section>
+<section id="documentation">
+<h2>Documentation</h2>
+<p>To view the full documentation, you have two options:</p>
+<section id="sphinx">
+<h3>Sphinx</h3>
+<ol class="arabic">
+<li><p>Build the docs:</p>
+<pre class="code literal-block"><code>hatch run docs
+</code></pre>
+</li>
+<li><p>Open <span class="docutils literal">docs/_build/html/index.html</span> in your web browser.</p></li>
+</ol>
+</section>
+<section id="mkdocs">
+<h3>MkDocs</h3>
+<ol class="arabic">
+<li><p>Install MkDocs if you haven't already:</p>
+<pre class="code literal-block"><code>pip install mkdocs
+</code></pre>
+</li>
+<li><p>Build and serve the docs:</p>
+<pre class="code literal-block"><code>mkdocs serve
+</code></pre>
+</li>
+<li><p>Open your web browser and go to <span class="docutils literal"><span class="pre">http://127.0.0.1:8000/</span></span></p></li>
+</ol>
+</section>
+</section>
+<section id="license">
+<h2>License</h2>
+<p><span class="docutils literal">mbpy</span> is distributed under the terms of the <a class="reference external" href="LICENSE">MIT License</a>.</p>
+</section>
+</section>

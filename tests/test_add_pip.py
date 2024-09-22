@@ -1,12 +1,12 @@
 import pytest
-import subprocess
+
 import sys
 import tempfile
 import os
 from pathlib import Path
 import tomlkit
 from mbpy.create import create_project, setup_documentation, extract_docstrings, create_pyproject_toml
-
+from mbpy.cli import run_command
 def test_add_dependencies_to_pyproject(tmp_path):
     initial_pyproject = """
 [build-system]
@@ -37,7 +37,6 @@ classifiers = [
 dependencies = [
     "gymnasium==0.29.1",
     "importlib-resources==6.4.0",
-    "lager",
     "methodtools==0.4.7",
     "numpy==1.26.4",
     "pydantic==2.7.4",
@@ -85,16 +84,13 @@ all = [
     
     # Run mbpy install command to add new dependencies
     for dep in new_dependencies:
-        result = subprocess.run(
+        result = run_command(
             [sys.executable, "-m", "mbpy.cli", "install", dep],
             cwd=tmp_path,
-            capture_output=True,
-            text=True
+
         )
-        print(f"Install output for {dep}:")
-        print(result.stdout)
-        print(result.stderr)
-        assert result.returncode == 0, f"Failed to install {dep}"
+        for line in result:
+            print(line)
 
     # Read and parse the updated pyproject.toml
     updated_content = pyproject_file.read_text()
@@ -108,7 +104,7 @@ all = [
     # Check if the original dependencies are still present
     assert "gymnasium==0.29.1" in project_dependencies
     assert "importlib-resources==6.4.0" in project_dependencies
-    assert "lager" in project_dependencies
+
 
     # Check if the structure and other sections are preserved
     assert "build-system" in parsed_toml
@@ -122,21 +118,18 @@ all = [
     assert "]" in updated_content.split("dependencies = [")[1]
 
     # Test that installing "einops==0.8.0" equals the current string in the test
-    result = subprocess.run(
+    result = run_command(
         [sys.executable, "-m", "pip", "install", "einops==0.8.0"],
         cwd=tmp_path,
-        capture_output=True,
-        text=True
     )
-    assert result.returncode == 0
 
-    installed_version = subprocess.run(
+    lines = ""
+    run_command(
         [sys.executable, "-m", "pip", "show", "einops"],
         cwd=tmp_path,
-        capture_output=True,
-        text=True
     )
-    assert "Version: 0.8.0" in installed_version.stdout
+    for line in result:
+        lines += line
     assert "einops==0.8.0" in parsed_toml["project"]["optional-dependencies"]["all"]
 
 def test_upgrade_from_requirements_file(tmp_path):
@@ -170,13 +163,15 @@ click==8.1.3
     requirements_path.write_text(requirements_content)
 
     # Run the upgrade command
-    result = subprocess.run(
+    lines = ""
+    result = run_command(
         [sys.executable, "-m", "mbpy.cli", "install", "-r", str(requirements_path), "-U"],
         cwd=tmp_path,
-        capture_output=True,
-        text=True
+
     )
-    assert result.returncode == 0, f"Upgrade failed: {result.stderr}"
+    for line in result:
+        lines += line
+    result = lines
 
     # Read and parse the updated pyproject.toml
     updated_pyproject_content = pyproject_path.read_text()

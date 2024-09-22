@@ -1,22 +1,32 @@
+import atexit
+import inspect
+import logging
+import logging.handlers
 import subprocess
 import sys
+import tempfile
 import traceback
+from asyncio.subprocess import PIPE
+from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+from threading import Thread
 from time import time
-from typing import Iterator
+from typing import Generic, Iterator, Literal, TypeVar, Union
 
 import click
-import pexpect
-import pexpect.popen_spawn
 import tomlkit
 from mrender.md import Markdown
-from rich import print
+from rich.logging import RichHandler
 from rich.traceback import Traceback
 
+from mbpy.commands import run_command
 from mbpy.create import create_project
 from mbpy.mpip import (
     ADDITONAL_KEYS,
     INFO_KEYS,
+    base_name,
     find_and_sort,
     find_toml_file,
     get_package_info,
@@ -26,27 +36,7 @@ from mbpy.mpip import (
 )
 from mbpy.publish import append_notion_table_row
 
-
-def run_command(command: str|list[str], timout=10) -> Iterator[str]:
-    """Run a command and yield the output line by line."""
-    lines = []
-    start = time()
-
-    exec_, *args = command if isinstance(command, list) else command.split()
-    print(f"Running command: {exec_} {' '.join(args)}")
-    try:
-        child = pexpect.spawn(exec_ , args=args)
-        while time() - start < timout and not child.eof():
-            
-                line: str = child.readline().decode("utf-8").replace("\\r", "").replace("\\n", "\n").replace("\\t", "\t")
-                lines.append(line)
-                yield line
-    except Exception as e:
-        yield traceback.format_exc() + str(e)
-
-
-        
-
+logging.handlers = [RichHandler()]
 
 @click.group(invoke_without_command=True)
 @click.pass_context
@@ -56,7 +46,15 @@ def run_command(command: str|list[str], timout=10) -> Iterator[str]:
     default=None,
     help="Specify the Hatch environment to use",
 )
-def cli(ctx, hatch_env) -> None:
+@click.option(
+    "-d",
+    "--debug",
+    is_flag=True,
+    help="Enable debug logging",   
+)
+def cli(ctx, hatch_env, debug) -> None:
+    if sys.flags.debug or debug:
+        logging.basicConfig(level=logging.DEBUG, force=True)
     if ctx.invoked_subcommand is None:
         click.echo("No subcommand specified. Showing dependencies:")
         show_command(hatch_env)
@@ -84,6 +82,7 @@ def cli(ctx, hatch_env) -> None:
     default="dependencies",
     help="Specify the dependency group to use",
 )
+@click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
 def install_command(
     packages,
     requirements,
@@ -91,6 +90,7 @@ def install_command(
     editable,
     hatch_env,
     dependency_group,
+    debug=False,
 ) -> None:
     """Install packages and update requirements.txt and pyproject.toml accordingly.
 
@@ -102,6 +102,9 @@ def install_command(
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
         dependency_group (str, optional): The dependency group to use. Defaults to "dependencies".
     """
+    if sys.flags.debug or debug:
+        logging.basicConfig(level=logging.DEBUG, force=True)
+        logging.info("Debug logging enabled.")
     try:
         installed_packages = []
         if requirements:
@@ -113,7 +116,7 @@ def install_command(
                 click.echo(line)
             # Get installed packages from requirements file
             with Path(requirements_file).open() as req_file:
-                installed_packages = [line.strip() for line in req_file if line.strip() and not line.startswith('#')]
+                installed_packages = [line.strip() for line in req_file if line.strip() and not line.startswith("#")]
         
         if packages:
             for package in packages:
@@ -123,13 +126,14 @@ def install_command(
                 if upgrade:
                     package_install_cmd.append("-U")
                 package_install_cmd.append(package)
-                
+
                 for line in run_command(package_install_cmd):
-                    click.echo(line)
+                    click.echo(line, nl=False)
                 installed_packages.append(package)
-        
+
         for package in installed_packages:
             package_name, package_version = name_and_version(package, upgrade=upgrade)
+            logging.debug(f"installing {package_name} {package_version}")
             modify_pyproject_toml(
                 package_name,
                 package_version,
@@ -137,17 +141,19 @@ def install_command(
                 hatch_env=hatch_env,
                 dependency_group=dependency_group,
             )
-            modify_requirements(package_name, package_version, action="install", requirements="requirements.txt")
+            logging.info(f"Successfully installed {package_name} to {find_toml_file()} {'for ' + hatch_env if hatch_env else ''}")
+
 
         if not requirements and not packages:
             click.echo("No packages specified for installation.")
 
-    except subprocess.CalledProcessError as e:
+    except FileNotFoundError as e:
         click.echo("Error: Installation failed.", err=True)
         click.echo(f"Command: {e.cmd}", err=True)
         click.echo(f"Return code: {e.returncode}", err=True)
         click.echo(f"Output: {e.output}", err=True)
-        sys.exit(e.returncode)
+    finally:
+        logging.info("")
 
 
 @cli.command("uninstall")
@@ -159,19 +165,22 @@ def install_command(
     default="dependencies",
     help="Specify the dependency group to use",
 )
-def uninstall_command(packages, hatch_env, dependency_group) -> None:
+@click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
+def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
     """Uninstall packages and update requirements.txt and pyproject.toml accordingly.
 
     Args:
         packages (tuple): Packages to uninstall.
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
         dependency_group (str, optional): The dependency group to use. Defaults to "dependencies".
+        debug (bool, optional): Enable debug logging. Defaults to False.
     """
+    if sys.flags.debug or debug:
+        logging.basicConfig(level=logging.DEBUG, force=True)
     for package in packages:
-        package_name = package.split("==")[0].split("[")[0]  # Handle extras
+        package_name = base_name(package)
 
         try:
-   
             modify_requirements(package_name, action="uninstall")
             modify_pyproject_toml(
                 package_name,
@@ -180,7 +189,12 @@ def uninstall_command(packages, hatch_env, dependency_group) -> None:
                 dependency_group=dependency_group,
                 pyproject_path=find_toml_file(),
             )
-            click.echo(f"Successfully uninstalled {package_name}")
+            print_success = None
+            print(f"Uninstalling {package_name}...")
+            for line in run_command([sys.executable, "-m", "pip", "uninstall", "-y", package_name]):
+                click.echo(line, nl=False)
+                print_success = partial(click.echo, f"Successfully uninstalled {package_name}")
+            print_success() if print_success else None
         except subprocess.CalledProcessError as e:
             click.echo(f"Error: Failed to uninstall {package_name}.", err=True)
             click.echo(f"Reason: {e}", err=True)
@@ -191,7 +205,8 @@ def uninstall_command(packages, hatch_env, dependency_group) -> None:
                 err=True,
             )
             print(Traceback.from_exception(e.__class__, e, e.__traceback__))
-            sys.exit(1)
+        finally:
+            print("", flush=True)
 
 
 @cli.command("show")
@@ -235,10 +250,11 @@ def show_command(package, hatch_env) -> None:
         click.echo("Error: pyproject.toml file not found.")
     except Exception as e:
         click.echo(f"An error occurred: {str(e)}")
+    finally:
+        print("", flush=True)
 
 
-
-SEARCH_DOC =  """Find a package on PyPI and optionally sort the results.\n
+SEARCH_DOC = """Find a package on PyPI and optionally sort the results.\n
 
     Args:\n
         package (str): The package to search for.
@@ -248,21 +264,22 @@ SEARCH_DOC =  """Find a package on PyPI and optionally sort the results.\n
         release (str, optional): Release type to use. Defaults to None.
         full list of options:
     """  # noqa: D205
-@cli.command("search", help= SEARCH_DOC+ "\n\nFull list of include options:\n\n" + str(INFO_KEYS + ADDITONAL_KEYS))
+
+
+@cli.command("search", help=SEARCH_DOC + "\n\nFull list of include options:\n\n" + str(INFO_KEYS + ADDITONAL_KEYS))
 @click.argument("package")
 @click.option("--limit", default=10, help="Limit the number of results")
 @click.option("--sort", default="downloads", help="Sort key to use")
 @click.option("--include", default=None, help="Include pre-release versions")
 @click.option("--release", default=None, help="Release type to use")
 def search_command(package, limit, sort, include, release) -> None:
-    __doc__ =SEARCH_DOC
+
     try:
         packages = find_and_sort(package, limit, sort, include=include, release=release)
         md = Markdown(packages)
         md.stream()
     except Exception:
         traceback.print_exc()
-    
 
 
 @cli.command("info")
@@ -281,7 +298,8 @@ def info_command(package, verbose) -> None:
         md.stream()
     except Exception:
         traceback.print_exc()
-        sys.exit(1)
+    finally:
+        print("", flush=True)
 
 
 @cli.command("create")
@@ -291,19 +309,20 @@ def info_command(package, verbose) -> None:
 @click.option("--deps", default=None, help="Dependencies separated by commas")
 @click.option("--python", default="3.12", help="Python version to use")
 @click.option("--no-cli", is_flag=True, help="Do not add a CLI")
-@click.option("--doc-type", type=click.Choice(['sphinx', 'mkdocs']), default='sphinx', 
-              help="Documentation type to use")
-def create_command(project_name, author, description, deps, python="3.12", no_cli=False, doc_type='sphinx') -> None:
+@click.option("--doc-type", type=click.Choice(["sphinx", "mkdocs"]), default="sphinx", help="Documentation type to use")
+def create_command(project_name, author, description, deps, python="3.12", no_cli=False, doc_type="sphinx") -> None:
     """Create a new Python project. Optionally add dependencies and a CLI."""
-    python_version= python
+    python_version = python
     try:
         if deps:
             deps = deps.split(",")
-        create_project(project_name, author, description, deps, python_version, not no_cli, doc_type)
+        create_project(project_name=project_name, author=author, description=description, python_version=python_version,
+                          dependencies=deps, add_cli=not no_cli, doc_type=doc_type)
         click.echo(f"Project {project_name} created successfully with {doc_type} documentation.")
     except Exception:
         traceback.print_exc()
-        sys.exit(1)
+    finally:
+        print("", flush=True)
 
 
 @cli.command("publish")
