@@ -5,6 +5,5 @@ toml==0.10.2
 tomlkit==0.13.2
 markdown2==2.5.0
 rich==13.8.1
-mdstream==0.3.4
 pexpect==4.9.0
 mrender
