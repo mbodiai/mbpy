@@ -33,6 +33,7 @@
     "loguru==0.7.2",
     "markdown-it-py==3.0.0",
     "markdownify==0.13.1",
+    "mbodi",
     "mdurl==0.1.2",
     "mrender==1.0.1",
     "notion-client==2.2.1",
@@ -47,6 +48,7 @@
     "six==1.16.0",
     "sniffio==1.3.1",
     "soupsieve==2.6",
+    "sphinx>=8.0.2",
     "toml==0.10.2",
     "tomlkit==0.13.0",
     "twine>=5.1.1",
@@ -65,8 +67,8 @@
   mbpip = "mbpy.cli:cli"
   mpip  = "mbpy.cli:cli"
 
-[tool.setuptools_scm]
-  version_scheme = "post-release"
+[tool.setuptools.dynamic]
+  version = {attr = "mbpy.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["mbpy*", "mbodi.create", "mbpy.commands"]
@@ -77,9 +79,10 @@ include = ["mbpy*", "mbodi.create", "mbpy.commands"]
   Issues        = "https://github.com/mbodiai/mpip/issues"
   Source        = "https://github.com/mbodiai/mpip"
 [project.optional-dependencies]
-  sphinx = ["sphinx"]
-
-  extra-dependencies = ["mypy>=1.0.0"]
+extra-dependencies = ["mypy>=1.0.0"]
+sphinx = [
+    "sphinx>=8.0.2",
+]
 
 [tool.ruff]
   indent-width   = 4
@@ -145,9 +148,19 @@ include = ["mbpy*", "mbodi.create", "mbpy.commands"]
   quote-style               = "double"
   skip-magic-trailing-comma = false
 
+[tool.uv]
+dev-dependencies = [
+    "litellm>=1.47.1",
+    "pytest>=8.3.3",
+]
+
+[tool.uv.sources]
+mbodi = { path = "../v1", editable = true }
+
 [tool.ruff.lint.pydocstyle]
   convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
   "**/{tests,docs}/*" = ["ALL"]
   "**__init__.py"     = ["F401"]
+

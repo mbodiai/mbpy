@@ -20,6 +20,7 @@ from pprint import pprint
 from threading import Thread
 from time import time
 from typing import Any, Generic, Iterator, Literal, Optional, TypeVar, Union, get_type_hints
+from click import secho
 import configargparse
 import pexpect
 import pexpect.socket_pexpect
@@ -43,7 +44,7 @@ from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 import random
 from rich.console import Console
 
-app = Typer()
+
 T = TypeVar("T")
 
 
@@ -229,7 +230,6 @@ class PtyCommand:
             self.process.close()
 
 
-
 console = Console(force_terminal=True)
 
 
@@ -291,7 +291,9 @@ console = Console()
 
 # Create an argument parser using argparse
 def create_parser():
-    parser = configargparse.ArgumentParser(description="Rich CLI Tool Example", formatter_class=argparse.RawTextHelpFormatter)
+    parser = configargparse.ArgumentParser(
+        description="Rich CLI Tool Example", formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument(
         "-a",
         "--action",
@@ -484,8 +486,7 @@ def run_command(
     print(f"command: {exec_}".replace("\n", "newline"))
     if host is not None and port is not None:
         return TCPConnection(exec_, host=host, port=port, cwd=cwd, timeout=timeout)
-    return run_cmd(exec_ + " " + " ".join(args), cwd=cwd, timeout=timeout, logfile=logfile)
-    
+    return PtyCommand(partial(pexpect.pty_spawn.spawn, exec_), cwd=cwd, timeout=timeout, **{"args": args})
 
 
 async def arun_command(
@@ -531,36 +532,47 @@ async def arun_command(
     return
 
 
-
 def sigwinch_passthrough(sig, data, p):
     s = struct.pack("HHHH", 0, 0, 0, 0)
     a = struct.unpack("hhhh", fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, s))
     if not p.closed:
         p.setwinsize(a[0], a[1])
 
+app = Typer(
+    name="mbpy",
+    invoke_without_command=True,
+    add_completion=False,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 
-@app.command(no_args_is_help=True)
-def run_cmd(cmd: Annotated[
-    str, TyperArgument(
-        type=list[str],
-        param_decls=["cmd"],
-        help="Command to run",
-        nargs=-1,
-    )
-], 
-    args: Annotated[
-        str, TyperOption(
-            param_decls=["-a", "--args"],
-            help="Arguments to pass to the command",
-            nargs=-1,
-        )
-    ] = None,
-    **kwargs,
-):
-    def _run_cmd(cmd, args, **kwargs):
-        p = pexpect.spawn(cmd, **kwargs)
-        signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
+
+@app.command()
+def run_cmd(cmd: str, *,interact=False):
+    p = pexpect.spawn(cmd[0], cmd[1:])
+    signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
+    if interact:
         p.interact()
+    else:
+        p.expect(pexpect.EOF)
+        secho(p.before.decode("utf-8"), fg="green")
+
+
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    no_args_is_help=True,
+)
+def interact(
+    cmd: Annotated[
+        str,
+        TyperArgument(
+            type=list[str],
+            param_decls=["cmd"],
+            help="Command to run in interactive mode",
+            required=True,
+            nargs=-1,
+        ),
+    ],
+):
     out = []
     for i in cmd.split():
         if i.startswith("~"):
@@ -569,25 +581,7 @@ def run_cmd(cmd: Annotated[
             out.append(str(Path(i).resolve()))
         else:
             out.append(i)
-    _run_cmd("bash", ["-c",*out], **kwargs)
-
-
-
-@app.command(
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-    no_args_is_help=True,
-)
-def interact(
-    cmd: Annotated[str, TyperArgument(
-        type=list[str],
-        param_decls=["cmd"],
-        help="Command to run in interactive mode",
-        required=True,
-        nargs=-1,
-    )]
-):  
-   
-   run_cmd(cmd)
+    run_cmd(["bash", "-c", " ".join(out)], interact=True)
 
 
 @app.command()
@@ -655,4 +649,3 @@ def progress(query: str):
 
 if __name__ == "__main__":
     app()
-

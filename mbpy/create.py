@@ -1,12 +1,42 @@
 from pathlib import Path
 from typing import Literal
-
+import ast
 import tomlkit
 
 DEFAULT_PYTHON = "3.11"
 getcwd = Path.cwd
-WORKFLOW_UBUNTU = """name: "Ubuntu"
 
+HATCH_SETUP_STEP = """
+      - name: Run install script
+        run: |
+            python -m pip install --upgrade pip
+            python -m pip install hatch
+"""
+
+
+HATCH_TEST_STEP = """
+      - name: Run tests
+        run: |
+            hatch run pytest tests
+"""
+
+UV_SETUP_STEP = """
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+"""
+
+
+UV_TEST_STEP = """
+      - name: Run tests
+        run: |
+            uv sync --all-extras --dev
+            uv run pytest tests
+"""
+
+WORKFLOW_UBUNTU = """name: "Ubuntu"
 on:
   push:
     branches: [main]
@@ -25,28 +55,17 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-latest]
-        python-version: ["3.12", "3.10"]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.11
         uses: actions/setup-python@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.11
 
-
-      - name: python
-
-        steps:
-          - uses: actions/checkout@v4
-
-          - name: Install uv
-            uses: astral-sh/setup-uv@v2
-
-          - name: Set up Python ${{ matrix.python-version }}
-            run: uv python install ${{ matrix.python-version }}
+      {SETUP_STEP}
 
       - name: Cache packages
         uses: actions/cache@v3
@@ -71,13 +90,7 @@ jobs:
       - name: Check disk usage after cleanup
         run: df -h
 
-      - name: Install the project
-        run: uv sync --all-extras --dev
-
-      - name: Run tests
-        # For example, using `pytest`
-        run: uv run pytest tests"""
-
+      {TEST_STEP}"""
 
 WORKFLOW_MAC = """name: "MacOS | Python 3.12|3.11|3.10"
 
@@ -109,17 +122,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: python
-
-        steps:
-          - uses: actions/checkout@v4
-
-          - name: Install uv
-            uses: astral-sh/setup-uv@v2
-
-          - name: Set up Python ${{ matrix.python-version }}
-            run: uv python install ${{ matrix.python-version }}
-
+      {SETUP_STEP} 
 
       - name: Cache packages
         uses: actions/cache@v3
@@ -130,16 +133,10 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('install.bash') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
-     
-      - name: Install the project
-        run: uv sync --all-extras --dev
-
-      - name: Run tests
-        # For example, using `pytest`
-        run: uv run pytest tests"""
+      {TEST_STEP}"""
 
 
-import ast
+
 
 
 def create_project(

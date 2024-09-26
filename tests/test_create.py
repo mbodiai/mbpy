@@ -285,16 +285,20 @@ class TestClass:
         )))
         print(f"results: {result}")
 
-        
-        docstrings = json.loads(result)
-        assert "test_module.test_function" in docstrings
-        assert "test_module.TestClass" in docstrings
-        docstrings = eval(result)
-        
-        assert docstrings == {
-            "test_module.test_function": "This is a test function docstring.",
-            "test_module.TestClass": "This is a test class docstring.",
-        }
+        try:
+            docstrings = json.loads(result)
+            assert "test_module.test_function" in docstrings
+            assert "test_module.TestClass" in docstrings
+            docstrings = eval(result)
+            
+            assert docstrings == {
+                "test_module.test_function": "This is a test function docstring.",
+                "test_module.TestClass": "This is a test class docstring.",
+            }
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {str(e)}")
+            print(f"Result: {result}")
+            raise e
 
 
 @pytest.mark.network

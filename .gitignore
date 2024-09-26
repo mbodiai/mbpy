@@ -1,4 +1,7 @@
-.aider*
 __pychache__/
 **/*.pyc
 **/*__pychache__/
+.mbodi*
+build/
+dist/
+sdist/

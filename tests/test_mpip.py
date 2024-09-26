@@ -62,7 +62,6 @@ packaging==24.1
     for i in run_command(
         [sys.executable, "-m", "mbpy.cli", "install", "-r", str(requirements_path), "-U"],
         cwd=tmp_path,
-        return_output=True
     ):
         print(i)
     
@@ -135,7 +134,6 @@ dependencies = [
 
     str(run_command(
         ["", "-m", "mbpy.cli", "uninstall", "funkify"],
-        wait_and_collect=True,
     ))
     updated_content = pyproject_path.read_text()
     assert "funkify" not in updated_content, f"'funkify' found in updated content: {updated_content}"
