@@ -1,5 +1,6 @@
 """Synchronizes requirements and hatch pyproject."""
 
+import argparse
 import logging
 import traceback
 from pathlib import Path
@@ -9,7 +10,7 @@ import click
 import requests
 import tomlkit
 from rich.logging import RichHandler
-import argparse
+
 logger = logging.getLogger(__name__)
 logger.addHandler(RichHandler())
 logger.setLevel(logging.INFO)

@@ -3,23 +3,29 @@ from __future__ import annotations
 import argparse
 import asyncio
 import atexit
+import fcntl
 import inspect
 import io
 import json
 import logging
+import random
+import signal
 import socket
-from subprocess import PIPE
+import struct
 import sys
 import tempfile
+import termios
 import traceback
 from contextlib import contextmanager
 from contextvars import Context
 from functools import partial, wraps
 from pathlib import Path
 from pprint import pprint
+from subprocess import PIPE
 from threading import Thread
 from time import time
-from typing import Any, Generic, Iterator, Literal, Optional, TypeVar, Union, get_type_hints
+from typing import Annotated, Any, Generic, Iterator, Literal, Optional, TypeVar, Union, get_type_hints
+
 import configargparse
 import pexpect
 import pexpect.socket_pexpect
@@ -29,19 +35,10 @@ from pexpect.spawnbase import SpawnBase
 from rich import print_json
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 from rich.table import Table
-import fcntl
-import signal
-import struct
-import termios
-
-import pexpect
 from typer import Typer, echo_via_pager
 from typer.core import TyperArgument, TyperOption
-from typing import Annotated
-from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
-import random
-from rich.console import Console
 
 app = Typer()
 T = TypeVar("T")
