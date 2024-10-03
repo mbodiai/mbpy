@@ -1,10 +1,13 @@
 .gitignore
+.python-version
 LICENSE
 README.md
 mkdocs.yml
 pyproject.toml
 requirements.txt
 uv.lock
+dist/mbpy-1.11.2-py3-none-any.whl
+dist/mbpy-1.11.2.tar.gz
 docs/Makefile
 docs/README.html
 docs/api.md

@@ -4,7 +4,8 @@ import sys
 from pathlib import Path
 import tomlkit
 from mbpy.cli import run_command
-def test_mpip_install_requirements(tmp_path):
+
+def test_mpip_install_requirements(tmp_path: str):
     # Create a temporary requirements.txt file
     requirements_file = tmp_path / "requirements.txt"
     requirements_file.write_text("click==8.1.7\nrequests==2.31.0\n")

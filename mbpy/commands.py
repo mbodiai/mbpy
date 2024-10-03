@@ -16,7 +16,8 @@ import sys
 import tempfile
 import termios
 import traceback
-from contextlib import contextmanager
+from abc import abstractmethod
+from contextlib import _GeneratorContextManager, contextmanager
 from contextvars import Context
 from functools import partial, wraps
 from pathlib import Path
@@ -29,10 +30,13 @@ from typing import Annotated, Any, Generic, Iterator, Literal, Optional, TypeVar
 import configargparse
 import pexpect
 import pexpect.socket_pexpect
+import pexpect.spawnbase
 from aiostream.pipe import map, merge
+from more_itertools import iterate
 from pexpect import EOF, TIMEOUT
 from pexpect.spawnbase import SpawnBase
-from rich import print_json
+from rich import box, print_json
+from rich.pretty import Text
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
@@ -41,177 +45,78 @@ from typer import Typer, echo_via_pager
 from typer.core import TyperArgument, TyperOption
 
 app = Typer()
-T = TypeVar("T")
+T = TypeVar("T", bound="PexpectCommand")
 
 
 class NewCommandContext(Generic[T]):
-    def __init__(self, callable_command, timeout=0.1, cwd=None, logfile=None, **callable_kwargs):
-        # self.logfle = callable_kwargs.pop("logfile", logfile)
-        self.callable_command_no_log = partial(callable_command, timeout=timeout, cwd=cwd, **callable_kwargs)
-        self.cwd = cwd or Path.cwd()
-        self.timeout = timeout
-        self.stdout = []
-        self.stderr = []
-        self.process: T | None = None
-        self.started = 0
-        self.thread = None
+    process_type: T
+    def __init__(self, command,args=None, timeout=10, cwd=None, show=False, **callable_kwargs):
+        if callable(command):
+            self.callable_command_no_log = partial(command, args=args, timeout=timeout, cwd=cwd)
+        elif isinstance(command, list):
+            command, *args = command
+            self.callable_command_no_log = partial(self.process_type,command,args=args, timeout=timeout, cwd=cwd)
+        elif isinstance(command, str):
+            # if not any(c in command for c in ["bash", "sh", "zsh", "fish", "powershell"]):
+            #     command = f"bash"
 
-    @contextmanager
-    def to_thread(self, printlines=False, timeout=10) -> Iterator[str]:
-        try:
-            self.thread = Thread(target=self.readlines, daemon=True, kwargs={"printlines": printlines})
-            self.thread.start()
-            yield self
-        finally:
-            # self.logfile.close() if self.logfile is not None and hasattr(self.logfile, "close") else None
-            self.thread.join(timeout) if self.thread else None
-
-    def start(self) -> T:
-        self.process: T = self.callable_command_no_log(logfile=self.logfle)
-        self.started = time()
-        return self.process
-
-    def streamlines(self, printlines=False) -> Iterator[str]:
-        pass
-
-
-class PexpectCommand(NewCommandContext[SpawnBase]):
-    def __init__(self, callable_command, timeout=0.1, cwd=None, logfile=None, **callable_kwargs):
-        self.logfle: io.TextIO = callable_kwargs.pop("logfile", logfile)
-        self.callable_command_no_log = partial(callable_command, timeout=timeout, cwd=cwd, **callable_kwargs)
-        self.cwd = cwd or Path.cwd()
-        self.timeout = timeout
-        self.stdout = []
-        self.stderr = []
-        self.process: pexpect.spawnbase.SpawnBase | None = None
-        self.started = 0
-        self.thread = None
-
-    @contextmanager
-    def to_thread(self, printlines=False, timeout=10) -> Iterator[str]:
-        try:
-            self.thread = Thread(target=self.streamlines, daemon=True, kwargs={"printlines": printlines})
-            self.thread.start()
-            yield self
-        finally:
-            self.logfile.close() if self.logfile is not None and hasattr(self.logfile, "close") else None
-            self.thread.join(timeout) if self.thread else None
-
-    # def streamlines(self, printlines=False) -> Iterator[str]:
-    #     process = self.process or self.start()
-    #     try:
-    #         while not process.eof() and time() - self.started < self.timeout:
-    #             print(f"Time elapsed: {time() - self.started}")
-    #             self.started = time()
-    #             line = (
-    #                 process.readline()
-    #                 .decode("utf-8")
-    #                 .strip()
-    #                 .replace("\\n", "\n")
-    #                 .replace("\\t", "\t")
-    #                 .replace("\\r", "\r")
-    #             )
-    #             self.stdout.append(line)
-    #             yield line
-    #         return
-    #     except pexpect.exceptions.TIMEOUT as e:
-    #         if process.isalive():
-    #             process.terminate(force=True)
-    #         yield f"Command timed out: {e}"
-    #     except Exception as e:
-    #         process.terminate(force=True) if process.isalive() else None
-    #         process.close()
-
-    #         traceback.print_exc()
-    #         raise e
-    #     finally:
-    #         self.logfle.close()
-    #         self.process.kill() if self.process else None
-
-
-class PtyCommand:
-    def __init__(self, callable_command, timeout=10, cwd=None, logfile=None, **callable_kwargs):
-        logfile = Path(str(logfile)).resolve() if logfile else tempfile.NamedTemporaryFile(delete=False)
-
-        # self.logfile: Optional[io.TextIOBase] = callable_kwargs.pop("logfile", logfile)
-        self.callable_command_no_log = partial(callable_command, timeout=timeout, cwd=cwd, **callable_kwargs)
+            self.callable_command_no_log = partial(self.process_type, command, args, timeout=timeout, cwd=cwd)
         cwd = Path(str(cwd)).resolve() if cwd else Path.cwd()
         self.cwd = cwd if cwd.is_dir() else cwd.parent if cwd.exists() else Path.cwd()
         self.timeout = timeout
+        self.process = None
         self.output = []
-        self.process: Optional[pexpect.pty_spawn.spawn] = None
         self.started = 0
         self.thread = None
         self.lines = []
+        self.show = show
+        print(f"Command: {command} {args=}, {timeout=}, {cwd=}, {callable_kwargs=}")
+        print(f"self: {self=}, {self.cwd=}")
+    
+    def __class_getitem__(cls, item):
+        cls.process_type = item
+        return cls
 
-    @contextmanager
-    def to_thread(self, printlines=False, timeout=10) -> Iterator[str]:
-        try:
-            self.thread = Thread(target=self.readlines, daemon=True, kwargs={"printlines": printlines})
-            self.thread.start()
-            yield self
-        finally:
-            if self.thread:
-                self.thread.join(timeout)
-
-    def readlines(self, show=False):
-        self.start()
-        return "".join(self.streamlines(show))
-
-    def start(self):
-        if not self.process or not self.process.isalive():
-            self.process: pexpect.pty_spawn.spawn = self.callable_command_no_log(
-                echo=False,
-            )
-            self.started = time()
+    def start(self) -> T:
+        self.process: T = self.callable_command_no_log()
+        self.started = time()
         return self.process
 
-    def streamlines(self, show=False) -> Iterator[str]:
-        process = self.process or self.start()
-        try:
-            while not process.eof() and time() - self.started < self.timeout and process.isalive():
-                yield self.readline(self.process)
-        except pexpect.exceptions.TIMEOUT as e:
-            if process.isalive():
-                process.terminate(force=True)
-            yield f"Command timed out: {e}"
-        except Exception as e:
-            if process.isalive():
-                process.terminate(force=True)
-            traceback.print_exc()
-            raise e
-        finally:
-            if process.isalive():
-                process.close()
+    def __contains__(self, item):
+        return item in " ".join(self.lines)
 
-    def readline(self, process=None, show=False):
+    @contextmanager
+    def inbackground(self, show=True, timeout=10):
+        show = show or self.show
+        try:
+            self.start()
+            self.thread = Thread(target=self.streamlines, daemon=True, kwargs={"show": show})
+            yield self
+        finally:
+            self.thread.join(timeout) if self.thread else None
+
+    @wraps(inbackground)
+    def inbg(self, show=False, timeout=10):
+        show = show or self.show
+        yield from self.inbackground(show=show, timeout=timeout)
+
+
+
+
+    @abstractmethod
+    def streamlines(self, show=False) -> Iterator[str]:
+        show = show or self.show
+        raise NotImplementedError
+
+    def readlines(self, show=False) -> str:
+        self.process = self.start()
         self.started = time()
-        process = process or self.process
-        # line = (
-        #     process.read_nonblocking(1000, timeout=30)
-        #     .decode("utf-8")
-        #     .strip()
-        #     .replace("\\n", "\n")
-        #     .replace("\\t", "\t")
-        #     .replace("\\r", "\r")
-        # )
-        # lines = line.split("\n")
-        # if len(self.lines) < 1:
-        #     self.lines = lines
-        #     self.lines.append([""]) # Always have a line to concatenate to
-        # elif len(lines) >= 1:
-        #     self.lines[-1] += line[0]
-        #     self.lines.append(line[1])
-        # else:
-        #     self.lines.append(line)
-        line = process.readline().decode("utf-8").strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
-        self.lines.append(line)
-        if show:
-            print(line)
-        return line
+        list(self.streamlines(show))
+
+        return "\n".join(self.lines)
 
     def __iter__(self):
-        return self.streamlines()
+        yield from self.streamlines()
 
     def __str__(self):
         return self.readlines()
@@ -225,6 +130,21 @@ class PtyCommand:
         if self.process:
             self.process.close()
 
+
+class PtyCommand(NewCommandContext[pexpect.spawn]):
+        def streamlines(self, show=True):
+            stream = self.process or self.start()
+            while True:
+                
+                line = stream.readline()  # Read as bytes, not str yet
+                if not line:
+                    break
+                line = str(Text.from_ansi(line.decode("utf-8")))
+                if line:
+                    self.lines.append(line)
+                    if show:
+                        print(line)
+                    yield line
 
 
 console = Console(force_terminal=True)
@@ -287,8 +207,10 @@ console = Console()
 
 
 # Create an argument parser using argparse
-def create_parser():
-    parser = configargparse.ArgumentParser(description="Rich CLI Tool Example", formatter_class=argparse.RawTextHelpFormatter)
+def create_parser() -> configargparse.ArgumentParser:
+    parser = configargparse.ArgumentParser(
+        description="Rich CLI Tool Example", formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument(
         "-a",
         "--action",
@@ -300,13 +222,13 @@ def create_parser():
 
 
 # Function to display a header using Rich
-def display_header():
+def display_header() -> None:
     console.print(Panel("[bold green]Welcome to the Rich CLI Tool Example![/bold green]", expand=False))
 
 
 # Function to display a status table
-def display_status():
-    table = Table(title="System Status", box=box.SQUARE)
+def display_status() -> None:
+    table = Table(title="System Status", box=box.SIMPLE)
 
     table.add_column("Component", justify="right", style="cyan", no_wrap=True)
     table.add_column("Status", style="magenta")
@@ -334,14 +256,11 @@ def run_tests():
     console.print(test_table)
 
 
-__all__ = ["TCPConnection"]
+
 
 
 class TCPConnection(SpawnBase):
-    """
-    This class establishes a TCP connection and works similarly to pexpect but uses a
-    cross-platform Python socket API for TCP sockets.
-    """
+    """Works similarly to pexpect but uses a cross-platform Python socket API for TCP sockets."""
 
     def __init__(
         self,
@@ -356,8 +275,7 @@ class TCPConnection(SpawnBase):
         codec_errors="strict",
         use_poll=False,
     ):
-        """
-        Initializes the TCP connection.
+        """Initializes the TCP connection.
 
         :param host: The hostname or IP address to connect to.
         :param port: The port number for the TCP connection.
@@ -437,8 +355,7 @@ class TCPConnection(SpawnBase):
             self.socket.settimeout(saved_timeout)
 
     def read_nonblocking(self, size=1, timeout=-1):
-        """
-        Read from the TCP connection without blocking.
+        """Read from the TCP connection without blocking.
 
         :param int size: Read at most *size* bytes.
         :param int timeout: Wait timeout seconds for file descriptor to be
@@ -458,40 +375,56 @@ class TCPConnection(SpawnBase):
             raise TIMEOUT("Timeout exceeded.")
 
 
-def run_command(
-    command: Union[str, list[str]],
+
+def run_command_background(
+    command: str | list[str],
     cwd: str | None = None,
-    mode: Literal["block_until_done", "stream", "background"] = "block_until_done",
-    logfile=None,
     timeout: int = 10,
-    buffer_size=2000,  # Reduced buffer size to prevent overflow
     debug=False,
-    host=None,
-    port=None,
 ):
-    """Run a command and yield the output line by line asynchronously."""
-    if sys.flags.debug or debug:
-        logging.basicConfig(level=logging.DEBUG, force=True)
-        print("Debug logging enabled.")
-
-    # Create logfile if not provided
-    # logfile = Path(logfile) if logfile else tempfile.NamedTemporaryFile(delete=False)
     exec_, *args = command if isinstance(command, list) else command.split()
-    print(f"Running command: {exec_} {' '.join([arg.strip() for arg in args])}")
-    print(f"command: {exec_}".replace("\n", "newline"))
-    if host is not None and port is not None:
-        return TCPConnection(exec_, host=host, port=port, cwd=cwd, timeout=timeout)
-    return run_cmd(exec_ + " " + " ".join(args), cwd=cwd, timeout=timeout, logfile=logfile)
-    
+    proc = PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False)
+    return proc.inbackground()
+
+def run_command_remote(
+    command: str | list[str],
+    host: str,
+    port: int,
+    timeout: int = 10,
+    show=False,
+):
+    exec_, *args = command if isinstance(command, list) else command.split()
+    proc = TCPConnection(host, port, exec_, args, timeout=timeout)
+    return proc.readlines()
+
+def run_command_stream(
+    command: str | list[str],
+    cwd: str | None = None,
+    timeout: int = 10,
+
+):
+    exec_, *args = command if isinstance(command, list) else command.split()
+    proc = PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False, show=True)
+    yield from proc.streamlines()
+
+def run_command(
+     command: str | list[str],
+    cwd: str | None = None,
+    timeout: int = 10,
+    show=False,
+
+):
+    exec_, *args = command if isinstance(command, list) else command.split()
+    proc = PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False, show=show)
+    return proc
 
 
-async def arun_command(
+def run_command_old(
     command: Union[str, list[str]],
     cwd: str | None = None,
     mode: Literal["block_until_done", "stream", "background"] = "block_until_done",
     logfile=None,
     timeout: int = 10,
-    buffer_size=2000,  # Reduced buffer size to prevent overflow
     debug=False,
     remote=False,
 ):
@@ -506,27 +439,25 @@ async def arun_command(
     print(f"Running command: {exec_} {' '.join([arg.strip() for arg in args])}")
     print(f"command: {exec_}".replace("\n", "newline"))
 
-    if remote:
-        process = pexpect
-    else:
-        process = await asyncio.create_subprocess_exec(exec_, *args, cwd=cwd, stdout=PIPE, stderr=PIPE)
+    process = pexpect.spawn(exec_, args, cwd=cwd)
 
-    async def read_stream(stream):
+    def read_stream(stream: pexpect.spawnbase.SpawnBase):
         while True:
-            line = await stream.readline()
+            line = (
+                stream.readline().decode("utf-8").strip().replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+            )
             if line:
                 yield line.decode().strip()
             else:
                 break
 
     if mode == "block_until_done":
-        stdout, stderr = await process.communicate()
-        yield merge(
-            iterate(stdout.decode().splitlines()),
-            iterate(stderr.decode().splitlines()),
-        )
-    return
+        process.expect(EOF, timeout=timeout)
+        return process.before.decode()
+    if mode == "stream":
+        return read_stream(process)
 
+    return process
 
 
 def sigwinch_passthrough(sig, data, p):
@@ -537,27 +468,37 @@ def sigwinch_passthrough(sig, data, p):
 
 
 @app.command(no_args_is_help=True)
-def run_cmd(cmd: Annotated[
-    str, TyperArgument(
-        type=list[str],
-        param_decls=["cmd"],
-        help="Command to run",
-        nargs=-1,
-    )
-], 
+def run_cmd(
+    cmd: Annotated[
+        str,
+        TyperArgument(
+            type=list[str],
+            param_decls=["cmd"],
+            help="Command to run",
+            nargs=-1,
+        ),
+    ],
     args: Annotated[
-        str, TyperOption(
+        str,
+        TyperOption(
             param_decls=["-a", "--args"],
             help="Arguments to pass to the command",
             nargs=-1,
-        )
+        ),
     ] = None,
     **kwargs,
 ):
     def _run_cmd(cmd, args, **kwargs):
-        p = pexpect.spawn(cmd, **kwargs)
-        signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
-        p.interact()
+        if "interact" in kwargs:
+            p = pexpect.spawn(cmd, args, **kwargs)
+            signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
+            p.interact()
+        else:
+            p = pexpect.spawn(cmd, args, **kwargs)
+            p.expect(pexpect.EOF, timeout=10)
+            print(p.before.decode())
+            p.close()
+
     out = []
     for i in cmd.split():
         if i.startswith("~"):
@@ -566,8 +507,12 @@ def run_cmd(cmd: Annotated[
             out.append(str(Path(i).resolve()))
         else:
             out.append(i)
-    _run_cmd("bash", ["-c",*out], **kwargs)
-
+    if any(
+        c in out[0]
+        for c in ["cd", "ls", "pwd", "echo", "python", "bash", "sh", "zsh", "fish", "powershell", "cmd", "pwsh"]
+    ):
+        return _run_cmd(out[0], out[1:], **kwargs)
+    return _run_cmd("bash", ["-c", *out], **kwargs)
 
 
 @app.command(
@@ -575,16 +520,18 @@ def run_cmd(cmd: Annotated[
     no_args_is_help=True,
 )
 def interact(
-    cmd: Annotated[str, TyperArgument(
-        type=list[str],
-        param_decls=["cmd"],
-        help="Command to run in interactive mode",
-        required=True,
-        nargs=-1,
-    )]
-):  
-   
-   run_cmd(cmd)
+    cmd: Annotated[
+        str,
+        TyperArgument(
+            type=list[str],
+            param_decls=["cmd"],
+            help="Command to run in interactive mode",
+            required=True,
+            nargs=-1,
+        ),
+    ],
+):
+    run_cmd(cmd, interact=True)
 
 
 @app.command()
@@ -652,4 +599,3 @@ def progress(query: str):
 
 if __name__ == "__main__":
     app()
-

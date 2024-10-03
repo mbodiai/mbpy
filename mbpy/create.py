@@ -223,7 +223,7 @@ def setup_documentation(
         )
     elif doc_type == "mkdocs":
         setup_mkdocs(
-            project_root,
+            docs_dir,
             project_name,
             author,
             description,
@@ -312,33 +312,21 @@ help:
 
 
 def extract_docstrings(project_path) -> dict[str, str]:
+    project_path = Path(project_path)
     docstrings = {}
-    project_path = Path(project_path)  # Convert to Path object if it's a string
-    for py_file in project_path.glob("**/*.py"):
-        # Look for __init__.py files
-        if py_file.name == "__init__.py":
-            break
-    try:
-        with py_file.open() as file:
-            tree = ast.parse(file.read())
-        for subnode in py_file.parent.glob("**/*.py"):
-            tree = ast.parse(file.read())
+
+    for py_file in project_path.rglob("*.py"):
+        with py_file.open() as f:
+            tree = ast.parse(f.read(), filename=py_file)
             for node in ast.walk(tree):
-                if isinstance(
-                    node, ast.FunctionDef | ast.ClassDef, ast.Module, ast.Param
-                ):
-                    docstring = ast.get_docstring(node)
-                    if docstring:
-                        docstrings[node.__qualname__] = docstring.strip()
-    except Exception:
-        pass
+                if isinstance(node, ast.FunctionDef | ast.ClassDef | ast.Module):
+                    docstrings[f"{py_file.stem}.{node.__dict__.get('name', '__name__')}"] = ast.get_docstring(node)
+
     return docstrings
 
-
 def setup_mkdocs(
-    project_root: Path, project_name: str, author, description, docstrings
+  docs_dir, project_name: str, author, description, docstrings
 ) -> None:
-    docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True)
 
     # Create mkdocs.yml in the project root
@@ -370,18 +358,20 @@ plugins:
           rendering:
             show_source: true
 """
-    (project_root / "mkdocs.yml").write_text(mkdocs_content)
+    docs_dir = Path(str(docs_dir)) if docs_dir else Path("docs")
+    root = Path(str(docs_dir)).parent
+    (root / "mkdocs.yml").write_text(mkdocs_content)
 
     # Create index.md
     index_content = (
-        Path("README.md").read_text() if (project_root / "README.md").exists() else f""
+        Path("README.md").read_text() if (root / "README.md").exists() else f""
     )
 
     (docs_dir / "index.md").write_text(index_content)
 
     # Create api.md with extracted docstrings
     api_content = f"# API Reference\n\n" + description + "\n\n"
-    docstrings = docstrings or extract_docstrings(project_root)
+    docstrings = docstrings or extract_docstrings(root)
     if docstrings:
         for full_name, docstring in docstrings.items():
             module_name, obj_name = full_name.rsplit(".", 1)

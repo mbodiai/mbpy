@@ -15,11 +15,12 @@ from threading import Thread
 from time import time
 from typing import Generic, Iterator, Literal, TypeVar, Union
 
-import click
+import rich_click as click
 import tomlkit
 from mrender.md import Markdown
 from rich.logging import RichHandler
 from rich.traceback import Traceback
+from rich_click import rich_command, rich_group
 
 from mbpy.commands import run_command
 from mbpy.create import create_project
@@ -38,7 +39,7 @@ from mbpy.publish import append_notion_table_row
 
 logging.handlers = [RichHandler()]
 
-@click.group(invoke_without_command=True)
+@click.group("mbpy")
 @click.pass_context
 @click.option(
     "-v",
@@ -60,7 +61,7 @@ def cli(ctx, hatch_env, debug) -> None:
         show_command(hatch_env)
 
 
-@cli.command("install")
+@cli.command("install", no_args_is_help=True)
 @click.argument("packages", nargs=-1)
 @click.option(
     "-r",
@@ -101,6 +102,7 @@ def install_command(
         editable (bool, optional): Install a package in editable mode. Defaults to False.
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
         dependency_group (str, optional): The dependency group to use. Defaults to "dependencies".
+        debug (bool, optional): Enable debug logging. Defaults to False.
     """
     if sys.flags.debug or debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
@@ -145,18 +147,18 @@ def install_command(
 
 
         if not requirements and not packages:
-            click.echo("No packages specified for installation.")
+            click.secho("No packages specified for installation.")
 
     except FileNotFoundError as e:
-        click.echo("Error: Installation failed.", err=True)
-        click.echo(f"Command: {e.cmd}", err=True)
-        click.echo(f"Return code: {e.returncode}", err=True)
-        click.echo(f"Output: {e.output}", err=True)
+        click.secho("Error: Installation failed.", err=True)
+        click.secho(f"Command: {e.cmd}", err=True)
+        click.secho(f"Return code: {e.returncode}", err=True)
+        click.secho(f"Output: {e.output}", err=True)
     finally:
         logging.info("")
 
 
-@cli.command("uninstall")
+@cli.command("uninstall", no_args_is_help=True)
 @click.argument("packages", nargs=-1)
 @click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
 @click.option(
@@ -209,7 +211,7 @@ def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
             print("", flush=True)
 
 
-@cli.command("show")
+@cli.command("show", no_args_is_help=True)
 @click.argument("package", default=None)
 @click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
 def show_command(package, hatch_env) -> None:
@@ -266,14 +268,28 @@ SEARCH_DOC = """Find a package on PyPI and optionally sort the results.\n
     """  # noqa: D205
 
 
-@cli.command("search", help=SEARCH_DOC + "\n\nFull list of include options:\n\n" + str(INFO_KEYS + ADDITONAL_KEYS))
-@click.argument("package")
+@cli.command("search", no_args_is_help=True)
+@click.argument("package", type=str, nargs=-1)
 @click.option("--limit", default=10, help="Limit the number of results")
 @click.option("--sort", default="downloads", help="Sort key to use")
-@click.option("--include", default=None, help="Include pre-release versions")
-@click.option("--release", default=None, help="Release type to use")
-def search_command(package, limit, sort, include, release) -> None:
-
+@click.option("--include", multiple=True,type=click.Choice(["all"]+INFO_KEYS+ADDITONAL_KEYS), default=None, help="Include additional information")
+@click.option("--release", default=None, help="Release version to use")
+@click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
+def search_command(package, limit, sort, include, release, debug) -> None:
+    """Find a package on PyPI and optionally sort the results.
+    
+    Args:
+        package (str): The package to search for.s
+        limit (int, optional): Limit the number of results. Defaults to 5.
+        sort (str, optional): Sort key to use. Defaults to "downloads".
+        include (str, optional): Include pre-release versions. Defaults to None.
+        release (str, optional): Release type to use. Defaults to None.
+        debug (bool, optional): Enable debug logging. Defaults to False.
+    """
+    if not isinstance(package, str):
+        package = " ".join(package)
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, force=True)
     try:
         packages = find_and_sort(package, limit, sort, include=include, release=release)
         md = Markdown(packages)
@@ -282,7 +298,7 @@ def search_command(package, limit, sort, include, release) -> None:
         traceback.print_exc()
 
 
-@cli.command("info")
+@cli.command("info", no_args_is_help=True)
 @click.argument("package")
 @click.option("--verbose", "-v", is_flag=True, help="Show verbose output")
 def info_command(package, verbose) -> None:
@@ -298,11 +314,9 @@ def info_command(package, verbose) -> None:
         md.stream()
     except Exception:
         traceback.print_exc()
-    finally:
-        print("", flush=True)
 
 
-@cli.command("create")
+@cli.command("create", no_args_is_help=True)
 @click.argument("project_name")
 @click.argument("author")
 @click.option("--description", default="", help="Project description")
@@ -318,11 +332,9 @@ def create_command(project_name, author, description, deps, python="3.12", no_cl
             deps = deps.split(",")
         create_project(project_name=project_name, author=author, description=description, python_version=python_version,
                           dependencies=deps, add_cli=not no_cli, doc_type=doc_type)
-        click.echo(f"Project {project_name} created successfully with {doc_type} documentation.")
+        click.secho(f"Project {project_name} created successfully with {doc_type} documentation.", fg="green")
     except Exception:
         traceback.print_exc()
-    finally:
-        print("", flush=True)
 
 
 if __name__ == "__main__":

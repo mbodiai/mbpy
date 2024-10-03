@@ -522,12 +522,14 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "rich" },
+    { name = "rich-click" },
     { name = "shellingham" },
     { name = "six" },
     { name = "sniffio" },
     { name = "soupsieve" },
     { name = "toml" },
     { name = "tomlkit" },
+    { name = "toolz" },
     { name = "twine" },
     { name = "typer" },
     { name = "typing-extensions" },
@@ -560,6 +562,7 @@ requires-dist = [
     { name = "loguru", specifier = "==0.7.2" },
     { name = "markdown-it-py", specifier = "==3.0.0" },
     { name = "markdownify", specifier = "==0.13.1" },
+    { name = "mbpy", editable = "." },
     { name = "mdurl", specifier = "==0.1.2" },
     { name = "mrender", specifier = "==1.0.1" },
     { name = "mypy", marker = "extra == 'extra-dependencies'", specifier = ">=1.0.0" },
@@ -571,6 +574,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = "==1.0.1" },
     { name = "requests", specifier = "==2.32.3" },
     { name = "rich", specifier = "==13.7.1" },
+    { name = "rich-click", specifier = ">=1.8.3" },
     { name = "shellingham", specifier = "==1.5.4" },
     { name = "six", specifier = "==1.16.0" },
     { name = "sniffio", specifier = "==1.3.1" },
@@ -578,6 +582,7 @@ requires-dist = [
     { name = "sphinx", marker = "extra == 'sphinx'" },
     { name = "toml", specifier = "==0.10.2" },
     { name = "tomlkit", specifier = "==0.13.0" },
+    { name = "toolz", specifier = ">=0.12.1" },
     { name = "twine", specifier = ">=5.1.1" },
     { name = "typer", specifier = "==0.12.5" },
     { name = "typing-extensions", specifier = "==4.12.2" },
@@ -833,6 +838,20 @@ wheels = [
 ]
 
 [[package]]
+name = "rich-click"
+version = "1.8.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "rich" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3a/a9/a1f1af87e83832d794342fbc09c96cc7cd6798b8dfb8adfbe6ccbef8d70c/rich_click-1.8.3.tar.gz", hash = "sha256:6d75bdfa7aa9ed2c467789a0688bc6da23fbe3a143e19aa6ad3f8bac113d2ab3", size = 38209 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c6/ea/5a0c5a8e6532e971983d1b0fc99268eb66a10f489da35d9022ce01044191/rich_click-1.8.3-py3-none-any.whl", hash = "sha256:636d9c040d31c5eee242201b5bf4f2d358bfae4db14bb22ec1cafa717cfd02cd", size = 35032 },
+]
+
+[[package]]
 name = "secretstorage"
 version = "3.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -997,6 +1016,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4b/34/f5f4fbc6b329c948a90468dd423aaa3c3bfc1e07d5a76deec269110f2f6e/tomlkit-0.13.0.tar.gz", hash = "sha256:08ad192699734149f5b97b45f1f18dad7eb1b6d16bc72ad0c2335772650d7b72", size = 191792 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fd/7c/b753bf603852cab0a660da6e81f4ea5d2ca0f0b2b4870766d7aa9bceb7a2/tomlkit-0.13.0-py3-none-any.whl", hash = "sha256:7075d3042d03b80f603482d69bf0c8f345c2b30e41699fd8883227f89972b264", size = 37770 },
+]
+
+[[package]]
+name = "toolz"
+version = "0.12.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/bf/5e12db234df984f6df3c7f12f1428aa680ba4e101f63f4b8b3f9e8d2e617/toolz-0.12.1.tar.gz", hash = "sha256:ecca342664893f177a13dac0e6b41cbd8ac25a358e5f215316d43e2100224f4d", size = 66550 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/8a/d82202c9f89eab30f9fc05380daae87d617e2ad11571ab23d7c13a29bb54/toolz-0.12.1-py3-none-any.whl", hash = "sha256:d22731364c07d72eea0a0ad45bafb2c2937ab6fd38a3507bf55eae8744aa7d85", size = 56121 },
 ]
 
 [[package]]

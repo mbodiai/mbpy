@@ -2,7 +2,9 @@
 
 import argparse
 import logging
+import sys
 import traceback
+from copy import deepcopy
 from pathlib import Path
 from typing import List
 
@@ -13,7 +15,7 @@ from rich.logging import RichHandler
 
 logger = logging.getLogger(__name__)
 logger.addHandler(RichHandler())
-logger.setLevel(logging.INFO)
+logger.setLevel(sys.flags.debug or logging.INFO)
 
 
 INFO_KEYS = [
@@ -106,23 +108,57 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     package_url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(package_url, timeout=10)
     response.raise_for_status()
-    package_data = response.json()
+    package_data: dict = deepcopy(response.json())
+    logging.debug("package_data")
+    logging.debug(package_data  )
     info = package_data.get("info", {})
     if release:
         info = package_data.get("releases", {}).get(release, [{}])[0]
     if not info:
         raise ValueError(f"Package not found: {package_name} {'for release' + str(release) if release else ''}")
     
-    downloads = package_data.get("downloads", "unavailable")
+
+
+
+    
+    releases = package_data.get("releases", {})
+
+    
+    if releases:
+        releases = sorted(
+            releases.items(), 
+            key=lambda x: x[1][0]["upload_time"] if len(x[1]) > 0 else "zzzzzzz",
+            reverse=True
+        )
+    
+        if releases and len(releases[0][1]) > 0 and len(releases[-1][1]) > 0:
+            latest, earliest = releases[0], releases[-1]
+        else:
+            latest, earliest = None, None
+    else:
+        latest, earliest = None, None
+    from pprint import pprint
+
     package_info = {
         "name": info.get("name", ""),
         "version": info.get("version", ""),
         "summary": info.get("summary", ""),
-        "downloads": downloads,
-        "upload_time": info.get("upload_time", ""),
+        "upload_time": latest[1][0]["upload_time"] if latest else "",
+        "author": info.get("author", ""),
+        "earliest_release": {
+            "version": earliest[0],
+            "upload_time": earliest[1][0]["upload_time"],
+            "requires_python": earliest[1][0].get("requires_python", ""),
+        } if earliest else {},
         "urls": info.get("project_urls", info.get("urls", {})),
-        "description": info.get("description", "")[:100],
+        "description": info.get("description", "")[:250],
+        "requires_python": info.get("requires_python", ""),
+        "releases": [
+            {release[0]: {"upload_time": release[1][0]["upload_time"]}}
+        for release in releases
+        ],
     }
+    
 
     if verbose:
         package_info["description"] = info.get("description", "")
@@ -138,17 +174,9 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     include = [include] if isinstance(include, str) else include
     if include and "all" in include:
         include = INFO_KEYS + ADDITONAL_KEYS
-    package_info["releases"] = package_info.get("releases", {})
-    package_releases = package_info["releases"]
     if include and isinstance(include, list):
         for key in include:
-            if key == "releases":
-                releases = list(package_data.get(key, {}).keys())
-                package_releases[key] = {}
-                for release in releases:
-                    package_releases[key][release] = {
-                        release : package_data[key][release][0].get("upload_time", "")
-                    }
+            if key in ("releases", "release"):
                 continue
             if key in ADDITONAL_KEYS:
                 package_info[key] = package_data.get(key, {})
@@ -156,8 +184,6 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
                 package_info[key] = info.get(key, "")
             else:
                 raise ValueError(f"Invalid key: {key}")
-
-    package_info["releases"] = dict(sorted(package_info["releases"].items(), key=lambda item: item[1], reverse=True))
 
 
     return package_info
@@ -189,8 +215,12 @@ def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, re
         return packages[:limit]
 
     except requests.RequestException:
+        logging.debug(f"Error fetching package names for {query_key}")
+        traceback.print_exc()
         return []
     except Exception:
+        logging.debug(f"Error fetching package info for {query_key}")
+        traceback.print_exc()
         return []
 
 

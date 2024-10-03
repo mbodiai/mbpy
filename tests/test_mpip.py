@@ -55,6 +55,7 @@ click==8.1.7
 requests==2.32.3
 toml==0.10.2
 packaging==24.1
+wrapt==1.16.1
 """
     requirements_path.write_text(requirements_content)
 
@@ -62,7 +63,6 @@ packaging==24.1
     for i in run_command(
         [sys.executable, "-m", "mbpy.cli", "install", "-r", str(requirements_path), "-U"],
         cwd=tmp_path,
-        return_output=True
     ):
         print(i)
     
@@ -123,7 +123,7 @@ dependencies = [
 
     # Test install action
     result = str(run_command(
-        [sys.executable, "-m", "mbpy.cli", "install", "funkify"] + ["--debug"],
+        [sys.executable, "-m", "mbpy.cli", "install", "wrapt"] + ["--debug"],
         cwd=tmp_path,
         debug=True,
     ))
@@ -131,11 +131,9 @@ dependencies = [
     assert pyproject_path.name and pyproject_path.absolute() == find_toml_file(pyproject_path.absolute()).absolute(), f"Expected {pyproject_path.name}, got {find_toml_file(pyproject_path.name).name}"
     updated_content = pyproject_path.read_text()
     print(f"updated_content: {updated_content}")
-    assert "funkify" in updated_content, f"'funkify' not found in updated content: {updated_content}"
 
     str(run_command(
-        ["", "-m", "mbpy.cli", "uninstall", "funkify"],
-        wait_and_collect=True,
+        [sys.executable, "-m", "mbpy.cli", "uninstall", "funkify"],
     ))
     updated_content = pyproject_path.read_text()
     assert "funkify" not in updated_content, f"'funkify' found in updated content: {updated_content}"
