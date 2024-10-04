@@ -33,7 +33,6 @@
     "loguru==0.7.2",
     "markdown-it-py==3.0.0",
     "markdownify==0.13.1",
-    "mbodi",
     "mdurl==0.1.2",
     "mrender==1.0.1",
     "notion-client==2.2.1",
@@ -57,7 +56,7 @@
     "urllib3==2.2.3",
 ]
   description = 'Install and manage pyproject.toml with pip commands.'
-  version = "1.11.2"
+  version = "1.11.5"
   keywords = []
   name = "mbpy"
   readme = "README.md"
@@ -66,12 +65,15 @@
   mb    = "mbpy.cli:cli"
   mbpip = "mbpy.cli:cli"
   mpip  = "mbpy.cli:cli"
+  mbrun = "mbpy.commands:app"
+
+
 
 [tool.setuptools.dynamic]
   version = {attr = "mbpy.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["mbpy*", "mbodi.create", "mbpy.commands"]
+include = ["mbpy*", "mbpy.create", "mbpy.commands"]
 
 
 [project.urls]

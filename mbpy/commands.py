@@ -541,6 +541,7 @@ def sigwinch_passthrough(sig, data, p):
 app = Typer(
     name="mbpy",
     invoke_without_command=True,
+    no_args_is_help=True,
     add_completion=False,
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
@@ -645,6 +646,7 @@ def progress(query: str):
             time.sleep(0.01)
             if random.randint(0, 100) < 1:  # noqa
                 progress.log(next(examples))
+
 
 
 if __name__ == "__main__":
