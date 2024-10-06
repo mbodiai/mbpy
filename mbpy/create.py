@@ -1,3 +1,5 @@
+import ast
+import inspect
 from pathlib import Path
 from typing import Literal
 
@@ -5,8 +7,8 @@ import tomlkit
 
 DEFAULT_PYTHON = "3.11"
 getcwd = Path.cwd
+IGNORE_FILES = "venv|__pycache__|*.egg-info|*.dist-info|*.tox|*.nox|*.pytest_cache|*.mypy_cache|*.git|*.idea|*.vscode|*.pyc|*.pyo|*.pyd|*.cache|*.egg|*.eggs|*.log|*.tmp|*.swp|*.swo|*.swn|*.swo|*.swn"
 WORKFLOW_UBUNTU = """name: "Ubuntu"
-
 on:
   push:
     branches: [main]
@@ -130,7 +132,7 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('install.bash') }}
           restore-keys: |
             ${{ runner.os }}-${{ env.cache-name }}-
-     
+
       - name: Install the project
         run: uv sync --all-extras --dev
 
@@ -138,8 +140,42 @@ jobs:
         # For example, using `pytest`
         run: uv run pytest tests"""
 
+INIT_PY = """# Path: __init__.py
+# This file is automatically created by mbpy.
+from rich.pretty import install
+from rich.traceback import install as install_traceback
 
-import ast
+install(max_length=10, max_string=80)
+install_traceback(show_locals=True)
+"""
+
+API_CONTENT ="""# API Reference
+
+{description}
+"""
+
+managers = {
+    "uv": {
+        "requires": ["setuptools>=68", "setuptools_scm[toml]>=8"],
+        "build-backend": "setuptools.build_meta",
+    },
+    "hatch": {"requires": ["hatchling"], "build-backend": "hatchling.build"},
+}
+
+def mmkdir(path: str | Path):
+  if not Path(str(path)).exists():
+    Path(path).mkdir(parents=True, exist_ok=True)
+    (Path(path) / ".gitkeep").touch()
+
+def mmtouch(path: str | Path, content: str | None = None, existing_content: Literal["merge", "replace", "forbid"] = "merge"):
+  Path(path).touch(exist_ok=True)
+  if content and existing_content == "forbid":
+    msg = f"File {path} already exists and is not empty. Use 'replace' or 'merge' to overwrite or merge the content."
+    raise FileExistsError(msg)
+  if content and existing_content == "merge":
+    content  = "\n".join([*Path(path).read_text().splitlines(), *content.splitlines()])
+    Path(path).write_text(content)
+  Path(path).write_text(content)
 
 
 def create_project(
@@ -148,10 +184,12 @@ def create_project(
     description: str = "",
     dependencies: list[str] | Literal["local"] | None = None,
     python_version=DEFAULT_PYTHON,
+    *,
     add_cli=True,
     doc_type="sphinx",
-    docstrings: dict = None,
-    project_root: Path = None,
+    docstrings: dict | None = None,
+    project_root: Path | None = None,
+    prompt: str | None = None,
 ) -> Path:
     # Set project root directory
     if project_root is None:
@@ -161,18 +199,16 @@ def create_project(
     # Create project structure
     src_dir = project_path / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "__init__.py").write_text("""from rich.pretty import install
-from rich.traceback import install as install_traceback
-
-install(max_length=10, max_string=80)
-install_traceback(show_locals=True)""")
-
+    mmtouch(src_dir / "__init__.py", INIT_PY)
+    mmtouch(src_dir / "__about__.py", f"__version__ = '0.0.1'\n__author__ = '{author}'\n__description__ = '{description}'", "replace")
     # Create pyproject.toml
     pyproject_path = project_path / "pyproject.toml"
     existing_content = None
     if pyproject_path.exists():
         with pyproject_path.open() as f:
             existing_content = f.read()
+
+
 
     pyproject_content = create_pyproject_toml(
         project_name,
@@ -190,9 +226,24 @@ install_traceback(show_locals=True)""")
         project_path, project_name, author, description, doc_type, docstrings or {}
     )
 
+    if prompt:
+        from mbodied.agents.language import LanguageAgent
+
+        from mbpy.commands import run
+        tree_structure = run(f"tree -L 2 -I {IGNORE_FILES}")
+        agent = LanguageAgent()
+        code = agent.act(prompt, context=str(dict(locals())) + "The directory structure is: " + run("tree"))
+        try:
+            exec(code)
+        except Exception as e:
+          import traceback
+          code = agent.act("try again and avoid the following error: " + traceback.format_exc())
+          exec(code)
+
+
     if add_cli:
         cli_content = f"""
-import click
+import rich_click as click
 
 @click.command()
 def main():
@@ -203,12 +254,14 @@ if __name__ == "__main__":
 """
         (src_dir / "cli.py").write_text(cli_content)
 
+
     return project_path  # Return the project path
 
 
 def setup_documentation(
-    project_root, project_name, author, description, doc_type="sphinx", docstrings=None
+    project_root, project_name, author, description, doc_type="mkdocs", docstrings=None
 ) -> None:
+    """Set up documentation for a project."""
     project_root = Path(project_root)  # Convert to Path object if it's a string
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
@@ -230,85 +283,38 @@ def setup_documentation(
             docstrings or extract_docstrings(project_root),
         )
     else:
-        raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
+        msg = "Invalid doc_type. Choose 'sphinx' or 'mkdocs'."
+        raise ValueError(msg)
+
 
 
 def setup_sphinx_docs(
     docs_dir, project_name, author, description, docstrings=None
 ) -> None:
-    # Create conf.py
-    conf_content = f"""
-# Configuration file for the Sphinx documentation builder.
+    """Set up Sphinx documentation."""
+    if not docstrings:
+        docstrings = extract_docstrings(Path.cwd())
 
-project = '{project_name}'
-copyright = '2024, {author}'
-author = '{author}'
+    from mbpy.static import SPHINX_CONF, SPHINX_API, SPHINX_INDEX, SPHINX_MAKEFILE
 
-extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-]
-
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
-html_theme = 'alabaster'
-html_static_path = ['_static']
-"""
-    (docs_dir / "conf.py").write_text(conf_content)
+    docs_dir = Path(str(docs_dir)) if docs_dir else Path("docs")
+    docs_dir.mkdir(exist_ok=True)
 
     # Create index.rst
-    index_content = f"""
-Welcome to {project_name}'s documentation!
-==========================================
+    (docs_dir / "index.rst").write_text(
+        SPHINX_INDEX.format(
+            project_name=project_name, description=description, author=author
+        )
+    )
 
-{description}
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   api
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-"""
-    (docs_dir / "index.rst").write_text(index_content)
-
-    # Create api.rst
-    api_content = f"""
-API Reference
-=============
-
-.. automodule:: {project_name}
-   :members:
-   :undoc-members:
-   :show-inheritance:
-"""
-    (docs_dir / "api.rst").write_text(api_content)
+    # Create conf.py
+    (docs_dir / "conf.py").write_text(SPHINX_CONF.format(project_name=project_name, author=author))
 
     # Create Makefile
-    makefile_content = """
-# Minimal makefile for Sphinx documentation
+    (docs_dir / "Makefile").write_text(SPHINX_MAKEFILE)
 
-SPHINXOPTS    ?=
-SPHINXBUILD   ?= sphinx-build
-SOURCEDIR     = .
-BUILDDIR      = _build
-
-help:
-	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-
-.PHONY: help Makefile
-
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-"""
-    (docs_dir / "Makefile").write_text(makefile_content)
+    # Create api.rst
+    (docs_dir / "api.rst").write_text(SPHINX_API.format(project_name=project_name))
 
 
 def extract_docstrings(project_path) -> dict[str, str]:
@@ -320,8 +326,8 @@ def extract_docstrings(project_path) -> dict[str, str]:
             tree = ast.parse(f.read(), filename=py_file)
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef | ast.ClassDef | ast.Module):
-                    docstrings[f"{py_file.stem}.{node.__dict__.get('name', '__name__')}"] = ast.get_docstring(node)
-
+                    cleaned = inspect.cleandoc(ast.get_docstring(node) or "")
+                    docstrings[f"{py_file.stem}.{node.__dict__.get('name', '__name__')}"] = cleaned
     return docstrings
 
 def setup_mkdocs(
@@ -364,20 +370,19 @@ plugins:
 
     # Create index.md
     index_content = (
-        Path("README.md").read_text() if (root / "README.md").exists() else f""
+        Path("README.md").read_text() if (root / "README.md").exists() else f"# {project_name}\n\n{description}"
     )
 
     (docs_dir / "index.md").write_text(index_content)
 
     # Create api.md with extracted docstrings
-    api_content = f"# API Reference\n\n" + description + "\n\n"
     docstrings = docstrings or extract_docstrings(root)
+
     if docstrings:
+        api_content = API_CONTENT.format( description=description)
         for full_name, docstring in docstrings.items():
             module_name, obj_name = full_name.rsplit(".", 1)
-            api_content += f"""
-## {obj_name}
-
+            obj_api = """## {obj_name}
 ```python
 from {module_name} import {obj_name}
 ```
@@ -385,19 +390,13 @@ from {module_name} import {obj_name}
 {docstring}
 
 ---
-
 """
-
+      
+            api_content += obj_api.format(module_name=module_name, obj_name=obj_name, docstring=docstring)
+            
+            
     (docs_dir / "api.md").write_text(api_content)
 
-
-managers = {
-    "uv": {
-        "requires": ["setuptools>=68", "setuptools_scm[toml]>=8"],
-        "build-backend": "setuptools.build_meta",
-    },
-    "hatch": {"requires": ["hatchling"], "build-backend": "hatchling.build"},
-}
 
 
 def create_pyproject_toml(
@@ -406,11 +405,11 @@ def create_pyproject_toml(
     desc="",
     deps=None,
     python_version="3.10",
+    *,
     add_cli=True,
     existing_content=None,
-    manager="uv",
+    manager="hatch",
 ) -> str:
-    """Create a pyproject.toml file for a Hatch project."""
     try:
         pyproject = (
             tomlkit.parse(existing_content) if existing_content else tomlkit.document()
@@ -432,7 +431,7 @@ def create_pyproject_toml(
 
     # Classifiers
     classifiers = tomlkit.array()
-    classifiers.multiline(True)  # Ensure each classifier is on a new line
+    classifiers.multiline(multiline=True)
     classifiers.extend(
         [
             "Development Status :: 3 - Alpha",
@@ -448,7 +447,7 @@ def create_pyproject_toml(
     # Dependencies
     existing_deps = project.get("dependencies", tomlkit.array())
     new_deps = tomlkit.array()
-    new_deps.multiline(True)  # Ensure each dependency is on a new line
+    new_deps.multiline(multiline=True)
 
     # Add existing dependencies
     for dep in existing_deps:
@@ -473,10 +472,9 @@ def create_pyproject_toml(
         # Hatch configuration
         hatch = tool.setdefault("hatch", tomlkit.table())
         hatch["envs"] = {"default": {"dependencies": ["pytest", "pytest-cov"]}}
-    elif manager == "uv":
+    elif manager == "setuptools":
         scm = tool.setdefault("setuptools_scm", tomlkit.table())
         scm["write_to"] = f"{project_name}/__version__.py"
-        # Uvicorn configuration
 
     ruff = tool.setdefault("ruff", tomlkit.table())
     ruff["line-length"] = 120

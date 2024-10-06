@@ -2,3 +2,9 @@
 __pychache__/
 **/*.pyc
 **/*__pychache__/
+**/*.pyo
+*.egg-info/
+dist/
+.venv
+venv/
+

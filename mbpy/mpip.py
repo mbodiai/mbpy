@@ -7,16 +7,9 @@ import traceback
 from copy import deepcopy
 from pathlib import Path
 from typing import List
-
 import click
 import requests
 import tomlkit
-from rich.logging import RichHandler
-
-logger = logging.getLogger(__name__)
-logger.addHandler(RichHandler())
-logger.setLevel(sys.flags.debug or logging.INFO)
-
 
 INFO_KEYS = [
     "author",
@@ -66,9 +59,9 @@ def get_latest_version(package_name: str) -> str | None:
         data = response.json()
         return data['info']['version']
     except requests.RequestException as e:
-        logging.error(f"Error fetching latest version for {package_name}: {e}")
+        logging.exception(f"Error fetching latest version for {package_name}: {e}")
     except (KeyError, ValueError) as e:
-        logging.error(f"Error parsing response for {package_name}: {e}")
+        logging.exception(f"Error parsing response for {package_name}: {e}")
     except Exception as e:
         logging.exception(f"Unexpected error fetching latest version for {package_name}: {e}")
     return None
@@ -107,7 +100,9 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     """Retrieve detailed package information from PyPI JSON API."""
     package_url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(package_url, timeout=10)
-    response.raise_for_status()
+    if response.status_code != 200:
+        logging.warning(f"Package not found: {package_name}")
+        return {}
     package_data: dict = deepcopy(response.json())
     logging.debug("package_data")
     logging.debug(package_data  )
@@ -509,7 +504,7 @@ def search_parents_for_file(file_name, max_levels=3, cwd: str | None = None) -> 
     it = 0
     target_file = Path(str(file_name))
     while not target_file.exists():
-        logger.debug(f"Checking {current_dir}")
+        logging.debug(f"Checking {current_dir}")
         if it > max_levels:
             break
         current_dir = current_dir.parent

@@ -18,9 +18,8 @@ from typing import Generic, Iterator, Literal, TypeVar, Union
 import rich_click as click
 import tomlkit
 from mrender.md import Markdown
-from rich.logging import RichHandler
+from rich.console import Console
 from rich.traceback import Traceback
-from rich_click import rich_command, rich_group
 
 from mbpy.commands import run_command
 from mbpy.create import create_project
@@ -37,7 +36,7 @@ from mbpy.mpip import (
 )
 from mbpy.publish import append_notion_table_row
 
-logging.handlers = [RichHandler()]
+console = Console()
 
 @click.group("mbpy")
 @click.pass_context
@@ -51,13 +50,13 @@ logging.handlers = [RichHandler()]
     "-d",
     "--debug",
     is_flag=True,
-    help="Enable debug logging",   
+    help="Enable debug logging",
 )
-def cli(ctx, hatch_env, debug) -> None:
+def cli(ctx: click.Context, hatch_env, debug) -> None:
     if sys.flags.debug or debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
     if ctx.invoked_subcommand is None:
-        click.echo("No subcommand specified. Showing dependencies:")
+        console.print("No subcommand specified. Showing dependencies:")
         show_command(hatch_env)
 
 
@@ -91,6 +90,7 @@ def install_command(
     editable,
     hatch_env,
     dependency_group,
+    *,
     debug=False,
 ) -> None:
     """Install packages and update requirements.txt and pyproject.toml accordingly.
@@ -192,7 +192,7 @@ def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
                 pyproject_path=find_toml_file(),
             )
             print_success = None
-            print(f"Uninstalling {package_name}...")
+            console.print(f"Uninstalling {package_name}...")
             for line in run_command([sys.executable, "-m", "pip", "uninstall", "-y", package_name]):
                 click.echo(line, nl=False)
                 print_success = partial(click.echo, f"Successfully uninstalled {package_name}")
@@ -203,31 +203,31 @@ def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
             sys.exit(e.returncode)
         except Exception as e:
             click.echo(
-                f"Unexpected error occurred while trying to uninstall {package_name}:",
+                f"Unexpected error occurred while trying to uninstall {package_name}: {e}",
                 err=True,
             )
-            print(Traceback.from_exception(e.__class__, e, e.__traceback__))
+            console.print(Traceback.from_exception(e.__class__, e, e.__traceback__))
         finally:
-            print("", flush=True)
+            console.print("", flush=True)
 
 
-@cli.command("show", no_args_is_help=True)
+@cli.command("show", no_args_is_help=False)
 @click.argument("package", default=None)
 @click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
-def show_command(package, hatch_env) -> None:
+def show_command(package=None, hatch_env="") -> None:
     """Show the dependencies from the pyproject.toml file.
 
     Args:
         package (str, optional): The package to show information about. Defaults to None.
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
     """
-    if package:
-        try:
-            package_info = get_package_info(package)
-            md = Markdown(package_info)
-            md.stream()
-        except Exception:
-            traceback.print_exc()
+    # if package:
+        # try:
+        #     package_info = get_package_info(package)
+        #     md = Markdown(package_info)
+        #     md.stream()
+        # except Exception:
+        #     traceback.print_exc()
     toml_path = find_toml_file()
     try:
         with Path(toml_path).open() as f:
@@ -243,17 +243,20 @@ def show_command(package, hatch_env) -> None:
             dependencies = pyproject.get("project", {}).get("dependencies", [])
 
         if dependencies:
-            click.echo("Dependencies:")
+            from rich.table import Table
+            from rich.panel import Panel
+            table = Table(title=Panel("Dependencies", style="bold"))
+            table.add_column("Package", style="cyan")
             for dep in dependencies:
-                click.echo(f"  {dep}")
+                table.add_row(dep)
+            console.print(table)
         else:
             click.echo("No dependencies found.")
     except FileNotFoundError:
         click.echo("Error: pyproject.toml file not found.")
     except Exception as e:
         click.echo(f"An error occurred: {str(e)}")
-    finally:
-        print("", flush=True)
+
 
 
 SEARCH_DOC = """Find a package on PyPI and optionally sort the results.\n
@@ -336,6 +339,29 @@ def create_command(project_name, author, description, deps, python="3.12", no_cl
     except Exception:
         traceback.print_exc()
 
+@cli.command("publish", no_args_is_help=True)
+@click.argument("package")
+@click.option("--token", default=None, help="Notion API token")
+@click.option("--table", default=None, help="Notion table URL")
+def publish_command(package, token, table) -> None:
+    """Publish a package to a Notion table."""
+    try:
+        append_notion_table_row(package, token, table)
+    except Exception:
+        traceback.print_exc()
 
-if __name__ == "__main__":
+
+@cli.command("run", no_args_is_help=True)
+@click.argument("command", nargs=-1)
+def run_cli_command(command) -> None:
+    """Run a command."""
+    from mbpy.commands import run
+    try:
+        run(command,show=True)
+    except Exception:
+        traceback.print_exc()
+
+def main():
     cli()
+if __name__ == "__main__":
+    main()

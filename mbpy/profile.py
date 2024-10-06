@@ -2,9 +2,10 @@ import cProfile
 import io
 import pstats
 from functools import wraps
+from typing import Callable
 
 
-def profile(func) -> callable:
+def profile(func) -> Callable:
     @wraps(func)
     def wrapper(*args, **kwargs):
         pr = cProfile.Profile()

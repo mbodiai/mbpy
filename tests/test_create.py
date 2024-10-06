@@ -1,22 +1,21 @@
-from itertools import filterfalse, repeat, takewhile
-
-from more_itertools import collapse, seekable
-import pytest
-import sys
-from mbpy.cli import run_command
-import time
-import requests
-from requests.exceptions import RequestException
-import socket
-import signal
-from pathlib import Path
-import tempfile
-import os
 import json
-from mbpy.create import create_project, setup_documentation, extract_docstrings
+import os
+import signal
+import socket
+import sys
+import tempfile
+import time
+from itertools import compress, filterfalse, repeat, takewhile
+from pathlib import Path
 
+import pytest
+import requests
+from mbpy.cli import run_command
+from mbpy.create import create_project, extract_docstrings, setup_documentation
+from more_itertools import collapse, seekable
+from requests.exceptions import RequestException
 from toolz import peekn
-from itertools import compress
+
 
 def test_create_project():
     project_name = "test_project"
@@ -42,8 +41,12 @@ def test_create_project():
                 cwd=tmp_path,
             )
 
-
-            assert f"Project {project_name} created successfully" in result
+            
+            final = ""
+            for line in result:
+                print(line)
+                final += line
+            assert f"Project {project_name} created successfully" in final
 
             project_root = tmp_path
             assert (project_root / project_name).exists()
@@ -62,7 +65,7 @@ def test_create_project():
 
             # Check __about__.py content
             about_content = (project_root / project_name / "__about__.py").read_text()
-            assert '__version__ = "0.1.0"' in about_content
+            assert "__version__ = '0.0.1'" in about_content
 
             # Check if documentation was set up
             assert (project_root / "docs" / "conf.py").exists()
@@ -71,6 +74,7 @@ def test_create_project():
             pass
             # tmp.close() if tmp and Path(tmp.name).exists() else None
             # os.unlink(tmp.name) if tmp and os.path.exists(tmp.name) else None
+
 def test_create_project_with_mkdocs(tmp_path):
     project_name = "mkdocs_project"
     author = "MkDocs Author"
@@ -80,7 +84,7 @@ def test_create_project_with_mkdocs(tmp_path):
     result = run_command(
         [sys.executable, "-m", "mbpy.cli", "create", project_name, author, "--description", description, "--deps", ",".join(deps), "--doc-type", "mkdocs"],
         cwd=tmp_path,
-    )
+    ).readlines()
 
 
 
@@ -286,7 +290,6 @@ class TestClass:
                 else:
                     yield f"{prefix}{k}", v
 
-        from rich.pretty import pprint
         docs = seekable(collapse(walk_dict(extract_docstrings(project_path))))
         docs.seek(0)
         for c in docs:

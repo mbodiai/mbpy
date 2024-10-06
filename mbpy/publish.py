@@ -2,14 +2,14 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from notion_client import Client
+
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Setup logger
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 def append_notion_table_row(new_data: dict, page_content: list = None, debug: bool = False):
     """Appends a new row to a Notion table using the Notion SDK. Supports fields like `title`, `select`, `multi_select`, `checkbox`, and `rich_text`. Optionally adds page content if provided.
@@ -43,6 +43,7 @@ def append_notion_table_row(new_data: dict, page_content: list = None, debug: bo
         None
     """  # noqa: E501
     # Load API key and database ID from environment variables
+    from notion_client import Client
     api_key = os.getenv("NOTION_API_KEY")
     database_id = os.getenv("NOTION_DATABASE_ID")
 
