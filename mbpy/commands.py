@@ -93,7 +93,18 @@ class NewCommandContext(Generic[T]):
 
     @abstractmethod
     def streamlines(self, *, show=False) -> Iterator[str]:
-        raise NotImplementedError
+        stream = self.process or self.start()
+        while True:
+            line = stream.readline()
+            if not line:
+                break
+            line = Text.from_ansi(line.decode("utf-8"))
+            if line:
+                self.lines.append(str(line))
+                if show:
+                    console.print(line)
+                yield str(line)
+
 
     def readlines(self, *, show=False) -> str:
         self.process = self.start()
@@ -198,8 +209,8 @@ import rich_click  as click
 def cli(command, cwd, timeout, show,*, interactive: bool = False):
     if interactive:
         interact(command)
-    exec_, *args = command if isinstance(command, list) else command.split()
-    return PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False, show=show).readlines(show=show)
+    else:
+        run(command, cwd=cwd, timeout=timeout, show=show)
 
 def run_command_background(
     command: str | list[str],
