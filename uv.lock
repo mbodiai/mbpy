@@ -1426,6 +1426,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "mbpy", editable = "." },
     { name = "mypy", specifier = ">=1.11.2" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "twine", specifier = ">=5.1.1" },

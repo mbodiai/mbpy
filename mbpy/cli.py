@@ -7,7 +7,6 @@ import sys
 import tempfile
 import traceback
 from asyncio.subprocess import PIPE
-from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -151,9 +150,6 @@ def install_command(
 
     except FileNotFoundError as e:
         click.secho("Error: Installation failed.", err=True)
-        click.secho(f"Command: {e.cmd}", err=True)
-        click.secho(f"Return code: {e.returncode}", err=True)
-        click.secho(f"Output: {e.output}", err=True)
     finally:
         logging.info("")
 
@@ -207,12 +203,11 @@ def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
                 err=True,
             )
             console.print(Traceback.from_exception(e.__class__, e, e.__traceback__))
-        finally:
-            console.print("", flush=True)
+
 
 
 @cli.command("show", no_args_is_help=False)
-@click.argument("package", default=None)
+@click.argument("package", default=" ")
 @click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
 def show_command(package=None, hatch_env="") -> None:
     """Show the dependencies from the pyproject.toml file.
@@ -221,13 +216,11 @@ def show_command(package=None, hatch_env="") -> None:
         package (str, optional): The package to show information about. Defaults to None.
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
     """
-    # if package:
-        # try:
-        #     package_info = get_package_info(package)
-        #     md = Markdown(package_info)
-        #     md.stream()
-        # except Exception:
-        #     traceback.print_exc()
+    if package.strip():
+        try:
+            run_command([sys.executable, "-m", "pip", "show", package], show=True).readlines(show=True)
+        except Exception:
+            traceback.print_exc()
     toml_path = find_toml_file()
     try:
         with Path(toml_path).open() as f:

@@ -1,23 +1,37 @@
 [project]
 name = "mbpy"
-version = "1.5.0"
-description = "Add your description here"
+version = "0.0.1"
+description = ""
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "requests>=2.26.0",
-    "python-dotenv>=1.0.1",
-    "rich-click>=1.8.3",
-    "mrender>=1.0.1",
-    "toml>=0.10.2",
-    "tomlkit>=0.13.2",
-    "pexpect>=4.9.0",
-    "more-itertools>=10.5.0",
-    "toolz>=1.0.0",
+    'material-ui',
+    'mkdocs-material',
+    'mkdocstrings',
+    'more-itertools>=10.5.0',
+    'mrender>=1.0.1',
+    'myst-parser',
+    'pexpect>=4.9.0',
+    'pymdown-extensions',
+    'python-dotenv>=1.0.1',
+    'requests>=2.26.0',
+    'rich-click>=1.8.3',
+    'sphinx-click',
+    'toml>=0.10.2',
+    'tomlkit>=0.13.2',
+    'toolz>=1.0.0',
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
 ]
 
 [project.scripts]
-mbpy = "mbpy.cli:cli"
+mbpy = "mbpy.cli:main"
 mbpip = "mbpy.cli:cli"
 mpip = "mbpy.cli:cli"
 mrun = "mbpy.commands:cli"
@@ -36,13 +50,47 @@ sphinx = [
     "sphinx>=8.0.2",
 ]
 
+[[project.authors]]
+name = "mbodiai"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
+    "mbpy",
     "mypy>=1.11.2",
     "pytest>=8.3.3",
     "twine>=5.1.1",
 ]
+
+[tool.uv.sources]
+mbpy = { workspace = true }
+
+[tool.hatch.envs.default]
+dependencies = ["pytest", "pytest-cov"]
+[tool.ruff]
+line-length = 120
+select = ["A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN", "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"]
+ignore = ["D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102", "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202", "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests,docs}/*" = ["ALL"]
+"**__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report=term-missing"
+testpaths = ["tests"]
+markers = ["network: marks tests that require network access (deselect with '-m \"not network\"')"]

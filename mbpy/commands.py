@@ -41,7 +41,7 @@ console = Console(force_terminal=True)
 class NewCommandContext(Generic[T]):
     process_type: T
 
-    def __init__(self, command, args=None, timeout=10, cwd=None, show=False, **kwargs):
+    def __init__(self, command, args=None, timeout=20, cwd=None, show=False, **kwargs):
         self.show = show
         if callable(command):
             self.callable_command_no_log = partial(command, args=args, timeout=timeout, cwd=cwd, **kwargs)
@@ -298,10 +298,10 @@ def run_local(
 
 
 def interact(
-    cmd: str,
+    cmd: str | list[str],
     **kwargs,
 ):
-    cmd = shlex.split(cmd) if isinstance(cmd, str) else cmd
+    cmd: list[str] = shlex.split(cmd) if isinstance(cmd, str) else cmd
     out = []
     for i in cmd:
         if i.startswith("~"):

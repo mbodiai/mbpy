@@ -151,7 +151,7 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
         "releases": [
             {release[0]: {"upload_time": release[1][0]["upload_time"]}}
         for release in releases
-        ],
+        ] if releases and len(releases[0][1]) > 0 else [],
     }
     
 

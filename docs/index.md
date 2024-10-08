@@ -1,43 +1,90 @@
-# Welcome to mbpy
+# mbpy - Manage Python Projects with Ease
 
-mbpy is a Python project that [brief description of what mbpy does].
+[![PyPI - Version](https://img.shields.io/pypi/v/mbpy.svg)](https://pypi.org/project/mbpy)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mbpy.svg)](https://pypi.org/project/mbpy)
+
+-----
+
+`mbpy` is a powerful tool for creating, managing, and documenting Python projects. It simplifies the process of setting up project structures, managing dependencies, and generating documentation.
 
 ## Features
 
-- [Feature 1]
-- [Feature 2]
-- [Feature 3]
+- Create new Python projects with customizable structures
+- Manage project dependencies using pyproject.toml
+- Set up documentation using Sphinx or MkDocs
+- Generate GitHub Actions workflows for CI/CD
+- Simplify package installation and management with pip-like commands
+
+## Table of Contents
+
+- [mbpy - Manage Python Projects with Ease](#mbpy---manage-python-projects-with-ease)
+  - [Features](#features)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Documentation](#documentation)
+    - [Sphinx](#sphinx)
+    - [MkDocs](#mkdocs)
+  - [License](#license)
 
 ## Installation
 
-You can install mbpy using pip:
-
-```bash
+```console
 pip install mbpy
-```
-
-## Quick Start
-
-Here's a quick example of how to use mbpy:
-
-```python
-import mbpy
-
-# Add a simple usage example here
 ```
 
 ## Usage
 
-For more detailed usage instructions and examples, please refer to our [Usage Guide](usage.md).
+To create a new project:
 
-## API Documentation
+```console
+mbpip create <project_name> --author "<Your Name>" --description "<Project Description>"
+```
 
-For a complete reference of mbpy's API, check out our [API documentation](api.md).
+To manage dependencies:
 
-## Contributing
+```console
+mpip install <package_name>
+mpip uninstall <package_name>
+mpip show
+```
 
-We welcome contributions! Please see our [Contributing Guide](contributing.md) for more details.
+For more detailed usage instructions, run:
+
+```console
+mbpy --help
+```
+
+or
+
+```console
+mpip --help
+```
+
+## Documentation
+
+To view the full documentation, you have two options:
+
+### Sphinx
+
+1. Build the docs:
+   ```
+   hatch run docs
+   ```
+2. Open `docs/_build/html/index.html` in your web browser.
+
+### MkDocs
+
+1. Install MkDocs if you haven't already:
+   ```
+   pip install mkdocs
+   ```
+2. Build and serve the docs:
+   ```
+   mkdocs serve
+   ```
+3. Open your web browser and go to `http://127.0.0.1:8000/`
 
 ## License
 
-mbpy is released under the [Apache 2.0 License](https://github.com/[author]/mbpy/blob/main/LICENSE).
+`mbpy` is distributed under the terms of the [MIT License](LICENSE).

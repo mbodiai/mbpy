@@ -185,7 +185,7 @@ def create_project(
     dependencies: list[str] | Literal["local"] | None = None,
     python_version=DEFAULT_PYTHON,
     *,
-    add_cli=True,
+    add_cli=False,
     doc_type="sphinx",
     docstrings: dict | None = None,
     project_root: Path | None = None,
@@ -317,7 +317,7 @@ def setup_sphinx_docs(
     (docs_dir / "api.rst").write_text(SPHINX_API.format(project_name=project_name))
 
 
-def extract_docstrings(project_path) -> dict[str, str]:
+def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
     project_path = Path(project_path)
     docstrings = {}
 
@@ -326,15 +326,25 @@ def extract_docstrings(project_path) -> dict[str, str]:
             tree = ast.parse(f.read(), filename=py_file)
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef | ast.ClassDef | ast.Module):
-                    cleaned = inspect.cleandoc(ast.get_docstring(node) or "")
-                    docstrings[f"{py_file.stem}.{node.__dict__.get('name', '__name__')}"] = cleaned
+                    name = node.name if hasattr(node, 'name') else '__init__'
+                    signature = ""
+                    if isinstance(node, ast.FunctionDef):
+                        signature = f"{name}{inspect.signature(node)}"
+                    elif isinstance(node, ast.ClassDef):
+                        signature = f"class {name}"
+                    elif isinstance(node, ast.Module):
+                        signature = f"module {name}"
+                    cleaned_docstring = inspect.cleandoc(ast.get_docstring(node) or "")
+                    docstrings[f"{py_file.stem}.{name}"] = {
+                        "signature": signature,
+                        "docstring": cleaned_docstring
+                    }
     return docstrings
 
 def setup_mkdocs(
   docs_dir, project_name: str, author, description, docstrings
 ) -> None:
     docs_dir.mkdir(exist_ok=True)
-
     # Create mkdocs.yml in the project root
     mkdocs_content = f"""
 site_name: {project_name}
