@@ -5,21 +5,11 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    'material-ui',
-    'mkdocs-material',
-    'mkdocstrings',
-    'more-itertools>=10.5.0',
-    'mrender>=1.0.1',
-    'myst-parser',
-    'pexpect>=4.9.0',
-    'pymdown-extensions',
-    'python-dotenv>=1.0.1',
-    'requests>=2.26.0',
-    'rich-click>=1.8.3',
-    'sphinx-click',
-    'toml>=0.10.2',
-    'tomlkit>=0.13.2',
-    'toolz>=1.0.0',
+    "mrender>=1.0.1",
+    "pexpect>=4.9.0",
+    "python-dotenv>=1.0.1",
+    "rich-click>=1.8.3",
+    "tomlkit>=0.13.2",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -46,9 +36,20 @@ notion = [
 mkdocs = [
     "mkdocs>=1.6.1",
 ]
-sphinx = [
-    "sphinx>=8.0.2",
+docs = [
+    "fastui>=0.7.0",
+    "sphinx-tippy>=0.4.3",
+    "myst-parser>=0.15.1",
+    "rst-to-myst[sphinx]>=0.4.0",
+    "markdown-it-py>=2.2.0",
+    "rst-to-myst>=0.4.0",
+    "recommonmark>=0.7.1",
+    "sphinx>=6.2.1",
 ]
+all = [
+    "aiohttp>=3.10.10",
+]
+
 
 [[project.authors]]
 name = "mbodiai"
@@ -66,6 +67,7 @@ dev-dependencies = [
 
 [tool.uv.sources]
 mbpy = { workspace = true }
+mbodi = {path = "../v1"}
 
 [tool.hatch.envs.default]
 dependencies = ["pytest", "pytest-cov"]

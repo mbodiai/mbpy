@@ -95,7 +95,8 @@ def get_package_names(query_key) -> list[str]:
         start = end
     return package_names
 
-
+from rich.console import Console
+console = Console()
 def get_package_info(package_name, verbose=False, include=None, release=None) -> dict:
     """Retrieve detailed package information from PyPI JSON API."""
     package_url = f"https://pypi.org/pypi/{package_name}/json"
@@ -108,7 +109,20 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     logging.debug(package_data  )
     info = package_data.get("info", {})
     if release:
-        info = package_data.get("releases", {}).get(release, [{}])[0]
+        release_found = False
+        for key in package_data.get("releases", {}):
+            if release in key:
+                release_found = True
+                info = package_data.get("releases", {}).get(key, [{}])[0]
+                break
+        if not release_found:
+            releases = package_data.get('releases', {}).keys()
+            preview = 4 if len(releases) > 8 else 2
+            first = ", ".join(list(releases)[:preview])
+            last = ", ".join(list(releases)[-preview:])
+            color = "spring_green1"
+            console.print(f"[bold {color}]{package_name}[/bold {color}] release `{release}` not found in  {first} ... {last}")
+
     if not info:
         raise ValueError(f"Package not found: {package_name} {'for release' + str(release) if release else ''}")
     
@@ -132,13 +146,12 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
             latest, earliest = None, None
     else:
         latest, earliest = None, None
-    from pprint import pprint
 
     package_info = {
         "name": info.get("name", ""),
         "version": info.get("version", ""),
         "summary": info.get("summary", ""),
-        "upload_time": latest[1][0]["upload_time"] if latest else "",
+        "latest_release": latest[1][0]["upload_time"] if latest else "",
         "author": info.get("author", ""),
         "earliest_release": {
             "version": earliest[0],
@@ -153,6 +166,7 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
         for release in releases
         ] if releases and len(releases[0][1]) > 0 else [],
     }
+
     
 
     if verbose:
@@ -166,21 +180,22 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     except (StopIteration, TypeError, AttributeError):
         package_info["github_url"] = None
 
-    include = [include] if isinstance(include, str) else include
+    include = [include] if isinstance(include, str) else include or []
     if include and "all" in include:
         include = INFO_KEYS + ADDITONAL_KEYS
-    if include and isinstance(include, list):
-        for key in include:
-            if key in ("releases", "release"):
-                continue
-            if key in ADDITONAL_KEYS:
-                package_info[key] = package_data.get(key, {})
-            elif key in INFO_KEYS:
-                package_info[key] = info.get(key, "")
-            else:
-                raise ValueError(f"Invalid key: {key}")
 
+    for key in include:
+        if key in ("releases", "release"):
+            continue
+        if key in ADDITONAL_KEYS:
+            package_info[key] = package_data.get(key, {})
+        elif key in INFO_KEYS:
+            package_info[key] = info.get(key, "")
+        else:
+            raise ValueError(f"Invalid key: {key}")
 
+    if not "releases" in include:
+        package_info.pop("releases", None)
     return package_info
 
 
@@ -204,6 +219,7 @@ def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, re
         for package_name in package_names:
             package_info = get_package_info(package_name, verbose, include, release)
             packages.append(package_info)
+
 
         if sort:
             packages.sort(key=lambda x: x.get(sort, 0), reverse=True)

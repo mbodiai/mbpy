@@ -20,7 +20,7 @@ from mrender.md import Markdown
 from rich.console import Console
 from rich.traceback import Traceback
 
-from mbpy.commands import run_command
+from mbpy.commands import run, run_command
 from mbpy.create import create_project
 from mbpy.mpip import (
     ADDITONAL_KEYS,
@@ -36,7 +36,7 @@ from mbpy.mpip import (
 from mbpy.publish import append_notion_table_row
 
 console = Console()
-
+# TODO add a timeout option and support windows.
 @click.group("mbpy")
 @click.pass_context
 @click.option(
@@ -209,19 +209,24 @@ def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
 @cli.command("show", no_args_is_help=False)
 @click.argument("package", default=" ")
 @click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
-def show_command(package=None, hatch_env="") -> None:
+@click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
+def show_command(package:str | None =None, hatch_env=None, debug: bool = False) -> None:
     """Show the dependencies from the pyproject.toml file.
 
     Args:
         package (str, optional): The package to show information about. Defaults to None.
         hatch_env (str, optional): The Hatch environment to use. Defaults to "default".
     """
-    if package.strip():
+    if sys.flags.debug or debug:
+        logging.basicConfig(level=logging.DEBUG, force=True)
+    if package is not None and package.strip():
         try:
-            run_command([sys.executable, "-m", "pip", "show", package], show=True).readlines(show=True)
+            run_command([sys.executable, "-m", "pip", "show", package or "mbpy"], show=False).readlines(show=False)
         except Exception:
             traceback.print_exc()
     toml_path = find_toml_file()
+    if run("which uv"):
+        run("uv tree", show=True)
     try:
         with Path(toml_path).open() as f:
             content = f.read()
@@ -237,18 +242,18 @@ def show_command(package=None, hatch_env="") -> None:
 
         if dependencies:
             from rich.table import Table
-            from rich.panel import Panel
-            table = Table(title=Panel("Dependencies", style="bold"))
+            from rich.text import Text
+            table = Table(title=Text("\nDependencies", style="bold cyan"))
             table.add_column("Package", style="cyan")
             for dep in dependencies:
                 table.add_row(dep)
             console.print(table)
         else:
-            click.echo("No dependencies found.")
+            click.secho("No dependencies found.",styles=["bold"])
     except FileNotFoundError:
-        click.echo("Error: pyproject.toml file not found.")
+        click.secho("Error: pyproject.toml file not found.", err=True)
     except Exception as e:
-        click.echo(f"An error occurred: {str(e)}")
+        click.secho(f"An error occurred: {str(e)}", err=True)
 
 
 
@@ -268,7 +273,7 @@ SEARCH_DOC = """Find a package on PyPI and optionally sort the results.\n
 @click.argument("package", type=str, nargs=-1)
 @click.option("--limit", default=10, help="Limit the number of results")
 @click.option("--sort", default="downloads", help="Sort key to use")
-@click.option("--include", multiple=True,type=click.Choice(["all"]+INFO_KEYS+ADDITONAL_KEYS), default=None, help="Include additional information")
+@click.option("-i","--include", multiple=True,type=click.Choice(["all"]+INFO_KEYS+ADDITONAL_KEYS), default=None, help="Include additional information")
 @click.option("--release", default=None, help="Release version to use")
 @click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
 def search_command(package, limit, sort, include, release, debug) -> None:
@@ -287,7 +292,8 @@ def search_command(package, limit, sort, include, release, debug) -> None:
     if debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
     try:
-        packages = find_and_sort(package, limit, sort, include=include, release=release)
+        packages = find_and_sort(package, limit=limit, sort=sort, include=include, release=release)
+
         md = Markdown(packages)
         md.stream()
     except Exception:
@@ -332,10 +338,11 @@ def create_command(project_name, author, description, deps, python="3.12", no_cl
     except Exception:
         traceback.print_exc()
 
-@cli.command("publish", no_args_is_help=True)
-@click.argument("package")
-@click.option("--token", default=None, help="Notion API token")
-@click.option("--table", default=None, help="Notion table URL")
+@cli.command("sync", no_args_is_help=True)
+@click.argument("docs", type=click.Path(exists=True), nargs=-1)
+@click.option("--provider", "-p",type=click.Choice(["github","notion","slack"]),default="github", help="The provider to use.")
+@click.option("--token", default=None, help="API token")
+@click.option("--endpoint", default=None, help="URL Endpoint for documentation destination i..e. Notion table URL")
 def publish_command(package, token, table) -> None:
     """Publish a package to a Notion table."""
     try:
@@ -354,7 +361,7 @@ def run_cli_command(command) -> None:
     except Exception:
         traceback.print_exc()
 
-def main():
+def main() -> None:
     cli()
 if __name__ == "__main__":
     main()

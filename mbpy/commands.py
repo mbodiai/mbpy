@@ -8,13 +8,13 @@ import inspect
 import io
 import json
 import logging
+import os
 import random
 import shlex
 import signal
 import socket
 import struct
 import sys
-
 import termios
 from abc import abstractmethod
 from contextlib import contextmanager
@@ -22,36 +22,30 @@ from functools import partial, wraps
 from pathlib import Path
 from threading import Thread
 from time import time
+from typing import Callable, Generic, Iterator, TypeVar
 
 import pexpect
 import pexpect.socket_pexpect
 import pexpect.spawnbase
-
-
-
 from rich.console import Console
-
 from rich.pretty import Text
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
-from rich.table import Table
-from typing import TypeVar, Generic, Iterator
+from typing_extensions import ParamSpec
+
+P = ParamSpec("P")
+R = TypeVar("R", bound=str | Iterator[str])
 T = TypeVar("T", bound="pexpect.spawn")
 
 console = Console(force_terminal=True)
 class NewCommandContext(Generic[T]):
     process_type: T
 
-    def __init__(self, command, args=None, timeout=20, cwd=None, show=False, **kwargs):
+    def __init__(self, command: str | Callable[P,R] | T, args : list[str] | None = None, timeout=20, cwd=None, show=False, **kwargs):
         self.show = show
         if callable(command):
             self.callable_command_no_log = partial(command, args=args, timeout=timeout, cwd=cwd, **kwargs)
-        elif isinstance(command, list):
-            command, *args = command
-            self.callable_command_no_log = partial(
-                self.process_type, command, args=args, timeout=timeout, cwd=cwd, **kwargs
-            )
-        elif isinstance(command, str):
-            self.callable_command_no_log = partial(self.process_type, command, args, timeout=timeout, cwd=cwd, **kwargs)
+        else:
+            self.callable_command_no_log = partial(self.process_type, command, args=args, timeout=timeout, cwd=cwd, **kwargs)
         cwd = Path(str(cwd)).resolve() if cwd else Path.cwd()
         self.cwd = cwd if cwd.is_dir() else cwd.parent if cwd.exists() else Path.cwd()
         self.timeout = timeout
@@ -61,8 +55,8 @@ class NewCommandContext(Generic[T]):
         self.thread = None
         self.lines = []
         self.show = show
-        print(f"{command=} {args=}, {timeout=}, {cwd=}, {kwargs=}")
-        print(f"self: {self=}, {self.cwd=}")
+        logging.debug(f"{command=} {args=}, {timeout=}, {cwd=}, {kwargs=}")
+        logging.debug(f"self: {self=}, {self.cwd=}")
 
     def __class_getitem__(cls, item):
         cls.process_type = item
@@ -78,7 +72,7 @@ class NewCommandContext(Generic[T]):
 
     @contextmanager
     def inbackground(self, show=True, timeout=10):
-        show = show or self.show
+        show = show if show is not None else self.show
         try:
             self.start()
             self.thread = Thread(target=self.streamlines, daemon=True, kwargs={"show": show})
@@ -88,11 +82,12 @@ class NewCommandContext(Generic[T]):
 
     @wraps(inbackground)
     def inbg(self, show=False, timeout=10):
-        show = show or self.show
+        show = show if show is not None else self.show
         yield from self.inbackground(show=show, timeout=timeout)
 
-    @abstractmethod
+
     def streamlines(self, *, show=False) -> Iterator[str]:
+        show = show if show is not None else self.show
         stream = self.process or self.start()
         while True:
             line = stream.readline()
@@ -106,7 +101,8 @@ class NewCommandContext(Generic[T]):
                 yield str(line)
 
 
-    def readlines(self, *, show=False) -> str:
+    def readlines(self, *, show=None) -> str:
+        show = show if show is not None else self.show
         self.process = self.start()
         self.started = time()
         lines = list(self.streamlines(show=show))
@@ -130,7 +126,8 @@ class NewCommandContext(Generic[T]):
 
 
 class PtyCommand(NewCommandContext[pexpect.spawn]):
-    def streamlines(self, *, show=False) -> Iterator[str]:
+    def streamlines(self, *, show=None) -> Iterator[str]:
+        show = show if show is not None else self.show
         stream = self.process or self.start()
         while True:
             line = stream.readline()
@@ -253,13 +250,18 @@ def run_command_stream(
 
 
 def run_command(
-    command: str | list[str],
+    command: str | list[str] | tuple[str, list[str]],
     cwd: str | None = None,
     timeout: int = 10,
+    *,
     show=False,
-):
+) -> PtyCommand:
+    """Run command and return PtyCommand object."""
     commands = shlex.split(command) if isinstance(command, str) else command
-    exec_, *args = commands
+    if isinstance(commands, tuple):
+        exec_, args = commands
+    else:
+        exec_, *args = commands
     return PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False, show=show)
 
 def run(
@@ -268,11 +270,12 @@ def run(
     timeout: int = 10,
     *,
     show=True,
-):
-    return run_command(command, cwd=cwd, timeout=timeout, show=show).readlines(show=show)
+) -> str:
+    """Run command and return output as a string."""
+    return run_command(as_exec_args(command), cwd=cwd, timeout=timeout, show=show).readlines()
 
 
-def sigwinch_passthrough(sig, data, p):
+def sigwinch_passthrough(sig, data, p: pexpect.spawn):
     s = struct.pack("HHHH", 0, 0, 0, 0)
     a = struct.unpack("hhhh", fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, s))
     if not p.closed:
@@ -285,23 +288,30 @@ def run_local(
     *,
     interact=False,
     **kwargs,
-):
+) -> Iterator[str]:
+    """Run command, yield single response, and close."""
     if interact:
         p = pexpect.spawn(cmd, args, **kwargs)
         signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
         p.interact()
     else:
-        p = pexpect.spawn(cmd, args, **kwargs)
+        p: pexpect.spawn = pexpect.spawn(cmd, args, **kwargs)
         p.expect(pexpect.EOF, timeout=10)
-        console.print(Text.from_ansi(p.before.decode()))
+        response = p.before.decode()
+        console.print(Text.from_ansi(response))
+        yield response
         p.close()
+    return
 
 
-def interact(
-    cmd: str | list[str],
-    **kwargs,
-):
-    cmd: list[str] = shlex.split(cmd) if isinstance(cmd, str) else cmd
+def contains_exec(cmd: list[str] | str) -> bool:
+    """Check if command contains an executable."""
+    if isinstance(cmd, str):
+        cmd = shlex.split(cmd)
+    return any(Path(i).exists() for i in cmd)
+
+def resolve(cmd: list[str]) -> list[str]:
+    """Resolve commands to their full path."""
     out = []
     for i in cmd:
         if i.startswith("~"):
@@ -310,14 +320,24 @@ def interact(
             out.append(str(Path(i).resolve()))
         else:
             out.append(i)
-    if any(
-        c in out[0]
-        for c in ["cd", "ls", "pwd", "echo", "python", "bash", "sh", "zsh", "fish", "powershell", "cmd", "pwsh"]
-    ):
-        return run_local(out[0], out[1:],interact=True, **kwargs)
-    return run_local("bash", ["-c", *out],interact=True, **kwargs)
+    return out
 
+def as_exec_args(cmd: str | list[str]) -> tuple[str, list[str]]:
+    c = shlex.split(cmd) if isinstance(cmd, str) else cmd
+    c = resolve(c)
+    if not contains_exec(c):
+        return os.getenv("SHELL", "bash"), ["-c", " ".join(c)]
+    return c[0], c[1:]
 
+def interact(
+    cmd: str | list[str],
+    **kwargs,
+):
+    """Run comand, recieve output and wait for user input."""
+    while cmd != "exit":
+        cmd = next(run_local(*as_exec_args(cmd), **kwargs, interact=True))
+        cmd = yield cmd
+    return
 
 def progress(query: str):
     from rich.panel import Panel
