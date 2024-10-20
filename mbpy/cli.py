@@ -361,6 +361,19 @@ def run_cli_command(command) -> None:
     except Exception:
         traceback.print_exc()
 
+@cli.command("docs", no_args_is_help=True)
+@click.argument("source", type=click.Path(exists=True))
+@click.argument("name", type=str)
+@click.argument("author", type=str)
+@click.option("--description", default="", help="Project description")
+@click.option("--doc-type", type=click.Choice(["sphinx", "mkdocs"]), default="sphinx", help="Documentation type to use")
+def docs_command(source,name,author,description,doc_type) -> None:
+    from mbpy.create import setup_documentation
+    try:
+        setup_documentation(source, name, author, description, doc_type)
+    except Exception:
+        traceback.print_exc()
+
 def main() -> None:
     cli()
 if __name__ == "__main__":

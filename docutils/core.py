@@ -2,8 +2,7 @@
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
-"""
-Calling the ``publish_*`` convenience functions (or instantiating a
+"""Calling the ``publish_*`` convenience functions (or instantiating a
 `Publisher` object) with component names will result in default
 behavior.  For custom behavior (setting component options), create
 custom component objects first, and pass *them* to
@@ -15,13 +14,12 @@ custom component objects first, and pass *them* to
 
 __docformat__ = 'reStructuredText'
 
-import pprint
 import os
+import pprint
 import sys
 import warnings
 
-from docutils import (__version__, __version_details__, SettingsSpec,
-                      io, utils, readers, writers)
+from docutils import SettingsSpec, __version__, __version_details__, io, readers, utils, writers
 from docutils.frontend import OptionParser
 from docutils.readers import doctree
 
@@ -36,12 +34,10 @@ class Publisher:
                  source=None, source_class=io.FileInput,
                  destination=None, destination_class=io.FileOutput,
                  settings=None):
-        """
-        Initial setup.  If any of `reader`, `parser`, or `writer` are not
+        """Initial setup.  If any of `reader`, `parser`, or `writer` are not
         specified, the corresponding ``set_...`` method should be called with
         a component name (`set_reader` sets the parser as well).
-        """
-
+        """  # noqa: D205
         self.document = None
         """The document tree (`docutils.nodes` objects)."""
 
@@ -56,10 +52,9 @@ class Publisher:
 
         for component in 'reader', 'parser', 'writer':
             assert not isinstance(getattr(self, component), str), (
-                'passed string "%s" as "%s" parameter; pass an instance, '
-                'or use the "%s_name" parameter instead (in '
-                'docutils.core.publish_* convenience functions).'
-                % (getattr(self, component), component, component))
+                'passed string "{}" as "{}" parameter; pass an instance, '
+                'or use the "{}_name" parameter instead (in '
+                'docutils.core.publish_* convenience functions).'.format(getattr(self, component), component, component))
 
         self.source = source
         """The source of input data, a `docutils.io.Input` instance."""
@@ -130,8 +125,7 @@ class Publisher:
 
     def get_settings(self, usage=None, description=None,
                      settings_spec=None, config_section=None, **defaults):
-        """
-        Return settings from components and config files.
+        """Return settings from components and config files.
 
         Please set components first (`self.set_reader` & `self.set_writer`).
         Use keyword arguments to override component defaults
@@ -159,8 +153,7 @@ class Publisher:
     def process_command_line(self, argv=None, usage=None, description=None,
                              settings_spec=None, config_section=None,
                              **defaults):
-        """
-        Parse command line arguments and set ``self.settings``.
+        """Parse command line arguments and set ``self.settings``.
 
         Pass an empty sequence to `argv` to avoid reading `sys.argv`
         (the default behaviour).
@@ -208,11 +201,10 @@ class Publisher:
     def publish(self, argv=None, usage=None, description=None,
                 settings_spec=None, settings_overrides=None,
                 config_section=None, enable_exit_status=False):
-        """
-        Process command line options and arguments (if `self.settings` not
+        """Process command line options and arguments (if `self.settings` not
         already set), run `self.reader` and then `self.writer`.  Return
         `self.writer`'s output.
-        """
+        """  # noqa: D205
         exit = None
         try:
             if self.settings is None:

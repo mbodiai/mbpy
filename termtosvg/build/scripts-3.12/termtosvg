@@ -1,0 +1,6 @@
+#!python
+
+import termtosvg.main
+
+if __name__ == '__main__':
+    termtosvg.main.main()

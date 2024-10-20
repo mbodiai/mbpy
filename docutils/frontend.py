@@ -2,8 +2,7 @@
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
-"""
-Command-line and common processing for Docutils front-end tools.
+"""Command-line and common processing for Docutils front-end tools.
 
 This module is provisional.
 Major changes will happen with the switch from the deprecated

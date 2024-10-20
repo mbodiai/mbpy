@@ -1,15 +1,18 @@
 [project]
 name = "mbpy"
-version = "2.0.1"
+version = "2.0.2"
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "mrender>=1.0.1",
+    "einops>=0.8.0",
+    "minspect>=0.0.8",
+    "mrender>=1.0.3",
     "pexpect>=4.9.0",
     "python-dotenv>=1.0.1",
     "rich-click>=1.8.3",
     "tomlkit>=0.13.2",
+    "toolz>=1.0.0",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -45,6 +48,7 @@ docs = [
     "rst-to-myst>=0.4.0",
     "recommonmark>=0.7.1",
     "sphinx>=6.2.1",
+    "sphinx-autodoc2>=0.5.0",
 ]
 all = [
     "aiohttp>=3.10.10",
@@ -59,15 +63,14 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
-    "mbpy",
     "mypy>=1.11.2",
     "pytest>=8.3.3",
     "twine>=5.1.1",
 ]
 
 [tool.uv.sources]
-mbpy = { workspace = true }
 mbodi = {path = "../v1"}
+mrender = { path = "../mrender", editable = true }
 
 [tool.hatch.envs.default]
 dependencies = ["pytest", "pytest-cov"]

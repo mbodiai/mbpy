@@ -67,8 +67,7 @@ def html_body(
     doctitle=True,
     initial_header_level=1,
 ):
-    """
-    Given an input string, returns an HTML fragment as a string.
+    """Given an input string, returns an HTML fragment as a string.
 
     The return value is the contents of the <body> element.
 
@@ -92,15 +91,11 @@ def html_body(
 
 
 def internals(input_string, source_path=None, destination_path=None, input_encoding="unicode", settings_overrides=None):
-    """
-    Return the document tree and publisher, for exploring Docutils internals.
+    """Return the document tree and publisher, for exploring Docutils internals.
 
     Parameters: see `html_parts()`.
     """
-    if settings_overrides:
-        overrides = settings_overrides.copy()
-    else:
-        overrides = {}
+    overrides = settings_overrides.copy() if settings_overrides else {}
     overrides["input_encoding"] = input_encoding
     output, pub = core.publish_programmatically(
         source_class=io.StringInput,

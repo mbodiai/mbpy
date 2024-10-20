@@ -295,7 +295,7 @@ def setup_sphinx_docs(
     if not docstrings:
         docstrings = extract_docstrings(Path.cwd())
 
-    from mbpy.static import SPHINX_CONF, SPHINX_API, SPHINX_INDEX, SPHINX_MAKEFILE
+    from mbpy.static import SPHINX_API, SPHINX_CONF, SPHINX_INDEX, SPHINX_MAKEFILE
 
     docs_dir = Path(str(docs_dir)) if docs_dir else Path("docs")
     docs_dir.mkdir(exist_ok=True)
@@ -317,6 +317,47 @@ def setup_sphinx_docs(
     (docs_dir / "api.rst").write_text(SPHINX_API.format(project_name=project_name))
 
 
+def get_function_signature(node):
+    """Construct a function signature from an AST FunctionDef node."""
+    args = []
+    defaults = [None] * (len(node.args.args) - len(node.args.defaults)) + node.args.defaults
+
+    for arg, default in zip(node.args.args, defaults, strict=False):
+        arg_name = arg.arg
+        if arg.annotation:
+            arg_type = ast.unparse(arg.annotation)
+            arg_str = f"{arg_name}: {arg_type}"
+        else:
+            arg_str = arg_name
+
+        if default:
+            default_value = ast.unparse(default)
+            arg_str += f" = {default_value}"
+
+        args.append(arg_str)
+
+    if node.args.vararg:
+        args.append(f"*{node.args.vararg.arg}")
+
+    for kwarg, default in zip(node.args.kwonlyargs, node.args.kw_defaults, strict=False):
+        kwarg_name = kwarg.arg
+        if kwarg.annotation:
+            kwarg_type = ast.unparse(kwarg.annotation)
+            kwarg_str = f"{kwarg_name}: {kwarg_type}"
+        else:
+            kwarg_str = kwarg_name
+
+        if default:
+            default_value = ast.unparse(default)
+            kwarg_str += f" = {default_value}"
+
+        args.append(kwarg_str)
+
+    if node.args.kwarg:
+        args.append(f"**{node.args.kwarg.arg}")
+
+    return f"{node.name}({', '.join(args)})"
+
 def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
     project_path = Path(project_path)
     docstrings = {}
@@ -329,7 +370,7 @@ def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
                     name = node.name if hasattr(node, 'name') else '__init__'
                     signature = ""
                     if isinstance(node, ast.FunctionDef):
-                        signature = f"{name}{inspect.signature(node)}"
+                        signature = get_function_signature(node)
                     elif isinstance(node, ast.ClassDef):
                         signature = f"class {name}"
                     elif isinstance(node, ast.Module):

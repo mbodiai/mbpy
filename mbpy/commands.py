@@ -201,13 +201,16 @@ import rich_click  as click
 @click.argument("command", nargs=-1, required=True)
 @click.option("--cwd", default=None, help="Current working directory")
 @click.option("--timeout", default=10, help="Timeout for command")
-@click.option("--show", default=False, help="Show output")
+@click.option("--no-show", default=False, is_flag=True, help="Show output")
 @click.option("-i", "--interactive", default=False, help="Interact with command", is_flag=True)
-def cli(command, cwd, timeout, show,*, interactive: bool = False):
+@click.option("-d","--debug", default=False, help="Debug mode", is_flag=True)
+def cli(command, cwd, timeout, no_show, interactive: bool = False, debug: bool = False):
     if interactive:
-        interact(command)
+        logging.debug(f"{command=}")
+        interact(command, cwd=cwd, timeout=timeout, show=not no_show)
     else:
-        run(command, cwd=cwd, timeout=timeout, show=show)
+        logging.debug(f"{command=}")
+        run(command, cwd=cwd, timeout=timeout, show=not no_show)
 
 def run_command_background(
     command: str | list[str],
@@ -287,19 +290,31 @@ def run_local(
     args,
     *,
     interact=False,
+    cwd=None,
+    show=True,
+    timeout=10,
     **kwargs,
 ) -> Iterator[str]:
     """Run command, yield single response, and close."""
     if interact:
-        p = pexpect.spawn(cmd, args, **kwargs)
+        p = pexpect.spawn(cmd, args, timeout=timeout, cwd=cwd, **kwargs)
         signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
         p.interact()
+        if response := p.before:
+            response = response.decode()
+        else:
+            return
+        console.print(Text.from_ansi(response))
+        yield response
     else:
         p: pexpect.spawn = pexpect.spawn(cmd, args, **kwargs)
         p.expect(pexpect.EOF, timeout=10)
-        response = p.before.decode()
-        console.print(Text.from_ansi(response))
-        yield response
+        if response := p.before:
+            response = response.decode()
+            console.print(Text.from_ansi(response))
+            yield response
+        else:
+            return
         p.close()
     return
 
@@ -331,12 +346,25 @@ def as_exec_args(cmd: str | list[str]) -> tuple[str, list[str]]:
 
 def interact(
     cmd: str | list[str],
+    *,
+    cwd: str | None = None,
+    timeout: int = 10,
+    show: bool = True,
     **kwargs,
 ):
-    """Run comand, recieve output and wait for user input."""
+    """Run comand, recieve output and wait for user input.
+
+    Example:
+    >>> terminal = commands.interact("Choose an option", choices=[str(i) for i in range(1, len(results) + 1)] + ['q'])
+    >>> choice = next(terminal)
+    >>> choice.terminal.send("exit")
+
+    """
+    print(f"{cmd=}")
     while cmd != "exit":
-        cmd = next(run_local(*as_exec_args(cmd), **kwargs, interact=True))
-        cmd = yield cmd
+        cmd = run_local(*as_exec_args(cmd), **kwargs, interact=True, cwd=cwd, timeout=timeout, show=show)
+        for response in cmd:
+            cmd = yield response
     return
 
 def progress(query: str):
