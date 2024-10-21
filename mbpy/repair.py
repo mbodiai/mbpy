@@ -2,8 +2,12 @@
 
 # Metaclass for ndarray to automatically wrap shapes in Literal[]
 import contextlib
+import importlib
 import inspect
+import logging
+import logging.handlers
 import os
+import sys
 import tempfile
 from abc import ABCMeta
 from collections.abc import Sequence
@@ -15,10 +19,11 @@ import numpy as np
 from einops import rearrange, reduce
 from numpy._typing import _NestedSequence as NestedSequence
 from numpy._typing import _SupportsArray as ArrayLike
-from numpy.array_api import asarray, empty, ones, ones_like, zeros, zeros_like
 from numpy.typing import NDArray
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.pretty import Pretty, pprint, pretty_repr
+from rich.pretty import install as pretty_install
 from rich.traceback import Traceback, install
 from typing_extensions import (
     Any,
@@ -33,9 +38,14 @@ from typing_extensions import (
     reveal_type,
 )
 
+DEBUG = logging.DEBUG
+logging = logging.getLogger()
+logging.addHandler(RichHandler())
+pretty_install(max_length=50, max_string=50)
 install(show_locals=True)
 globals()["console"] = Console()
-
+if sys.argv and "-d" in sys.argv or "--debug" in sys.argv:
+    logging.setLevel(DEBUG)
 
 def print(*args, **kwargs):
     globals()["console"].print(*args, **kwargs)
@@ -65,10 +75,6 @@ def get_dtype(data: np.ndarray | list | ArrayLike) -> type:
 
 
 def get_shape(data: np.ndarray | list | ArrayLike) -> Tuple[int, ...]:
-    print(data)
-    from rich import inspect
-    inspect(data,all=True)
-    print(f"get_shape {data}")
     if isinstance(data, np.ndarray) or hasattr(data, "shape"):
         return data.shape
     if isinstance(data, Sequence):
@@ -81,23 +87,26 @@ def get_shape(data: np.ndarray | list | ArrayLike) -> Tuple[int, ...]:
     raise Error(TypeError(msg))
 
 
-def display(self: "ndarray"):
+def display(self: "ndarray",  max_length=50,
+            max_string=100,
+            indent_guides=False,
+            overflow="ellipsis",
+):
     if os.getenv("NO_RICH"):
-        return np.array_str(self.data)
+        return np.array_str(self)
     from io import StringIO
-
     strio = StringIO()
     c = Console(record=True, soft_wrap=True, file=strio)
     c.print(
         Pretty(
-            self.data,
+            self,
             max_length=50,
             max_string=100,
-            indent_guides=True,
+            indent_guides=indent_guides,
             overflow="ellipsis",
         )
     )
-    return c.export_text(styles=True)
+    return c.export_text(styles=False).strip()
 
 
 T = TypeVar("T")
@@ -118,6 +127,7 @@ def setup_shape_dtype_data(
     dtype: DT | None = None,
     data: np.ndarray | None = None,
 ):
+    shape = shape or type(self).shape
     if isinstance(data, SupportedArrayTypes):
         with contextlib.suppress(Warning):
             data_shape = get_shape(data) if data is not None else shape if shape is not None else type(self).shape
@@ -134,18 +144,9 @@ def setup_shape_dtype_data(
 
         self.shape = get_shape(data) if data is not None else shape
         self.dtype = get_dtype(data) if data is not None else dtype
-        self.data = (
-            data
-            if isinstance(data, np.ndarray)
-            else np.asarray(data)
-            if data is not None
-            else np.zeros(shape, dtype=dtype)
-            if shape is not None
-            else np.empty(0, dtype=dtype)
-        )
+        return self.shape, self.dtype, data if data is not None else np.zeros(shape, dtype=dtype)
+    return shape, dtype, data if data is not None else np.zeros(shape, dtype=dtype)
 
-        return self.shape, self.dtype, self.data
-    return (), None, None
 def np_init(
     self,
     shape: Tuple[*Ts] | None = None,
@@ -163,50 +164,6 @@ def np_getitem(cls: "Type[ndarray]", shape: Tuple[*Ts] | None = None, dtype: DT 
     cls.shape = cls.shape[:-1] if cls.shape and isinstance(cls.shape[-1], type) else cls.shape
     cls.dtype = cls.shape[-1] if cls.shape and isinstance(cls.shape[-1], type) else dtype
     return cls
-
-
-# class NDArrayMeta(type):
-#     shape: Tuple[*Ts] | None
-#     data: np.ndarray | None
-#     dtype: DT | None
-
-#     def __new__(
-#         cls,
-#         name: str | None = None,
-#         bases: Tuple[type, ...] | None = None,
-#         namespace: dict[str, Union[*_Ts, T]] | None = None,
-#         **kwargs,
-#     ):
-#         print("NDArrayMeta")
-#         print(cls, name, bases)
-#         name = name or "ndarray"
-#         bases = bases or (NDArray,)
-#         namespace = namespace or {}
-#         # namespace.update({"__init__": np_init, "__getitem__": np_getitem, "__class_getitem__": classmethod(np_getitem), "__call__": np_init})
-#         print(namespace)
-#         # cls = new_class(name, bases,  kwargs,exec_body=lambda ns: ns.update(namespace))
-
-#         cls = super().__new__(cls, name, bases, namespace, **kwargs)
-#         # cls.__init__ = np_init
-#         # cls.__call__ = np_init
-#         # cls.__getitem__ = np_getitem
-#         # cls.__class_getitem__ = classmethod(np_getitem)
-#         return cls()
-
-#     # __getitem__ = classmethod(np_getitem)
-#     # __class_getitem__ = classmethod(np_getitem)
-
-#     def __call__(cls, *args, **kwargs):
-#         cls.__init__ = np_init
-#         # cls.__init__(cls, *args, **kwargs)
-#         return cls
-#         print("NDArrayMeta __call__")
-#         print(cls, args, kwargs)
-#         # cls.__init__ = np_init
-#         # cls.__init__(cls, *args, **kwargs)
-#         # return np_init(cls, *args, **kwargs)
-
-#     # __init__ = np_init
 
 class TypedDict(dict):
     shape: Tuple[*Ts] | None
@@ -238,28 +195,26 @@ class ndarray(Generic[*Ts, DT], NDArray[Any]):
     dtype: DT | None
 
     def __new__(cls, *args, **kwargs):
-        print("ndarray __new__")
-        print(cls, args, kwargs)
-        print(cls.shape, cls.dtype, cls.data)
+        logging.debug("ndarray __new__")
+        logging.debug(f"new cls: {cls} with shape {cls.shape} and dtype {cls.dtype}")
 
         ns = TypedDict[cls.shape, cls.dtype](shape=cls.shape, dtype=cls.dtype, data=cls.data)
         # cls.shape = 
         shape, dtype, data = setup_shape_dtype_data(ns, *args, **kwargs)
-        cls = super().__new__(cls, shape, dtype, data)
-        # cls.__init__(cls, *args, **kwargs)
+        logging.debug(f"shape: {shape}, dtype: {dtype}, data: {data}")
+
+        cls = super().__new__(cls, shape, dtype, np.asarray(data))
+        logging.debug(f"Created {cls} with shape {shape} and dtype {dtype}")
         return cls
 
     __init__ = np_init
 
-    # __call__ = np_init
-
-    # __class_getitem__ = classmethod(np_getitem)
-
+    __class_getitem__ = classmethod(np_getitem)
     def transpose(self: "ndarray[U,T, DT]"):
         a = rearrange(tensor=np.asarray(self), pattern="n ... -> ... n")
         return cast(ndarray[T, U, DT], a)
 
-    __class_getitem__ = classmethod(np_getitem)
+
 
     # Permute the axes of the array (general axis manipulation)
     def permute(self, axes: Tuple[int, ...]) -> "ndarray":
@@ -272,18 +227,24 @@ class ndarray(Generic[*Ts, DT], NDArray[Any]):
 
     # Reduce operation along a specified axis (e.g., sum, mean)
     @overload
+    def reduce(self: "ndarray[U,*_Ts,DT]", axis: Literal[0], reduction="mean") -> "ndarray[*_Ts, DT]": ...
+    @overload
+    def reduce(self: "ndarray[U,T,*Ts, DT]", axis: Literal[1], reduction="mean") -> "ndarray[U,*_Ts, DT]": ...
+    @overload
     def reduce(self: "ndarray[U, T, DT]", axis: Literal[0], reduction="mean") -> "ndarray[T, DT]": ...
     @overload
     def reduce(self: "ndarray[U,T, DT]", axis: Literal[1], reduction="mean") -> "ndarray[U, DT]": ...
     def reduce(
-        self: "ndarray[U, T, DT]",
+        self: "ndarray[U,*_Ts, T, DT]",
         axis: Literal[0] | Literal[1],
         reduction: Literal["min", "max", "sum", "mean", "prod", "any", "all"] = "mean",
     ):
+        arr = np.asarray(self).astype(float) if reduction == "mean" else np.asarray(self)
         if axis == 0:
-            return cast(ndarray[T, DT], reduce(np.asarray(self), "m n -> n", reduction))
+            return cast(ndarray[T, DT], reduce(arr, "... n -> n", reduction))
         if axis == 1:
-            return cast(ndarray[U, DT], reduce(np.asarray(self), "n m -> m", reduction))
+            return cast(ndarray[U, DT], reduce(arr, "n ... -> n", reduction))
+
 
         msg = f"Axis must be 0 or 1, not {axis}"
         raise Error(TypeError(msg))
@@ -291,13 +252,64 @@ class ndarray(Generic[*Ts, DT], NDArray[Any]):
     def __str__(self):
         return display(self)
 
+def coolness():
 
-arr = ndarray[1, 2, float]
-b: ndarray[1, 3, float] = ndarray[1, 3, float](data=[[1, 2, 3]])
-print(b)
-from mypy import api
+    arr = ndarray[1, 2, float]()
+    b: ndarray[1, 3, float] = ndarray[1, 3, float](data=[[1, 2, 3]])
+    logging.debug(f"{b=}")
+    from mypy import api
 
-# Extracting type hints for the functions to simulate reveal_type
-transpose_type = reveal_type(b)
-reshape_type = b.transpose()
-reduce_type = b.reduce(1)
+    # Extracting type hints for the functions to simulate reveal_type
+    transpose_type = reveal_type(b)
+    reshape_type = b.transpose()
+    reduce_type = b.reduce(1)
+
+    c = ndarray[3,2,1]()
+
+    d = c.reduce(1)
+
+    Shape =TypeVarTuple("Shape")
+    Batch = TypeVar("Batch")
+    class Base(Generic[T,*Shape, DT]):...
+    class MyMLPipeline(Base):
+        @classmethod
+        def batch_of_images_to_bbox(cls,x: ndarray[T,Batch, DT]):
+            
+            return ndarray[Batch,4, float]()
+    something_amazing = MyMLPipeline
+    a = something_amazing.batch_of_images_to_bbox(b)
+
+    print(f"{a=}")
+
+
+import re
+from pathlib import Path
+from mbpy.mpip import find_and_sort
+from mbpy.commands import run
+def main(file_path: Path | str):
+    src = Path(str(file_path)).read_text()
+    import_lines = re.findall(r"from\s+\w+\s+import\s+\w+", src) + re.findall(r"\s+\w+\s+import\s+\w+", src)
+    import_lines = [line.rstrip(",()").lstrip(",()").strip() for line in import_lines]
+
+    for line in import_lines:
+        found = False
+        module_name = line.split()[1] if "from" in line else line.split()[0]
+        versions =list(find_and_sort(module_name,include=["releases"])[0]["releases"][0].keys())[0]
+        while not found:
+            try:
+                cmd = f"pip install {module_name}=={versions[-1]}"
+                result = run(sys.executable, cmd)
+                print(f"Found {result} for {line}")
+            except ModuleNotFoundError as e:
+         
+            
+                print(f"Found {versions} for {module_name}")
+                run(f"pip install {module_name}=={versions[-1]}")
+                break
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: python repair.py <file_path>")
+    else:
+        main(sys.argv[1])
