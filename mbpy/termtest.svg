@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="terminal" baseProfile="full" viewBox="0 0 1032 1107" width="1032" version="1.1">
+    <defs>
+        <termtosvg:template_settings xmlns:termtosvg="https://github.com/nbedos/termtosvg">
+            <termtosvg:screen_geometry columns="129" rows="65"/>
+            <termtosvg:animation type="css"/>
+        </termtosvg:template_settings>
+        <style type="text/css" id="generated-style"><![CDATA[#screen {
+                font-family: 'DejaVu Sans Mono', monospace;
+                font-style: normal;
+                font-size: 14px;
+            }
+
+        text {
+            dominant-baseline: text-before-edge;
+            white-space: pre;
+        }
+    
+            :root {
+                --animation-duration: 5124ms;
+            }
+
+            @keyframes roll {
+                0.000%{transform:translateY(0px)}
+0.176%{transform:translateY(-1122px)}
+80.484%{transform:translateY(-2244px)}
+100.000%{transform:translateY(-2244px)}
+            }
+
+            #screen_view {
+                animation-duration: 5124ms;
+                animation-iteration-count:infinite;
+                animation-name:roll;
+                animation-timing-function: steps(1,end);
+                animation-fill-mode: forwards;
+            }
+        ]]></style>
+        <style type="text/css" id="user-style">
+            /* The colors defined below are the default 16 colors used for rendering text of the terminal. Adjust
+               them as needed.
+               PowerShell colors based on https://en.wikipedia.org/wiki/ANSI_escape_code#Colors */
+            .foreground {fill: #cccccc;}
+            .background {fill: #0c0c0c;}
+            .color0 {fill: #0c0c0c;}
+            .color1 {fill: #c50f1f;}
+            .color2 {fill: #13a10e;}
+            .color3 {fill: #c19c00;}
+            .color4 {fill: #0037da;}
+            .color5 {fill: #881798;}
+            .color6 {fill: #3a96dd;}
+            .color7 {fill: #cccccc;}
+            .color8 {fill: #767676;}
+            .color9 {fill: #e74856;}
+            .color10 {fill: #16c60c;}
+            .color11 {fill: #f9f1a5;}
+            .color12 {fill: #3b78ff;}
+            .color13 {fill: #b4009e;}
+            .color14 {fill: #61d6d6;}
+            .color15 {fill: #f2f2f2;}
+        </style>
+    </defs>
+    <svg id="screen" width="1032" height="1105" viewBox="0 0 1032 1105" preserveAspectRatio="xMidYMin slice">
+    <rect class="background" height="100%" width="100%" x="0" y="0"/><defs><g id="g1"><text x="0" textLength="8" class="background"> </text><text x="8" textLength="1024" class="foreground">                                                                                                                                </text></g><g id="g2"><text x="0" textLength="352" class="foreground">sebastianperalta@SebastiansMBP2 termtosvg % </text><text x="352" textLength="8" class="background"> </text><text x="360" textLength="672" class="foreground">                                                                                    </text></g><g id="g3"><text x="0" textLength="1032" class="foreground">sebastianperalta@SebastiansMBP2 termtosvg %                                                                                      </text></g><g id="g4"><text x="0" textLength="8" class="background"> </text></g></defs><g id="screen_view"><g><rect x="0" y="0" width="8" height="17" class="foreground"/><use xlink:href="#g1" y="0"/></g><g><rect x="352" y="1122" width="8" height="17" class="foreground"/><use xlink:href="#g2" y="1122"/></g><g><use xlink:href="#g3" y="2244"/><rect x="0" y="2261" width="8" height="17" class="foreground"/><use xlink:href="#g4" y="2261"/></g></g></svg>
+</svg>
