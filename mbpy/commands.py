@@ -93,12 +93,12 @@ class NewCommandContext(Generic[T]):
             line = stream.readline()
             if not line:
                 break
-            line = Text.from_ansi(line.decode("utf-8"))
+            line = str(Text.from_ansi(line.decode("utf-8")))
             if line:
-                self.lines.append(str(line))
+                self.lines.append(line)
                 if show:
                     console.print(line)
-                yield str(line)
+                yield line
 
 
     def readlines(self, *, show=None) -> str:
@@ -126,7 +126,7 @@ class NewCommandContext(Generic[T]):
 
 
 class PtyCommand(NewCommandContext[pexpect.spawn]):
-    def streamlines(self, *, show=None) -> Iterator[str]:
+    def streamlines(self, *, show=False) -> Iterator[str]:
         show = show if show is not None else self.show
         stream = self.process or self.start()
         while True:
@@ -137,7 +137,7 @@ class PtyCommand(NewCommandContext[pexpect.spawn]):
             if line:
                 self.lines.append(str(line))
                 if show:
-                    console.print(line)
+                    console.print(str(line))
                 yield str(line)
 
 
@@ -246,6 +246,8 @@ def run_command_stream(
     command: str | list[str],
     cwd: str | None = None,
     timeout: int = 10,
+    *,
+    show=False,
 ):
     exec_, *args = command if isinstance(command, list) else command.split()
     proc = PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False, show=True)
@@ -257,7 +259,7 @@ def run_command(
     cwd: str | None = None,
     timeout: int = 10,
     *,
-    show=False,
+    show=True,
 ) -> PtyCommand:
     """Run command and return PtyCommand object."""
     commands = shlex.split(command) if isinstance(command, str) else command
@@ -265,7 +267,7 @@ def run_command(
         exec_, args = commands
     else:
         exec_, *args = commands
-    return PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False, show=show)
+    return PtyCommand(exec_, args, cwd=cwd, timeout=timeout, show=show)
 
 def run(
     command: str | list[str],
@@ -301,17 +303,19 @@ def run_local(
         signal.signal(signal.SIGWINCH, partial(sigwinch_passthrough, p=p))
         p.interact()
         if response := p.before:
-            response = response.decode()
+            response = str(Text.from_ansi(response) + "\n")
         else:
             return
-        console.print(Text.from_ansi(response))
+        if show:
+            console.print(response)
         yield response
     else:
         p: pexpect.spawn = pexpect.spawn(cmd, args, **kwargs)
         p.expect(pexpect.EOF, timeout=10)
         if response := p.before:
-            response = response.decode()
-            console.print(Text.from_ansi(response))
+            response = str(Text.from_ansi(response) + "\n")
+            if show:
+                console.print(response)
             yield response
         else:
             return

@@ -185,3 +185,7 @@ zipp==3.20.2
 ../v1
 dataclasses==0.8
 fastui
+mb/mb/mb
+mbodiai/mrender@main
+git+https://github.com/mbodiai/mrender@main
+git+https://github.com/mb/mb

@@ -1,0 +1,522 @@
+{
+  "role": "system",
+  "content": {
+    "text": "\n# mbodi chat started at 2024-10-23 17:00:00\n\n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "\n# mbodi chat started at 2024-10-23 17:00:00\n\n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.540094",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Add .mbodi* to .gitignore (recommended)? (Y)es/(N)o [Yes]: y  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Add .mbodi* to .gitignore (recommended)? (Y)es/(N)o [Yes]: y  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.553298",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Added .mbodi* to .gitignore  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Added .mbodi* to .gitignore  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.554464",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Added .mbodi* to .gitignore",
+  "timestamp": "2024-10-23T17:00:00.554520",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/mbodi  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/mbodi  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.554892",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "/Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/mbodi",
+  "timestamp": "2024-10-23T17:00:00.554941",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> MbodiAI v0.0.1  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> MbodiAI v0.0.1  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.723493",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "MbodiAI v0.0.1",
+  "timestamp": "2024-10-23T17:00:00.723573",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Main model: claude-3-5-sonnet-20240620 with whole edit format, prompt cache, infinite output  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Main model: claude-3-5-sonnet-20240620 with whole edit format, prompt cache, infinite output  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.723822",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Main model: claude-3-5-sonnet-20240620 with whole edit format, prompt cache, infinite output",
+  "timestamp": "2024-10-23T17:00:00.723859",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Weak model: claude-3-haiku-20240307  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Weak model: claude-3-haiku-20240307  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.724038",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Weak model: claude-3-haiku-20240307",
+  "timestamp": "2024-10-23T17:00:00.724071",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Git repo: ../../.git with 103 files  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Git repo: ../../.git with 103 files  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.724187",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Git repo: ../../.git with 103 files",
+  "timestamp": "2024-10-23T17:00:00.724218",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Repo-map: using True tokens, None refresh  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Repo-map: using True tokens, None refresh  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:00.724330",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Repo-map: using True tokens, None refresh",
+  "timestamp": "2024-10-23T17:00:00.724416",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Use /help <question> for help, run \"mbodi --help\" to see cmd line args  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Use /help <question> for help, run \"mbodi --help\" to see cmd line args  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:05.863461",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Use /help <question> for help, run \"mbodi --help\" to see cmd line args",
+  "timestamp": "2024-10-23T17:00:05.863559",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Note: in-chat filenames are always relative to the git working dir, not the current working dir.  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Note: in-chat filenames are always relative to the git working dir, not the current working dir.  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:05.864068",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Cur working dir: /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Cur working dir: /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:05.864322",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Cur working dir: /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant",
+  "timestamp": "2024-10-23T17:00:05.864359",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Git working dir: /Users/sebastianperalta/simply/corp/projects/mbpy  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Git working dir: /Users/sebastianperalta/simply/corp/projects/mbpy  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-23T17:00:05.864491",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": "Git working dir: /Users/sebastianperalta/simply/corp/projects/mbpy",
+  "timestamp": "2024-10-23T17:00:05.864528",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:23.802200",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:23.814648",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> ^C again to exit  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> ^C again to exit  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:23.814921",
+  "num_error_outputs": 0
+}
+{
+  "role": "user",
+  "content": {
+    "text": "\n#### /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "\n#### /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:23.971446",
+  "num_error_outputs": 0
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Invalid command: /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Invalid command: /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:23.979833",
+  "num_error_outputs": 1
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> BadRequestError: litellm.BadRequestError: AnthropicException - 'str' object has no attribute 'get'  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> BadRequestError: litellm.BadRequestError: AnthropicException - 'str' object has no attribute 'get'  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:24.226265",
+  "num_error_outputs": 2
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Received Messages=[{'role': 'user', 'content': ['README.md', '__pycache__', 'assistant.py', 'chat_history.jsonl', 'pyproject.toml', 'src', 'tmpprocstdout.txt', 'tools.py']}, {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Ok.', 'cache_control': {'type': 'ephemeral'}}]}, {'role': 'user', 'content': 'Hello!'}, {'role': 'user', 'content': '/Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py\\n\\nTo suggest changes to a file you MUST return the entire content of the updated file.\\nYou MUST use this *file listing* format:\\n\\npath/to/filename.js\\n```\\n// entire file content ...\\n// ... goes in between\\n```\\n\\nEvery *file listing* MUST use this format:\\n- First line: the filename with any originally provided path\\n- Second line: opening ```\\n- ... entire content of the file ...\\n- Final line: closing ```\\n\\nTo suggest changes to a file you MUST return a *file listing* that contains the entire content of the file.\\n*NEVER* skip, omit or elide content from a *file listing* using \"...\" or by adding comments like \"... rest of code...\"!\\nCreate a new file you MUST return a *file listing* which includes an appropriate filename, including any appropriate path.\\n\\n\\n\\nREMEMBER: You SHOULD ONLY suggest SEARCH/REPLACE IF the user asks for implementations. First you ask for which files to check and then you make a plan. Only THEN you suggest search/replace blocks.\\n'}]  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Received Messages=[{'role': 'user', 'content': ['README.md', '__pycache__', 'assistant.py', 'chat_history.jsonl', 'pyproject.toml', 'src', 'tmpprocstdout.txt', 'tools.py']}, {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Ok.', 'cache_control': {'type': 'ephemeral'}}]}, {'role': 'user', 'content': 'Hello!'}, {'role': 'user', 'content': '/Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py\\n\\nTo suggest changes to a file you MUST return the entire content of the updated file.\\nYou MUST use this *file listing* format:\\n\\npath/to/filename.js\\n```\\n// entire file content ...\\n// ... goes in between\\n```\\n\\nEvery *file listing* MUST use this format:\\n- First line: the filename with any originally provided path\\n- Second line: opening ```\\n- ... entire content of the file ...\\n- Final line: closing ```\\n\\nTo suggest changes to a file you MUST return a *file listing* that contains the entire content of the file.\\n*NEVER* skip, omit or elide content from a *file listing* using \"...\" or by adding comments like \"... rest of code...\"!\\nCreate a new file you MUST return a *file listing* which includes an appropriate filename, including any appropriate path.\\n\\n\\n\\nREMEMBER: You SHOULD ONLY suggest SEARCH/REPLACE IF the user asks for implementations. First you ask for which files to check and then you make a plan. Only THEN you suggest search/replace blocks.\\n'}]  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:24.226638",
+  "num_error_outputs": 2
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:35.796698",
+  "num_error_outputs": 2
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:35.797008",
+  "num_error_outputs": 2
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> ^C again to exit  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> ^C again to exit  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:35.797220",
+  "num_error_outputs": 2
+}
+{
+  "role": "user",
+  "content": {
+    "text": "\n#### /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "\n#### /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:35.914837",
+  "num_error_outputs": 2
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Invalid command: /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Invalid command: /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:35.919766",
+  "num_error_outputs": 3
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> BadRequestError: litellm.BadRequestError: AnthropicException - 'str' object has no attribute 'get'  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> BadRequestError: litellm.BadRequestError: AnthropicException - 'str' object has no attribute 'get'  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:35.964470",
+  "num_error_outputs": 4
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> Received Messages=[{'role': 'user', 'content': ['README.md', '__pycache__', 'assistant.py', 'chat_history.jsonl', 'pyproject.toml', 'src', 'tmpprocstdout.txt', 'tools.py']}, {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Ok.', 'cache_control': {'type': 'ephemeral'}}]}, {'role': 'user', 'content': 'Hello!'}, {'role': 'user', 'content': '/Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py'}, {'role': 'user', 'content': '/Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py\\n\\nTo suggest changes to a file you MUST return the entire content of the updated file.\\nYou MUST use this *file listing* format:\\n\\npath/to/filename.js\\n```\\n// entire file content ...\\n// ... goes in between\\n```\\n\\nEvery *file listing* MUST use this format:\\n- First line: the filename with any originally provided path\\n- Second line: opening ```\\n- ... entire content of the file ...\\n- Final line: closing ```\\n\\nTo suggest changes to a file you MUST return a *file listing* that contains the entire content of the file.\\n*NEVER* skip, omit or elide content from a *file listing* using \"...\" or by adding comments like \"... rest of code...\"!\\nCreate a new file you MUST return a *file listing* which includes an appropriate filename, including any appropriate path.\\n\\n\\n\\nREMEMBER: You SHOULD ONLY suggest SEARCH/REPLACE IF the user asks for implementations. First you ask for which files to check and then you make a plan. Only THEN you suggest search/replace blocks.\\n'}]  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> Received Messages=[{'role': 'user', 'content': ['README.md', '__pycache__', 'assistant.py', 'chat_history.jsonl', 'pyproject.toml', 'src', 'tmpprocstdout.txt', 'tools.py']}, {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Ok.', 'cache_control': {'type': 'ephemeral'}}]}, {'role': 'user', 'content': 'Hello!'}, {'role': 'user', 'content': '/Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py'}, {'role': 'user', 'content': '/Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/assistant/.venv/bin/python /Users/sebastianperalta/simply/corp/projects/mbpy/mbpy/bump.py\\n\\nTo suggest changes to a file you MUST return the entire content of the updated file.\\nYou MUST use this *file listing* format:\\n\\npath/to/filename.js\\n```\\n// entire file content ...\\n// ... goes in between\\n```\\n\\nEvery *file listing* MUST use this format:\\n- First line: the filename with any originally provided path\\n- Second line: opening ```\\n- ... entire content of the file ...\\n- Final line: closing ```\\n\\nTo suggest changes to a file you MUST return a *file listing* that contains the entire content of the file.\\n*NEVER* skip, omit or elide content from a *file listing* using \"...\" or by adding comments like \"... rest of code...\"!\\nCreate a new file you MUST return a *file listing* which includes an appropriate filename, including any appropriate path.\\n\\n\\n\\nREMEMBER: You SHOULD ONLY suggest SEARCH/REPLACE IF the user asks for implementations. First you ask for which files to check and then you make a plan. Only THEN you suggest search/replace blocks.\\n'}]  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:35.964869",
+  "num_error_outputs": 4
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:38.441076",
+  "num_error_outputs": 4
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:38.441419",
+  "num_error_outputs": 4
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> ^C again to exit  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> ^C again to exit  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:38.441569",
+  "num_error_outputs": 4
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:38.643645",
+  "num_error_outputs": 4
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": ">  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": ">  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:38.643956",
+  "num_error_outputs": 4
+}
+{
+  "role": "assistant",
+  "content": {
+    "text": "> ^C KeyboardInterrupt  \n",
+    "image": null,
+    "tool_call": null,
+    "ArgsKwargs": {
+      "text": "> ^C KeyboardInterrupt  \n",
+      "tool_call": null
+    }
+  },
+  "timestamp": "2024-10-24T02:37:38.644078",
+  "num_error_outputs": 4
+}

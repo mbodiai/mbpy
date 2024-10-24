@@ -1,21 +1,23 @@
 [project]
 name = "mbpy"
-version = "2.0.6"
+version = "2.0.8"
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "einops>=0.8.0",
-    "minspect>=0.0.8",
-    "mkdocs-material>=9.5.42",
-    "mkdocs>=1.6.1",
-    "mkdocstrings>=0.24.3",
-    "mrender>=1.0.3",
-    "pexpect>=4.9.0",
-    "python-dotenv>=1.0.1",
-    "rich-click>=1.8.3",
-    "tomlkit>=0.12.0",
-    "toolz>=1.0.0",
+    'minspect>=0.0.8',
+    'mkdocs-material>=9.5.42',
+    'mkdocs>=1.6.1',
+    'mkdocstrings>=0.24.3',
+    'mrender>=1.0.3',
+    'networkx>=3.4.2',
+    'pexpect>=4.9.0',
+    'python-dotenv>=1.0.1',
+    'rich-click>=1.8.3',
+    'rich>=13.9.2',
+    'scipy>=1.14.1',
+    'tomlkit>=0.12.0',
+    'toolz>=1.0.0',
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -75,6 +77,9 @@ dev-dependencies = [
 [tool.uv.sources]
 mbodi = {path = "../v1"}
 mrender = { path = "../mrender", editable = true }
+
+[tool.uv.workspace]
+members = ["mbpy/assistant"]
 
 [tool.hatch.envs.default]
 dependencies = ["pytest", "pytest-cov"]

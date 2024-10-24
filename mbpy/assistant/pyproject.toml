@@ -1,0 +1,28 @@
+[project]
+name = "assistant"
+version = "0.1.7"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Sebastian", email = "peraltas@seas.upenn.edu" } 
+]
+requires-python = ">=3.10"
+dependencies = [
+    'gradio>=3.18.0',
+    'grep-ast==0.2.0',
+    'mbodied',
+    'openai>=1.52.0',
+]
+
+[project.scripts]
+assistant = "assistant:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "mnetwork>=1.0.0",
+    "mypy>=1.12.1",
+]

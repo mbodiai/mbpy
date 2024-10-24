@@ -132,9 +132,7 @@ A tarball context with the current working directory pointing to the contents.
 
 
 def remove_readonly(func, path, exc_info):
-    """
-    Add support for removing read-only files on Windows.
-    """
+    """Add support for removing read-only files on Windows."""
     _, exc, _ = exc_info
     if func in (os.rmdir, os.remove, os.unlink) and exc.errno == errno.EACCES:
         # change the file to be readable,writable,executable: 0777

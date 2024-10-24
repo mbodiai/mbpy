@@ -6,7 +6,8 @@ import sys
 import traceback
 from copy import deepcopy
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
+from typing_extensions import TypedDict
 import click
 import requests
 import tomlkit
@@ -97,7 +98,28 @@ def get_package_names(query_key) -> list[str]:
 
 from rich.console import Console
 console = Console()
-def get_package_info(package_name, verbose=False, include=None, release=None) -> dict:
+
+class UploadInfo(TypedDict, total=False):
+    version: Optional[str]
+    upload_time: str
+    requires_python: Optional[str]
+    
+class PackageInfo(TypedDict, total=False):
+    name: str
+    version: str
+    author: str
+    summary: str
+    description: str
+    latest_release: str
+    earliest_release: UploadInfo
+    urls: Dict[str, str]
+    github_url: str
+    description: str
+    requires_python: str
+    releases: Optional[List[Dict[str, UploadInfo]]]
+    
+    
+def get_package_info(package_name, verbose=False, include=None, release=None) -> PackageInfo:
     """Retrieve detailed package information from PyPI JSON API."""
     package_url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(package_url, timeout=10)
@@ -199,7 +221,7 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     return package_info
 
 
-def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, release=None) -> list[dict]:
+def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, release=None) -> list[PackageInfo]:
     """Find and sort potential packages by a specified key.
 
     Args:
@@ -481,9 +503,9 @@ def modify_pyproject_toml(
         base_project["dependencies"] = tomlkit.array(base_project["dependencies"])
         base_project["dependencies"].multiline(True)
         logging.debug(f"dependencies: {base_project['dependencies']}")
-    with pyproject_path.open("w") as f:
-        f.write(tomlkit.dumps(pyproject))
-    print(f"Successfully {action}ed {package_name} {package_version or ''} in {pyproject_path}")  
+
+    pyproject_path.write_text(tomlkit.dumps(pyproject))
+
     # Update requirements.txt if it exists
     requirements_path = pyproject_path.parent / "requirements.txt"
     if requirements_path.exists():

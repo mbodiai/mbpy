@@ -1,18 +1,13 @@
-import atexit
-import inspect
+
 import logging
 import logging.handlers
+import os
 import subprocess
 import sys
-import tempfile
 import traceback
 from asyncio.subprocess import PIPE
 from functools import partial
 from pathlib import Path
-from tempfile import NamedTemporaryFile
-from threading import Thread
-from time import time
-from typing import Generic, Iterator, Literal, TypeVar, Union
 
 import rich_click as click
 import tomlkit
@@ -20,6 +15,7 @@ from mrender.md import Markdown
 from rich.console import Console
 from rich.traceback import Traceback
 
+from mbpy.bump import bump as bump_pkg
 from mbpy.commands import run, run_command
 from mbpy.create import create_project
 from mbpy.mpip import (
@@ -106,6 +102,23 @@ def install_command(
     if sys.flags.debug or debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
         logging.info("Debug logging enabled.")
+    processed_packages = []
+    for package in packages:
+        if "/" in package and Path(package).exists():
+            package = Path(package).resolve()
+        elif "/" in package and len(package.split("/")) == 2:
+            package = f"git+https://github.com/{package}"
+        elif "/" in package:
+            console.print(
+                f"Invalid package: {package}. Only local paths or GitHub URLs are supported.", style="bold red"
+            )
+            console.print(
+                "[bold light_goldenrod2] Eg.'mbodiai/mbpy' [/bold light_goldenrod2] will search for a local path first then a valid github repo. Skipping...",
+                style="bold red",
+            )
+        processed_packages.append(package)
+    packages = processed_packages
+
     try:
         installed_packages = []
         if requirements:
@@ -113,8 +126,8 @@ def install_command(
             package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]
             if upgrade:
                 package_install_cmd.append("-U")
-            for line in run_command(package_install_cmd):
-                click.echo(line)
+            for line in run_command(package_install_cmd,show=False):
+                pass
             # Get installed packages from requirements file
             with Path(requirements_file).open() as req_file:
                 installed_packages = [line.strip() for line in req_file if line.strip() and not line.startswith("#")]
@@ -127,9 +140,18 @@ def install_command(
                 if upgrade:
                     package_install_cmd.append("-U")
                 package_install_cmd.append(package)
-
-                for line in run_command(package_install_cmd):
-                    click.echo(line, nl=False)
+                lines  = ""
+                for line in run_command(package_install_cmd,show=False):
+                    if "error" in line.lower() or "failed" in line.lower() or "fatal" in line.lower():
+                        console.print(line,style="bold red")
+                    elif "warning" in line.lower():
+                        console.print(line,style="bold yellow")
+                    else:
+                        console.print(line)
+                    lines += line
+                if "error: subprocess-exited-with-error" in lines.lower():
+                    console.print(f"Failed to install {package}. Skipping...",style="bold red")
+                    continue
                 installed_packages.append(package)
 
         for package in installed_packages:
@@ -142,11 +164,11 @@ def install_command(
                 hatch_env=hatch_env,
                 dependency_group=dependency_group,
             )
-            logging.info(f"Successfully installed {package_name} to {find_toml_file()} {'for ' + hatch_env if hatch_env else ''}")
+
 
 
         if not requirements and not packages:
-            click.secho("No packages specified for installation.")
+            click.secho("No packages specified for installation.", err=True)
 
     except FileNotFoundError as e:
         click.secho("Error: Installation failed.", err=True)
@@ -343,10 +365,65 @@ def create_command(project_name, author, description, deps, python="3.12", no_cl
 @click.option("--provider", "-p",type=click.Choice(["github","notion","slack"]),default="github", help="The provider to use.")
 @click.option("--token", default=None, help="API token")
 @click.option("--endpoint", default=None, help="URL Endpoint for documentation destination i..e. Notion table URL")
-def publish_command(package, token, table) -> None:
-    """Publish a package to a Notion table."""
+def sync_notion_command(package, token, table) -> None:
+    """Sync a package's data to a Notion table."""
     try:
         append_notion_table_row(package, token, table)
+    except Exception:
+        traceback.print_exc()
+
+@cli.command("bump", no_args_is_help=True)
+def bump_command() -> None:
+    """Bump the version of a package."""
+    try:
+        bump_pkg()
+    except Exception:
+        traceback.print_exc()
+
+@cli.command("publish", no_args_is_help=True)
+@click.option("--bump", "-b", is_flag=True, help="Bump the version before publishing")
+@click.option("--build", "-B", is_flag=True, help="Build the package before publishing")
+@click.option(
+    "--package-manager",
+    "-p",
+    type=click.Choice(
+        [
+            "github",
+            "hatch",
+            "uv",
+        ]
+    ),
+    default="github",
+    help="Package manager to use",
+)
+@click.option(
+    "--auth",
+    "-a",
+    help="PyPI or GitHub authentication token. Defaults to PYPI_TOKEN or GIT_TOKEN environment variable.",
+)
+@click.option("--gh-release", is_flag=True, help="Create a GitHub release")
+def publish_command(bump=False, build=False, package_manager="github", auth=None, gh_release=False) -> None:
+    """Publish a package to PyPI."""
+    if not auth:
+        auth = os.getenv("GIT_TOKEN") if package_manager == "github" else os.getenv("PYPI_TOKEN")
+    version = None
+    try:
+        if bump:
+            version = bump_pkg()
+        if build:
+            run_command([package_manager, "build"], show=True).readlines()
+        if package_manager == "github":
+            run_command(["gh", "pr", "create", "--fill"], show=True).readlines()
+        elif package_manager == "uv":
+            run_command(["twine", "upload", "dist/*", "-u", "__token__", "-p", auth], show=True).readlines()
+        elif package_manager == "hatch":
+            run_command(["hatch", "publish", "-u", "__token__", "-a", auth], show=True).readlines()
+        else:
+            console.print("Invalid package manager specified.", style="bold red")
+        
+        if gh_release:
+            run_command(["gh", "release", "create", version], show=True).readlines()
+        console.print(f"Package published successfully with {('version ' + version) if version else 'current version.'}", style="bold light_goldenrod2")
     except Exception:
         traceback.print_exc()
 
