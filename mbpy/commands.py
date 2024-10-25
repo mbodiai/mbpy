@@ -364,12 +364,8 @@ def interact(
     >>> choice.terminal.send("exit")
 
     """
-    print(f"{cmd=}")
-    while cmd != "exit":
-        cmd = run_local(*as_exec_args(cmd), **kwargs, interact=True, cwd=cwd, timeout=timeout, show=show)
-        for response in cmd:
-            cmd = yield response
-    return
+    return run_local(*as_exec_args(cmd), **kwargs, interact=True, cwd=cwd, timeout=timeout, show=show)
+
 
 def progress(query: str):
     from rich.panel import Panel

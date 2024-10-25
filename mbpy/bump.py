@@ -17,10 +17,10 @@ def bump():
         if dynamic and "version" in dynamic:
             name: str = proj.get("name")
             about = parent / name / "__about__.py"
-            version = about.read_text().split()
-            maj, min, micro = sys._version_info(*version)
+            version = about.read_text().rstrip("'").lstrip("__version__ = '").split(".")  # noqa: B005
+            maj, min, micro = version
             version = f"{maj}.{min}.{int(micro)+1}"
-            about.write_text(f"__version__ = {version}")
+            about.write_text(f"__version__ = '{version}'")
         elif "version" in proj and proj.get("version"):
             maj, min, micro = proj.get("version").split(".")
             version = f"{maj}.{min}.{int(micro)+1}"
@@ -33,8 +33,9 @@ def bump():
 
 
 if __name__ == "__main__":
-  from rich.console import Console
-  console = Console(style="light_goldenrod2")
-  console.print("Bumping version...")
-  version = bump()
-  console.print(f"Bumped to [bold]{version}[/bold]",style="light_goldenrod2")
+    from rich.console import Console
+
+    console = Console(style="light_goldenrod2")
+    console.print("Bumping version...")
+    version = bump()
+    console.print(f"Bumped to [bold]{version}[/bold]", style="light_goldenrod2")

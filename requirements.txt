@@ -1,7 +1,4 @@
-aiohappyeyeballs==2.4.3
-aiohttp==3.10.9
-aiosignal==1.3.1
-aiostream==0.6.3
+
 alabaster==1.0.0
 annotated-types==0.7.0
 anthropic==0.36.0
@@ -25,22 +22,14 @@ configargparse==1.7
 contourpy==1.3.0
 cryptography==43.0.1
 cycler==0.12.1
-datasets==3.0.1
-deprecated==1.2.14
-diff-match-patch==20230430
-dill==0.3.9
-diskcache==5.6.3
 distro==1.9.0
 docutils==0.21.2
 farama-notifications==0.0.4
-filelock==3.16.1
-flake8==7.1.1
 fonttools==4.54.1
 frozenlist==1.4.1
-fsspec==2024.9.0
 funkify==0.4.5
 ghp-import==2.1.0
-git-python==1.1.1
+git-python
 gitdb==4.0.11
 gitpython==3.1.43
 grep-ast==0.3.3
@@ -75,8 +64,6 @@ markdownify==0.13.1
 markupsafe==3.0.1
 material-ui==0.1.3.6
 matplotlib==3.9.2
-mbodi @ file:///Users/sebastianperalta/simply/corp/projects/v1
--e file:///Users/sebastianperalta/simply/corp/projects/mbpy
 mccabe==0.7.0
 mdit-py-plugins==0.4.2
 mdurl==0.1.2
@@ -128,7 +115,6 @@ pypandoc==1.14
 pyparsing==3.1.4
 pyperclip==1.9.0
 pytest==8.3.3
-pytest-asyncio==0.24.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2024.2
@@ -140,7 +126,7 @@ regex==2024.9.11
 requests==2.32.3
 requests-toolbelt==1.0.0
 rfc3986==2.0.0
-rich==13.9.2
+rich
 rich-click==1.8.3
 rpds-py==0.20.0
 scipy==1.14.1
@@ -182,10 +168,5 @@ wrapt==1.16.0
 xxhash==3.5.0
 yarl==1.14.0
 zipp==3.20.2
-../v1
-dataclasses==0.8
 fastui
-mb/mb/mb
-mbodiai/mrender@main
-git+https://github.com/mbodiai/mrender@main
-git+https://github.com/mb/mb
+

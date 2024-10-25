@@ -1,0 +1,1148 @@
+diff --git a/mbpy/__init__.py b/mbpy/__init__.py
+index d1c3991..98e1b1a 100644
+--- a/mbpy/__init__.py
++++ b/mbpy/__init__.py
+@@ -2,6 +2,7 @@
+ #
+ # SPDX-License-Identifier: apache-2.0
+ import logging
++import sys
+ 
+ from rich.logging import RichHandler
+ from rich.pretty import install
+@@ -12,4 +13,4 @@ from rich.pretty import install
+ from rich.traceback import install as install_traceback
+ 
+ install(max_length=10, max_string=80)
+-install_traceback(show_locals=True)
+\ No newline at end of file
++install_traceback(show_locals=sys.argv[1] in ["-v", "--verbose","debug","-d","--debug"])
+\ No newline at end of file
+diff --git a/mbpy/bump.py b/mbpy/bump.py
+index a525f4d..fd2d13e 100644
+--- a/mbpy/bump.py
++++ b/mbpy/bump.py
+@@ -17,10 +17,10 @@ def bump():
+         if dynamic and "version" in dynamic:
+             name: str = proj.get("name")
+             about = parent / name / "__about__.py"
+-            version = about.read_text().split()
+-            maj, min, micro = sys._version_info(*version)
++            version = about.read_text().rstrip("'").lstrip("__version__ = '").split(".")  # noqa: B005
++            maj, min, micro = version
+             version = f"{maj}.{min}.{int(micro)+1}"
+-            about.write_text(f"__version__ = {version}")
++            about.write_text(f"__version__ = '{version}'")
+         elif "version" in proj and proj.get("version"):
+             maj, min, micro = proj.get("version").split(".")
+             version = f"{maj}.{min}.{int(micro)+1}"
+@@ -33,8 +33,9 @@ def bump():
+ 
+ 
+ if __name__ == "__main__":
+-  from rich.console import Console
+-  console = Console(style="light_goldenrod2")
+-  console.print("Bumping version...")
+-  version = bump()
+-  console.print(f"Bumped to [bold]{version}[/bold]",style="light_goldenrod2")
+\ No newline at end of file
++    from rich.console import Console
++
++    console = Console(style="light_goldenrod2")
++    console.print("Bumping version...")
++    version = bump()
++    console.print(f"Bumped to [bold]{version}[/bold]", style="light_goldenrod2")
+diff --git a/mbpy/cli.py b/mbpy/cli.py
+index b19b5c0..aa25760 100644
+--- a/mbpy/cli.py
++++ b/mbpy/cli.py
+@@ -29,7 +29,7 @@ from mbpy.mpip import (
+     modify_requirements,
+     name_and_version,
+ )
+-from mbpy.publish import append_notion_table_row
++from mbpy.sync import append_notion_table_row
+ 
+ console = Console()
+ # TODO add a timeout option and support windows.
+@@ -380,7 +380,7 @@ def bump_command() -> None:
+     except Exception:
+         traceback.print_exc()
+ 
+-@cli.command("publish", no_args_is_help=True)
++@cli.command("publish")
+ @click.option("--bump", "-b", is_flag=True, help="Bump the version before publishing")
+ @click.option("--build", "-B", is_flag=True, help="Build the package before publishing")
+ @click.option(
+@@ -401,9 +401,18 @@ def bump_command() -> None:
+     "-a",
+     help="PyPI or GitHub authentication token. Defaults to PYPI_TOKEN or GIT_TOKEN environment variable.",
+ )
++@click.option("--repo", help="GitHub repository to use. Will fork if not existing.")
++@click.option("--branch", "-b", default="main", help="Branch to use for publishing")
+ @click.option("--gh-release", is_flag=True, help="Create a GitHub release")
+-def publish_command(bump=False, build=False, package_manager="github", auth=None, gh_release=False) -> None:
+-    """Publish a package to PyPI."""
++def publish_command(bump=False, build=False, package_manager="github", auth=None, repo=None,branch=None, gh_release=False) -> None:
++    r"""Publish a package to PyPI or GitHub.
++
++    Note: Git features require the GitHub CLI to be installed. See https://cli.github.com/ for more information.
++    """
++    if not run("which gh", show=False) and (package_manager == "github" or gh_release or repo):
++        platform_install_cmd = "`brew install gh`" if run("which brew") else "`sudo snap install gh --classic`"
++        console.print(f"GitHub CLI not found. Please install it to use this feature by running {platform_install_cmd}.",style="bold red")
++        return
+     if not auth:
+         auth = os.getenv("GIT_TOKEN") if package_manager == "github" else os.getenv("PYPI_TOKEN")
+     version = None
+@@ -411,19 +420,37 @@ def publish_command(bump=False, build=False, package_manager="github", auth=None
+         if bump:
+             version = bump_pkg()
+         if build:
+-            run_command([package_manager, "build"], show=True).readlines()
++            run(["rm", "-rf", "dist"], show=False)
++            out = run([package_manager, "build"], show=True)
+         if package_manager == "github":
+-            run_command(["gh", "pr", "create", "--fill"], show=True).readlines()
++            out = run(["gh", "pr", "create", "--fill"], show=True)
+         elif package_manager == "uv":
+-            run_command(["twine", "upload", "dist/*", "-u", "__token__", "-p", auth], show=True).readlines()
++            out = run(["twine", "upload", "dist/*", "-u", "__token__", "-p", auth], show=True)
+         elif package_manager == "hatch":
+-            run_command(["hatch", "publish", "-u", "__token__", "-a", auth], show=True).readlines()
++            out = run(["hatch", "publish", "-u", "__token__", "-a", auth], show=True)
+         else:
+             console.print("Invalid package manager specified.", style="bold red")
+         
++        if "error" in out[-1].lower():
++            console.print("Error occurred while publishing package.", style="bold red")
++        else:
++            console.print(
++                f"Package published successfully with {('version ' + version) if version else 'current version.'}",
++                style="bold light_goldenrod2",
++            )
++        if repo is not None:
++            if "/" not in repo:
++                console.print("Invalid repository format. Please use the format 'owner/repo'.", style="bold red")
++                return
++            org, repo = repo.split("/")
++            out = run[f"git add . && git commit -m '{commitmsg}' && git push origin {branch}"]
+         if gh_release:
+-            run_command(["gh", "release", "create", version], show=True).readlines()
+-        console.print(f"Package published successfully with {('version ' + version) if version else 'current version.'}", style="bold light_goldenrod2")
++            out = run(["gh", "release", "create", version], show=True)
++        if "error" in out[-1].lower():
++            console.print("Error occurred while creating release.", style="bold red")
++        else:
++            console.print(f"Release created successfully for version {version}.", style="bold light_goldenrod2")
++       
+     except Exception:
+         traceback.print_exc()
+ 
+@@ -451,6 +478,46 @@ def docs_command(source,name,author,description,doc_type) -> None:
+     except Exception:
+         traceback.print_exc()
+ 
++
++@cli.command("generate")
++@click.argument("path", default=".")
++@click.option("--sigs", is_flag=True, help="Include function and method signatures")
++@click.option("--docs", is_flag=True, help="Include docstrings in the output")
++@click.option("--code", is_flag=True, help="Include source code of modules in the output")
++@click.option("--who-imports", is_flag=True, help="Include modules that import each module")
++@click.option("--stats", is_flag=True, help="Include statistics and flow information")
++@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
++def generate_command(path, sigs, docs, code, who_imports, stats, site_packages) -> None:
++    """Generate a report for a Python project."""
++    from mbpy.graph import generate as generate_report
++    try:
++        generate_report(path, sigs, docs, code, who_imports, stats, site_packages)
++    except Exception:
++        traceback.print_exc()
++
++@cli.command("who-imports")
++@click.argument("module_name")
++@click.argument("path", default=".")
++@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
++def who_imports_command(module_name, path, site_packages) -> None:
++    """Find modules that import a given module."""
++    from mbpy.graph import who_imports
++    try:
++        who_imports(module_name, path, site_packages)
++    except Exception:
++        traceback.print_exc()
++
++@cli.command("repair", no_args_is_help=True)
++@click.argument("path", default=".")
++@click.option("-d","--dry-run", is_flag=True, help="Dry run")
++def repair_command(path, dry_run) -> None:
++    """Repair broken imports."""
++    from mbpy.repair import main
++    try:
++        main(path, dry_run)
++    except Exception:
++        traceback.print_exc()
++
+ def main() -> None:
+     cli()
+ if __name__ == "__main__":
+diff --git a/mbpy/graph.py b/mbpy/graph.py
+index 70e588b..a592ca5 100644
+--- a/mbpy/graph.py
++++ b/mbpy/graph.py
+@@ -1,52 +1,101 @@
+ 
+ import ast
+-from functools import partial
++from collections.abc import Iterable
++import contextlib
++from dataclasses import dataclass, field
+ import importlib.util
++import inspect
+ import sys
+ from collections import defaultdict
++from functools import partial
+ from pathlib import Path
+-from typing import Dict, NamedTuple, dataclass_transform
++from types import FunctionType, MappingProxyType
++from typing import TYPE_CHECKING, Dict, NamedTuple, Tuple, TypeVar, Union, Unpack, _type_check, dataclass_transform, overload
++from weakref import ref
+ 
+ # Import NetworkX for graph representation
++from more_itertools import first, first_true
+ import networkx as nx
++import numpy as np
+ import rich_click as click
+ from rich.console import Console
+ from rich.pretty import Pretty
+-from typing_extensions import TypedDict
++from typing_extensions import (
++    Annotated,
++    Generic,
++    Literal,
++    NotRequired,
++    ParamSpec,
++    Required,
++    TypeVarTuple,
++    TypedDict,
++    _caller,
++    _TypedDictMeta,
++    get_args,
++    get_origin,
++)
+ 
+ console = Console()
+-
+-class Node:
+-    def __init__(self, name, parent=None):
+-        self.name = name
+-        self.parent = parent  # Reference to the parent node
+-        self.children = {}
+-        self.imports = []
+-        self.contents = {
+-            'functions': {},
+-            'classes': {},
+-            # Optional fields: 'docs', 'signatures', 'code', 'stats', 'info'
+-        }
+-        self.importance = 1.0  # Initial importance score
+-
+-    def to_graph(self, G=None):
++class ContentT(TypedDict):
++    functions: Dict[str, Dict[str, str | list[str]]] | None
++    classes: Dict[str, Dict[str, str | list[str]]] | None
++    docs: str | None
++    signature: str | MappingProxyType[str, type] | None
++    code: str | None
++
++class TD(TypedDict):
++    name: str
++    parent: Union["ref[Node]" , None]
++    children: Dict[str, "Node"]
++    imports: list[str]
++    contents: ContentT
++    importance: float
++    filepath: Path | None
++@dataclass()
++class Node(dict):
++  
++    @overload
++    def __getitem__(self, key: Literal["name"]) -> str:
++        ...
++    @overload
++    def __getitem__(self, key: Literal["parent"]) -> Union["ref[Node]" , None]:
++        ...
++    @overload
++    def __getitem__(self, key: Literal["children"]) -> Dict[str, "Node"]:
++        ...
++    @overload
++    def __getitem__(self, key: Literal["imports"]) -> list[str]:
++        ...
++    @overload
++    def __getitem__(self, key: Literal["contents"]) -> ContentT:
++        ...
++    
++    def __getitem__(self, key):
++        return super().__getitem__(key)
++
++    name: str
++    parent: Union["ref[Node]" , None] = None
++    children: Dict[str, "Node"] = field(default_factory=dict)
++    imports: list[str] = field(default_factory=list)
++    contents: ContentT = field(default_factory=dict)
++    importance: float = 1.0
++    filepath: Path | None = None
++
++    def to_graph(self, g=None) -> nx.DiGraph:
+         """Recursively adds nodes and edges to a NetworkX graph."""
+-        if G is None:
+-            G = nx.DiGraph()
+-        G.add_node(self.name)
++        if g is None:
++            g = nx.DiGraph()
++        g.add_node(self.name)
+         for imp in self.imports:
+-            G.add_edge(self.name, imp)
++            g.add_edge(self.name, imp)
+         for child in self.children.values():
+-            child.to_graph(G)
+-        return G
++            child.to_graph(g)
++        return g
+ 
+ 
+ def extract_node_info(file_path, include_docs=False, include_signatures=False, include_code=False):
+-    """
+-    Extracts imports, function definitions, class definitions,
+-    docstrings, and signatures from a Python file.
+-    """
+-    with open(file_path, 'r', encoding='utf-8') as f:
++    """Extracts imports, function definitions, class definitions, docstrings, and signatures from a Python file."""
++    with Path(file_path).open('r', encoding='utf-8') as f:
+         source_code = f.read()
+     try:
+         tree = ast.parse(source_code)
+@@ -66,8 +115,12 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
+         module_doc = ast.get_docstring(tree)
+         if module_doc:
+             node_contents['docs'] = module_doc
++    if include_signatures:
++        signature = None
++        with contextlib.suppress(Exception):
++            signature = inspect.signature(ast.parse(source_code)).parameters
++        node_contents['signature'] = signature
+ 
+-    signatures = {}
+ 
+     for node in ast.iter_child_nodes(tree):
+         if isinstance(node, ast.Import):
+@@ -83,10 +136,14 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
+             functions[func_name] = {
+                 'docs': func_doc if include_docs else None,
+                 'args': args,
+-                # 'code' is optional
+             }
+             if include_signatures:
+-                signatures[func_name] = f"{func_name}({', '.join(args)})"
++                signature[func_name] = f"{func_name}({', '.join(args)})"
++            if include_code:
++                start = node.lineno - 1
++                end = node.end_lineno
++                func_code = source_code.split('\n')[start:end]
++                functions[func_name]['code'] = '\n'.join(func_code)
+         elif isinstance(node, ast.ClassDef):
+             class_name = node.name
+             class_doc = ast.get_docstring(node) if include_docs else None
+@@ -102,18 +159,24 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
+                         # 'code' is optional
+                     }
+                     if include_signatures:
+-                        signatures[method_name] = f"{method_name}({', '.join(args)})"
++                        signature[method_name] = f"{method_name}({', '.join(args)})"
++                    if include_code:
++                        start = body_item.lineno - 1
++                        end = body_item.end_lineno
++                        method_code = source_code.split('\n')[start:end]
++                        methods[method_name]['code'] = '\n'.join(method_code)
+             classes[class_name] = {
+                 'docs': class_doc if include_docs else None,
+                 'methods': methods,
+                 # 'code' is optional
+             }
++            if include_code:
++                start = node.lineno - 1
++                end = node.end_lineno
++                class_code = source_code.split('\n')[start:end]
++                classes[class_name]['code'] = '\n'.join(class_code)
++            
+ 
+-    if include_signatures and signatures:
+-        node_contents['signatures'] = signatures
+-
+-    if include_code:
+-        node_contents['code'] = source_code
+ 
+     return node_contents
+ 
+@@ -125,174 +188,6 @@ def attempt_import(module_name):
+     except (ModuleNotFoundError, ValueError):
+         return False
+ 
+-class AttrDict(dict):
+-    def __init__(self, *args, **kwargs):
+-        super().__init__(*args, **kwargs)
+-        self.__dict__ = self
+-    def __getattr__(self, name):
+-        return self[name]
+-
+-    def __setattr__(self, name, value):
+-        self[name] = value
+-
+-    def __delattr__(self, name):
+-        del self[name]
+-
+-from typing import _type_check
+-
+-from typing_extensions import (
+-    Annotated,
+-    Generic,
+-    NotRequired,
+-    Required,
+-    _caller,
+-    _TypedDictMeta,
+-    get_args,
+-    get_origin,
+-)
+-
+-
+-class SampleDictMeta(_TypedDictMeta):
+-    def __new__(cls, name, bases, ns, total=True):
+-        """Create a new typed dict class object.
+-
+-        This method is called when TypedDict is subclassed,
+-        or when TypedDict is instantiated. This way
+-        TypedDict supports all three syntax forms described in its docstring.
+-        Subclasses and instances of TypedDict return actual dictionaries.
+-        """
+-        for base in bases:
+-            if type(base) is not SampleDictMeta and base is not Generic:
+-                raise TypeError("cannot inherit from both a TypedDict type " "and a non-TypedDict base class")
+-
+-        generic_base = (Generic,) if any(issubclass(b, Generic) for b in bases) else ()
+-
+-        tp_dict = type.__new__(SampleDictMeta, name, (*generic_base, dict), ns)
+-
+-        annotations = {}
+-        own_annotations = ns.get("__annotations__", {})
+-        msg = "TypedDict('Name', {f0: t0, f1: t1, ...}); each t must be a type"
+-        own_annotations = {n: _type_check(tp, msg, module=tp_dict.__module__) for n, tp in own_annotations.items()}
+-        required_keys = set()
+-        optional_keys = set()
+-
+-        for base in bases:
+-            annotations.update(base.__dict__.get("__annotations__", {}))
+-
+-            base_required = base.__dict__.get("__required_keys__", set())
+-            required_keys |= base_required
+-            optional_keys -= base_required
+-
+-            base_optional = base.__dict__.get("__optional_keys__", set())
+-            required_keys -= base_optional
+-            optional_keys |= base_optional
+-
+-        annotations.update(own_annotations)
+-        for annotation_key, annotation_type in own_annotations.items():
+-            annotation_origin = get_origin(annotation_type)
+-            if annotation_origin is Annotated:
+-                annotation_args = get_args(annotation_type)
+-                if annotation_args:
+-                    annotation_type = annotation_args[0]
+-                    annotation_origin = get_origin(annotation_type)
+-
+-            if annotation_origin is Required:
+-                is_required = True
+-            elif annotation_origin is NotRequired:
+-                is_required = False
+-            else:
+-                is_required = total
+-
+-            if is_required:
+-                required_keys.add(annotation_key)
+-                optional_keys.discard(annotation_key)
+-            else:
+-                optional_keys.add(annotation_key)
+-                required_keys.discard(annotation_key)
+-
+-        assert required_keys.isdisjoint(optional_keys), (
+-            f"Required keys overlap with optional keys in {name}:" f" {required_keys=}, {optional_keys=}"
+-        )
+-        tp_dict.__annotations__ = annotations
+-        tp_dict.__required_keys__ = frozenset(required_keys)
+-        tp_dict.__optional_keys__ = frozenset(optional_keys)
+-        if not hasattr(tp_dict, "__total__"):
+-            tp_dict.__total__ = total
+-        return tp_dict
+-
+-    __call__ = AttrDict
+-
+-    def __subclasscheck__(cls, other):
+-      return cls in other.__mro_entries__
+-
+-    __instancecheck__ = __subclasscheck__
+-
+-
+-def SampleDict(typename, fields=None, /, *, total=True, **kwargs):
+-    """A simple typed namespace. At runtime it is equivalent to a plain dict.
+-
+-    TypedDict creates a dictionary type such that a type checker will expect all
+-    instances to have a certain set of keys, where each key is
+-    associated with a value of a consistent type. This expectation
+-    is not checked at runtime.
+-
+-    Usage::
+-
+-        >>> class Point2D(TypedDict):
+-        ...     x: int
+-        ...     y: int
+-        ...     label: str
+-        ...
+-        >>> a: Point2D = {'x': 1, 'y': 2, 'label': 'good'}  # OK
+-        >>> b: Point2D = {'z': 3, 'label': 'bad'}           # Fails type check
+-        >>> Point2D(x=1, y=2, label='first') == dict(x=1, y=2, label='first')
+-        True
+-
+-    The type info can be accessed via the Point2D.__annotations__ dict, and
+-    the Point2D.__required_keys__ and Point2D.__optional_keys__ frozensets.
+-    TypedDict supports an additional equivalent form::
+-
+-        Point2D = TypedDict("Point2D", {"x": int, "y": int, "label": str})
+-
+-    By default, all keys must be present in a TypedDict. It is possible
+-    to override this by specifying totality::
+-
+-        class Point2D(TypedDict, total=False):
+-            x: int
+-            y: int
+-
+-    This means that a Point2D TypedDict can have any of the keys omitted. A type
+-    checker is only expected to support a literal False or True as the value of
+-    the total argument. True is the default, and makes all items defined in the
+-    class body be required.
+-
+-    The Required and NotRequired special forms can also be used to mark
+-    individual keys as being required or not required::
+-
+-        class Point2D(TypedDict):
+-            x: int  # the "x" key must always be present (Required is the default)
+-            y: NotRequired[int]  # the "y" key can be omitted
+-
+-    See PEP 655 for more details on Required and NotRequired.
+-    """
+-    if fields is None:
+-        fields = kwargs
+-    elif kwargs:
+-        raise TypeError("TypedDict takes either a dict or keyword arguments," " but not both")
+- 
+-
+-    ns = {"__annotations__": dict(fields)}
+-    module = _caller()
+-    if module is not None:
+-        # Setting correct module is necessary to make typed dict classes pickleable.
+-        ns["__module__"] = module
+-
+-    return SampleDictMeta(typename, (), ns, total=total)
+-
+-
+-_SampleDict = type.__new__(SampleDictMeta, "SampleDict", (), {})
+-SampleDict.__mro_entries__ = lambda bases: (_SampleDict,)
+-
+ 
+ 
+ class GraphDict(TypedDict, total=False):
+@@ -302,6 +197,8 @@ class GraphDict(TypedDict, total=False):
+     reverse_adjacency_list: dict[str, set[str]]
+     broken_imports: dict[str, set[str]]
+     graph: nx.DiGraph
++    
++    
+ 
+ class Graph(NamedTuple):
+     root_node: Node
+@@ -311,6 +208,12 @@ class Graph(NamedTuple):
+     broken_imports: dict[str, set[str]]
+     graph: nx.DiGraph
+     
++    def __setitem__(self, key, value):
++        return self.__setattr__(key, value)
++    
++    def __getitem__(self, key):
++        return self.__getattribute__(key)
++    
+     def asdict(self) -> GraphDict:
+         return {
+             'root_node': self.root_node,
+@@ -324,22 +227,24 @@ class Graph(NamedTuple):
+ 
+     
+ def build_dependency_graph(
+-    directory_path: Path | str,
++    directory_or_file: Path | str,
+     include_site_packages: bool = False,
+     include_docs: bool = False,
+     include_signatures: bool = False,
+     include_code: bool = False,
+ )-> Graph:
+-    directory_path = Path(directory_path)
+-    directory_path = directory_path.parent.resolve() if directory_path.is_file() else directory_path.resolve()
++    directory_path = Path(directory_or_file)
++   
+ 
+-    root_node = Node('root')
++    directory_path = directory_path.parent.resolve() if directory_path.is_file() else directory_path.resolve()
++    paths = [directory_path] if directory_path.is_file() else list(directory_path.rglob('*.py'))
++    root_node = Node('root', filepath=directory_path)
+     module_nodes = {'root': root_node}
+     adjacency_list = defaultdict(set)
+     reverse_adjacency_list = defaultdict(set)  # For getting modules that import a given module
+     broken_imports = defaultdict(set)  # Map broken imports to sets of file paths
+ 
+-    for file_path in directory_path.rglob('*.py'):
++    for file_path in paths:
+         # Skip site-packages and vendor directories if not included
+         if not include_site_packages and (("site-packages" in file_path.parts) or ("vendor" in file_path.parts)):
+             continue
+@@ -362,7 +267,7 @@ def build_dependency_graph(
+                 continue  # Skip files that couldn't be parsed
+ 
+             # Create or get the module node
+-            module_node = Node(module_name, parent=parent_node)
++            module_node = Node(module_name, parent=parent_node, filepath=file_path)
+             module_node.imports = node_info.get('imports', [])
+             module_node.contents['functions'] = node_info.get('functions', {})
+             module_node.contents['classes'] = node_info.get('classes', {})
+@@ -386,13 +291,15 @@ def build_dependency_graph(
+                 # Initialize the importance of imported modules if not already
+                 if imp not in module_nodes:
+                     module_nodes[imp] = Node(imp)
++
+                 # Update importance
+                 module_nodes[imp].importance += module_node.importance / max(len(module_node.imports), 1)
+ 
+                 # Attempt to import the module
+                 if not attempt_import(imp):
++                    modname = imp.split(".")[0] if len(imp.split(".")) > 1 else imp
+                     # Add the file path to the broken import's set
+-                    broken_imports[imp].add(str(file_path))
++                    broken_imports.setdefault(modname, set()).add(file_path.as_posix())
+ 
+         except (SyntaxError, UnicodeDecodeError, ValueError):
+             continue
+@@ -405,8 +312,11 @@ def build_dependency_graph(
+         'graph': root_node.to_graph(),
+     })
+ 
+-def print_tree(node, level=0, include_docs=False, include_signatures=False, include_code=False):
++def print_tree(node: Node, level=0, include_docs=False, include_signatures=False, include_code=False):
++    if level == 0:
++        console.print("[bold light_goldenrod2]Dependency Graph:[/bold light_goldenrod2]")
+     indent = '  ' * level
++
+     console.print(f"{indent}[bold light_goldenrod2]{node.name}[/bold light_goldenrod2]:")
+     if node.imports:
+         console.print(f"{indent}  Imports: {node.imports}")
+@@ -443,6 +353,7 @@ def print_tree(node, level=0, include_docs=False, include_signatures=False, incl
+             include_code=include_code,
+         )
+ 
++
+ class GraphStats(TypedDict):
+     num_modules: int
+     num_imports: int
+@@ -451,11 +362,14 @@ class GraphStats(TypedDict):
+     avg_degree: float
+     scc: list[set[str]]
+     importance_scores: dict[str, float]
+-    effective_size: dict[str, float]
++    effective_sizes: dict[str, float]
++    sizes: dict[str, float]
+     pagerank: dict[str, float]
+     
+-def get_stats(module_nodes: Dict[str, Node], adjacency_list) -> GraphStats:
++    
++def get_stats(module_nodes: Dict[str, Node] | Iterable[Node], adjacency_list: dict[str, set[str]], reverse_adjacency_list: dict[str, set[str]]) -> GraphStats:
+     """Computes statistics for the dependency graph."""
++    module_nodes = {node.name: node for node in module_nodes} if not isinstance(module_nodes, Dict) else module_nodes
+     num_modules = len(module_nodes)
+     num_imports = sum(len(node.imports) for node in module_nodes.values())
+     num_functions = sum(len(node.contents.get('functions', {})) for node in module_nodes.values())
+@@ -470,11 +384,8 @@ def get_stats(module_nodes: Dict[str, Node], adjacency_list) -> GraphStats:
+         importance_scores = {node: 0 for node in importance_scores}
+ 
+ 
+-    # Calculate average degree
+-    G = nx.DiGraph()
+-    for node, imports in adjacency_list.items():
+-        for imp in imports:
+-            G.add_edge(node, imp)
++
++    G = module_nodes['root'].to_graph()
+     pg = nx.algorithms.link_analysis.pagerank_alg.pagerank(G)
+     avg_degree = sum(dict(G.degree()).values()) / float(len(G)) if len(G) > 0 else 0
+ 
+@@ -486,63 +397,68 @@ def get_stats(module_nodes: Dict[str, Node], adjacency_list) -> GraphStats:
+     # Rank SCCs by number of nodes  
+     scc = sorted(scc, key=lambda x: len(x), reverse=True)  
+     sizes = nx.effective_size(G)
+-    sizes = {k: round(v, 4) for k, v in sizes.items()}
+-    # Prepare sizes dict with neighbor info  
++
++
+     sizes_with_neighbors = {  
+         node: {  
+             "effective_size": sizes[node],  
+-            "neighbors": len(list(G.neighbors(node))),
++            "neighbors": len(adjacency_list[node]) + len(reverse_adjacency_list[node]),
+             "pagerank": round(pg[node] * G.number_of_edges(), 4)
+         }  
+         for node in G.nodes()  
+     }  
+-    console.print(f"\n[bold light_goldenrod2]Effective Size of the Graph:[/bold light_goldenrod2] {sizes}")
++
+     return {
+         'num_modules': num_modules,
+         'num_imports': num_imports,
+         'num_functions': num_functions,
+         'num_classes': num_classes,
+         'avg_degree': avg_degree,
+-        'importance_scores': importance_scores,
+         'scc': scc,
+-        "size": sorted(sizes_with_neighbors.items(), key=lambda x: x[1]["effective_size"], reverse=True),
++        "sizes": sizes,
++        "size_importance": sorted(sizes_with_neighbors.items(), key=lambda x: x[1]["effective_size"], reverse=True),
+         "pagerank": sorted(pg.items(), key=lambda x: x[1], reverse=True)
+     }
+ 
+-def display_stats(stats: GraphStats, exclude: set[str] = set()) -> None:
++from rich.table import Table, Column
++def display_stats(stats: GraphStats, exclude: set[str] = None) -> None:
+     """Displays statistics for the dependency graph."""
++    exclude = exclude or set()
++    title = "Dependency Graph Statistics"
++    console.print(f"\n[bold light_goldenrod2]{title}[/bold light_goldenrod2]")
++    
+     for key, value in stats.items():
+-        if key in exclude or key not in ("pagerank", "size"):
++        if key in exclude or key in ("pagerank",  "scc", "sizes"):
+             continue
+         console.print(f"{key}")
+-        console.print(Pretty(value))
++        if isinstance(value, list):
++            v = value[0]
++            values = sorted(value, key=lambda x: x[1]["pagerank"], reverse=True)
++            table = Table(title=key,style="light_goldenrod2")
++            table.add_column("Node")
++            for k in v[1].keys():
++                table.add_column(k)
++            for v in values[:10]:
++                table.add_row(v[0], *(str(x) for x in v[1].values()))
++            console.print(table)
++                
+ 
+-    
+ 
+     # Display average degree
+     console.print(f"Average Degree: {stats['avg_degree']:.2f}")
+ 
+-    # Display strongly connected components
+-    console.print("\n[bold light_goldenrod2]Strongly Connected Components:[/bold light_goldenrod2]")
+-    for i, component in enumerate(stats['scc'], start=1):
+-        console.print(f"Component {i}: {component}")
+-    for node, importance in stats['importance_scores'].items():
+-        console.print(f"Importance of {node}: {importance:.2f}")
++
++
+         
+-@click.group()
+-def cli():
+-    pass
+-
+-@cli.command("generate")
+-@click.argument("path", default=".")
+-@click.option("--sigs", is_flag=True, help="Include function and method signatures")
+-@click.option("--docs", is_flag=True, help="Include docstrings in the output")
+-@click.option("--code", is_flag=True, help="Include source code of modules in the output")
+-@click.option("--who-imports", is_flag=True, help="Include modules that import each module")
+-@click.option("--stats", is_flag=True, help="Include statistics and flow information")
+-@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
+-def main(
+-    path: str = ".",
++def display_broken(broken_imports: dict[str, set[str]]) -> None:
++    console.print("\n[bold red]Broken Imports:[/bold red]")
++    for imp, file_paths in broken_imports.items():
++        console.print(f"\nModule: {imp}")
++        for path in file_paths:
++            console.print(f" - Imported by: {path}")   
++
++def generate(
++    directory_file_or_module: str = ".",
+     sigs: bool = False,
+     docs: bool = False,
+     code: bool = False,
+@@ -551,6 +467,17 @@ def main(
+     site_packages: bool = False,
+ ):
+     # Build dependency graph and adjacency list
++    filter_to_module = lambda x: x
++    path = Path(directory_file_or_module).resolve()
++    if not path.exists():
++        # Assume it's a module name
++        path = Path.cwd()
++        filter_to_module = lambda x: x.name == directory_file_or_module
++        filter_includes_module = lambda x: x.name in who_imports(directory_file_or_module, path, site_packages)
++    else:
++        filter_includes_module = lambda _: True
++        filter_to_module = lambda _: True
++
+     result = build_dependency_graph(
+         path,
+         include_site_packages=site_packages,
+@@ -559,9 +486,16 @@ def main(
+         include_code=code,
+     )
+     
+-    root_node, module_nodes, adjacency_list, reverse_adjacency_list, broken_imports, graph = result
+-    # Print the graph
+-    console.print("[bold light_goldenrod2]Dependency Graph:[/bold light_goldenrod2]")
++    
++    root_node = result.root_node
++    module_nodes = result.module_nodes
++    adjacency_list = result.adjacency_list
++    reverse_adjacency_list = result.reverse_adjacency_list
++    broken_imports = result.broken_imports
++    
++    root_node = first_true(module_nodes.values(), pred=filter_to_module)
++
++    module_nodes = filter(filter_includes_module, module_nodes.values())
+     print_tree(
+         root_node,
+         include_docs=docs,
+@@ -571,41 +505,48 @@ def main(
+ 
+     # Display statistics if requested
+     if stats:
+-       display_stats(get_stats(root_node, module_nodes, adjacency_list))
++        stats = get_stats(module_nodes, adjacency_list, reverse_adjacency_list)
++        display_stats(stats)
+     # Display importers if requested
+     if who_imports:
+-        console.print("\n[bold light_goldenrod2]Importers:[/bold light_goldenrod2]")
+-        for module_name in module_nodes:
+-            importers = reverse_adjacency_list.get(module_name, set())
+-            if importers:
+-                console.print(f"\nModule: {module_name}")
+-                console.print(f"  Imported by: {list(importers)}")
+-
++        who_imports: FunctionType = sys.modules[__name__].who_imports
++        who_imports(directory_file_or_module, path, site_packages=site_packages, show=True)
+     # Display broken imports with file paths
+     if broken_imports:
+-        console.print("\n[bold red]Broken Imports:[/bold red]")
+-        for imp, file_paths in broken_imports.items():
+-            console.print(f"\nModule: {imp}")
+-            for path in file_paths:
+-                console.print(f" - Imported by: {path}")
+-
+-@cli.command("who-imports")
+-@click.argument("module_name")
+-@click.argument("path", default=".")
+-@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
+-def who_imports_command(module_name, path, site_packages):
++        display_broken(broken_imports)
++    return result, stats, broken_imports
++
++
++def who_imports(module_name: str, path: Path | str,*, site_packages: bool, show: bool=False) -> set[str]:
+     # Build dependency graph and adjacency list
++    path = Path(str(path))
+     result = build_dependency_graph(path, include_site_packages=site_packages)
+-    root_node, module_nodes, adjacency_list, reverse_adjacency_list, broken_imports = result
++    reverse_adjacency_list = result.reverse_adjacency_list
+ 
+     # Get modules that import the given module
+     importers = reverse_adjacency_list.get(module_name, set())
+-    if importers:
++    if importers and show:
+         console.print(f"\n[bold light_goldenrod2]Modules that import '{module_name}':[/bold light_goldenrod2]")
+         for importer in importers:
+             console.print(f" - {importer}")
+     else:
+         console.print(f"\n[bold red]No modules found that import '{module_name}'.[/bold red]")
+-
++    return importers
++
++def validate_params(func, *args, **kwargs):
++    from inspect import signature
++    sig = signature(func)
++    params = sig.parameters
++    args = list(args)
++    kwargs_args = {}
++    for key, value in kwargs.items():
++        if key not in params:
++            raise TypeError(f"Unexpected keyword argument '{key}'")
++
++    return args
+ if __name__ == "__main__":
+-    sys.exit(cli())
++    if sys.argv[1:]:
++        validate_params(generate, *sys.argv[1:])
++        generate(*sys.argv[1:])
++    generate(stats=True)
++
+diff --git a/mbpy/repair.py b/mbpy/repair.py
+index bc29f69..5d75381 100644
+--- a/mbpy/repair.py
++++ b/mbpy/repair.py
+@@ -1,22 +1,22 @@
+ 
+ import importlib
++from pathlib import Path
+ import sys
+ 
+ import rich_click as click
+ from rich.console import Console
+ 
++from mbpy.commands import run
+ from mbpy.graph import build_dependency_graph, display_stats, get_stats, print_tree
+ from mbpy.mpip import PackageInfo, find_and_sort
+-from mbpy.cli import install_command
+-console = Console()
+ 
++console = Console()
+ 
+-@click.command("repair")
+-@click.argument("path", default=".")
+ def main(
+-    path: str = ".",
++    path: str| Path = ".", dry_run: bool = False
+ ):
+     # Build dependency graph and adjacency list
++    path = Path(str(path)).resolve()
+     result = build_dependency_graph(
+         path,
+         include_site_packages=False,
+@@ -24,30 +24,50 @@ def main(
+         include_signatures=False,
+         include_code=False,
+     )
+-    *other, broken, _ = result
+-
++    root = result.root_node
++    broken = result.broken_imports
++    module_nodes = result.module_nodes
++    for broken_module in broken.copy():
++        if broken_module in module_nodes and module_nodes[broken_module].filepath and str(root.filepath) in module_nodes[broken_module].filepath.absolute().as_posix():
++            console.print(f"Removing {broken_module} from broken imports")
++            del broken[broken_module]
+ 
+     # Display broken imports with file paths
+     if broken:
+         console.print("\n[bold red]Broken Imports:[/bold red]")
+         for imp, file_paths in broken.items():
+-            console.print(f"\nModule: {imp}")
++            installed = False
++            modname = imp.split(".")[0] if len(imp.split(".")) > 1 else imp
++            console.print(f"\nModule: {modname}")
+             for path in file_paths:
+                 console.print(f" - Imported by: {path}")
+-            result = find_and_sort(imp, include="releases")[0]
+-            modname = imp
++            results = find_and_sort(modname, include="releases")
++            if not results:
++                console.print(f" - No results found for {modname}", style="red")
++                continue
++            result = results[0]
++            if not result.get("releases"):
++                console.print(f" - No releases found for {modname}", style="red")
++                continue
+             for release in result["releases"]:
+-
+                 version = next(iter(release.keys()))
+-                try:
+-                   result = install_command(f"{modname}=={version}")
+-
+-                except  (ModuleNotFoundError, ImportError, AttributeError, NameError):
++                if not version:
++                    continue
++                if dry_run:
++                    console.print(f" - Would install: {modname}=={version}")
++                    installed = True
++                    break
++               
++                
++                result = run(f"pip install {modname}=={version}",show=False)
++                if "ERROR" in result:
+                     console.print(f" Failed to install {modname}=={version}. Trying next version down", style="red")
+                     continue
+-                console.print(f" - Installed: {modname}=={version}. Paths {file_paths} should now be resolved.", style="light_sea_green")
++                installed = True
++                console.print(f" - Installed: {modname}=={version}. Paths {','.join(list(file_paths))} should now be resolved.", style="light_sea_green")
+                 break
+-            console.print("Exhausted all versions", style="red")
++            if not installed:
++                console.print("Exhausted all versions", style="red")
+ 
+ if __name__ == "__main__":
+     sys.exit(main())
+diff --git a/pyproject.toml b/pyproject.toml
+index fc5b529..fc6bb8a 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,6 +1,6 @@
+ [project]
+ name = "mbpy"
+-version = "2.0.8"
++version = "2.0.11"
+ description = ""
+ readme = "README.md"
+ requires-python = ">=3.10"
+@@ -14,7 +14,7 @@ dependencies = [
+     'pexpect>=4.9.0',
+     'python-dotenv>=1.0.1',
+     'rich-click>=1.8.3',
+-    'rich>=13.9.2',
++    "rich>=13.9.2",
+     'scipy>=1.14.1',
+     'tomlkit>=0.12.0',
+     'toolz>=1.0.0',
+diff --git a/requirements.txt b/requirements.txt
+index 84b1e9c..175f07d 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,7 +1,4 @@
+-aiohappyeyeballs==2.4.3
+-aiohttp==3.10.9
+-aiosignal==1.3.1
+-aiostream==0.6.3
++
+ alabaster==1.0.0
+ annotated-types==0.7.0
+ anthropic==0.36.0
+@@ -25,22 +22,14 @@ configargparse==1.7
+ contourpy==1.3.0
+ cryptography==43.0.1
+ cycler==0.12.1
+-datasets==3.0.1
+-deprecated==1.2.14
+-diff-match-patch==20230430
+-dill==0.3.9
+-diskcache==5.6.3
+ distro==1.9.0
+ docutils==0.21.2
+ farama-notifications==0.0.4
+-filelock==3.16.1
+-flake8==7.1.1
+ fonttools==4.54.1
+ frozenlist==1.4.1
+-fsspec==2024.9.0
+ funkify==0.4.5
+ ghp-import==2.1.0
+-git-python==1.1.1
++git-python
+ gitdb==4.0.11
+ gitpython==3.1.43
+ grep-ast==0.3.3
+@@ -75,8 +64,6 @@ markdownify==0.13.1
+ markupsafe==3.0.1
+ material-ui==0.1.3.6
+ matplotlib==3.9.2
+-mbodi @ file:///Users/sebastianperalta/simply/corp/projects/v1
+--e file:///Users/sebastianperalta/simply/corp/projects/mbpy
+ mccabe==0.7.0
+ mdit-py-plugins==0.4.2
+ mdurl==0.1.2
+@@ -128,7 +115,6 @@ pypandoc==1.14
+ pyparsing==3.1.4
+ pyperclip==1.9.0
+ pytest==8.3.3
+-pytest-asyncio==0.24.0
+ python-dateutil==2.9.0.post0
+ python-dotenv==1.0.1
+ pytz==2024.2
+@@ -140,7 +126,7 @@ regex==2024.9.11
+ requests==2.32.3
+ requests-toolbelt==1.0.0
+ rfc3986==2.0.0
+-rich==13.9.2
++rich
+ rich-click==1.8.3
+ rpds-py==0.20.0
+ scipy==1.14.1
+@@ -182,10 +168,5 @@ wrapt==1.16.0
+ xxhash==3.5.0
+ yarl==1.14.0
+ zipp==3.20.2
+-../v1
+-dataclasses==0.8
+ fastui
+-mb/mb/mb
+-mbodiai/mrender@main
+-git+https://github.com/mbodiai/mrender@main
+-git+https://github.com/mb/mb
++
+diff --git a/uv.lock b/uv.lock
+index 9ef69ac..933dd4b 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -203,7 +203,7 @@ wheels = [
+ 
+ [[package]]
+ name = "assistant"
+-version = "0.1.0"
++version = "0.1.7"
+ source = { editable = "mbpy/assistant" }
+ dependencies = [
+     { name = "gradio" },
+@@ -228,7 +228,7 @@ requires-dist = [
+ 
+ [package.metadata.requires-dev]
+ dev = [
+-    { name = "mnetwork" },
++    { name = "mnetwork", specifier = ">=1.0.0" },
+     { name = "mypy", specifier = ">=1.12.1" },
+ ]
+ 
+@@ -689,15 +689,6 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/93/69/e391bd51bc08ed9141ecd899a0ddb61ab6465309f1eb470905c0c8868081/docutils-0.19-py3-none-any.whl", hash = "sha256:5e1de4d849fee02c63b040a4a3fd567f4ab104defd8a5511fbbc24a8a017efbc", size = 570472 },
+ ]
+ 
+-[[package]]
+-name = "einops"
+-version = "0.8.0"
+-source = { registry = "https://pypi.org/simple" }
+-sdist = { url = "https://files.pythonhosted.org/packages/79/ca/9f5dcb8bead39959454c3912266bedc4c315839cee0e0ca9f4328f4588c1/einops-0.8.0.tar.gz", hash = "sha256:63486517fed345712a8385c100cb279108d9d47e6ae59099b07657e983deae85", size = 58861 }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/44/5a/f0b9ad6c0a9017e62d4735daaeb11ba3b6c009d69a26141b258cd37b5588/einops-0.8.0-py3-none-any.whl", hash = "sha256:9572fb63046264a862693b0a87088af3bdc8c068fde03de63453cbbde245465f", size = 43223 },
+-]
+-
+ [[package]]
+ name = "email-validator"
+ version = "2.2.0"
+@@ -1547,10 +1538,9 @@ wheels = [
+ 
+ [[package]]
+ name = "mbpy"
+-version = "2.0.6"
++version = "2.0.11"
+ source = { editable = "." }
+ dependencies = [
+-    { name = "einops" },
+     { name = "minspect" },
+     { name = "mkdocs" },
+     { name = "mkdocs-material" },
+@@ -1601,7 +1591,6 @@ dev = [
+ [package.metadata]
+ requires-dist = [
+     { name = "aiohttp", marker = "extra == 'all'", specifier = ">=3.10.10" },
+-    { name = "einops", specifier = ">=0.8.0" },
+     { name = "fastui", marker = "extra == 'docs'", specifier = ">=0.7.0" },
+     { name = "markdown-it-py", marker = "extra == 'docs'", specifier = ">=2.2.0" },
+     { name = "mbodied", marker = "extra == 'ai'", specifier = ">=1.2.2" },

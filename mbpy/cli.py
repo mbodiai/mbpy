@@ -16,7 +16,7 @@ from rich.console import Console
 from rich.traceback import Traceback
 
 from mbpy.bump import bump as bump_pkg
-from mbpy.commands import run, run_command
+from mbpy.commands import interact, run, run_command
 from mbpy.create import create_project
 from mbpy.mpip import (
     ADDITONAL_KEYS,
@@ -29,7 +29,7 @@ from mbpy.mpip import (
     modify_requirements,
     name_and_version,
 )
-from mbpy.publish import append_notion_table_row
+from mbpy.sync import append_notion_table_row
 
 console = Console()
 # TODO add a timeout option and support windows.
@@ -380,7 +380,7 @@ def bump_command() -> None:
     except Exception:
         traceback.print_exc()
 
-@cli.command("publish", no_args_is_help=True)
+@cli.command("publish")
 @click.option("--bump", "-b", is_flag=True, help="Bump the version before publishing")
 @click.option("--build", "-B", is_flag=True, help="Build the package before publishing")
 @click.option(
@@ -403,7 +403,14 @@ def bump_command() -> None:
 )
 @click.option("--gh-release", is_flag=True, help="Create a GitHub release")
 def publish_command(bump=False, build=False, package_manager="github", auth=None, gh_release=False) -> None:
-    """Publish a package to PyPI."""
+    r"""Publish a package to PyPI or GitHub.
+
+    Note: Git features require the GitHub CLI to be installed. See https://cli.github.com/ for more information.
+    """
+    if not run("which gh", show=False) and (package_manager == "github" or gh_release):
+        platform_install_cmd = "`brew install gh`" if run("which brew") else "`sudo snap install gh --classic`"
+        console.print(f"GitHub CLI not found. Please install it to use this feature by running {platform_install_cmd}.",style="bold red")
+        return
     if not auth:
         auth = os.getenv("GIT_TOKEN") if package_manager == "github" else os.getenv("PYPI_TOKEN")
     version = None
@@ -411,19 +418,40 @@ def publish_command(bump=False, build=False, package_manager="github", auth=None
         if bump:
             version = bump_pkg()
         if build:
-            run_command([package_manager, "build"], show=True).readlines()
+            run(["rm", "-rf", "dist"], show=False)
+            out = run([package_manager, "build"], show=True)
         if package_manager == "github":
-            run_command(["gh", "pr", "create", "--fill"], show=True).readlines()
+            out = interact(["gh", "pr", "create", "--fill"], show=True)
+            outs = ""
+            for o in out:
+                outs += o
+                if "error" in o.lower():
+                    console.print("Error occurred while creating pull request.", style="bold red")
+                    return
+            return
+            out = outs or "Pull request created successfully."
         elif package_manager == "uv":
-            run_command(["twine", "upload", "dist/*", "-u", "__token__", "-p", auth], show=True).readlines()
+            out = run(["twine", "upload", "dist/*", "-u", "__token__", "-p", auth], show=True)
         elif package_manager == "hatch":
-            run_command(["hatch", "publish", "-u", "__token__", "-a", auth], show=True).readlines()
+            out = run(["hatch", "publish", "-u", "__token__", "-a", auth], show=True)
         else:
             console.print("Invalid package manager specified.", style="bold red")
         
+        if "error" in out[-1].lower():
+            console.print("Error occurred while publishing package.", style="bold red")
+        else:
+            console.print(
+                f"Package published successfully with {('version ' + version) if version else 'current version.'}",
+                style="bold light_goldenrod2",
+            )
+
         if gh_release:
-            run_command(["gh", "release", "create", version], show=True).readlines()
-        console.print(f"Package published successfully with {('version ' + version) if version else 'current version.'}", style="bold light_goldenrod2")
+            out = run(["gh", "release", "create", version], show=True)
+        if "error" in out[-1].lower():
+            console.print("Error occurred while creating release.", style="bold red")
+        else:
+            console.print(f"Release created successfully for version {version}.", style="bold light_goldenrod2")
+       
     except Exception:
         traceback.print_exc()
 
@@ -448,6 +476,46 @@ def docs_command(source,name,author,description,doc_type) -> None:
     from mbpy.create import setup_documentation
     try:
         setup_documentation(source, name, author, description, doc_type)
+    except Exception:
+        traceback.print_exc()
+
+
+@cli.command("generate")
+@click.argument("path", default=".")
+@click.option("--sigs", is_flag=True, help="Include function and method signatures")
+@click.option("--docs", is_flag=True, help="Include docstrings in the output")
+@click.option("--code", is_flag=True, help="Include source code of modules in the output")
+@click.option("--who-imports", is_flag=True, help="Include modules that import each module")
+@click.option("--stats", is_flag=True, help="Include statistics and flow information")
+@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
+def generate_command(path, sigs, docs, code, who_imports, stats, site_packages) -> None:
+    """Generate a report for a Python project."""
+    from mbpy.graph import generate as generate_report
+    try:
+        generate_report(path, sigs, docs, code, who_imports, stats, site_packages)
+    except Exception:
+        traceback.print_exc()
+
+@cli.command("who-imports")
+@click.argument("module_name")
+@click.argument("path", default=".")
+@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
+def who_imports_command(module_name, path, site_packages) -> None:
+    """Find modules that import a given module."""
+    from mbpy.graph import who_imports
+    try:
+        who_imports(module_name, path, site_packages)
+    except Exception:
+        traceback.print_exc()
+
+@cli.command("repair", no_args_is_help=True)
+@click.argument("path", default=".")
+@click.option("-d","--dry-run", is_flag=True, help="Dry run")
+def repair_command(path, dry_run) -> None:
+    """Repair broken imports."""
+    from mbpy.repair import main
+    try:
+        main(path, dry_run)
     except Exception:
         traceback.print_exc()
 

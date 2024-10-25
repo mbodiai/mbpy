@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: apache-2.0
 import logging
+import sys
 
 from rich.logging import RichHandler
 from rich.pretty import install
@@ -12,4 +13,4 @@ from rich.pretty import install
 from rich.traceback import install as install_traceback
 
 install(max_length=10, max_string=80)
-install_traceback(show_locals=True)
+install_traceback(show_locals=sys.argv[1] in ["-v", "--verbose","debug","-d","--debug"])

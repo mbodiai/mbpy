@@ -203,7 +203,7 @@ wheels = [
 
 [[package]]
 name = "assistant"
-version = "0.1.0"
+version = "0.1.7"
 source = { editable = "mbpy/assistant" }
 dependencies = [
     { name = "gradio" },
@@ -228,7 +228,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mnetwork" },
+    { name = "mnetwork", specifier = ">=1.0.0" },
     { name = "mypy", specifier = ">=1.12.1" },
 ]
 
@@ -687,15 +687,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6b/5c/330ea8d383eb2ce973df34d1239b3b21e91cd8c865d21ff82902d952f91f/docutils-0.19.tar.gz", hash = "sha256:33995a6753c30b7f577febfc2c50411fec6aac7f7ffeb7c4cfe5991072dcf9e6", size = 2056383 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/93/69/e391bd51bc08ed9141ecd899a0ddb61ab6465309f1eb470905c0c8868081/docutils-0.19-py3-none-any.whl", hash = "sha256:5e1de4d849fee02c63b040a4a3fd567f4ab104defd8a5511fbbc24a8a017efbc", size = 570472 },
-]
-
-[[package]]
-name = "einops"
-version = "0.8.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/79/ca/9f5dcb8bead39959454c3912266bedc4c315839cee0e0ca9f4328f4588c1/einops-0.8.0.tar.gz", hash = "sha256:63486517fed345712a8385c100cb279108d9d47e6ae59099b07657e983deae85", size = 58861 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/5a/f0b9ad6c0a9017e62d4735daaeb11ba3b6c009d69a26141b258cd37b5588/einops-0.8.0-py3-none-any.whl", hash = "sha256:9572fb63046264a862693b0a87088af3bdc8c068fde03de63453cbbde245465f", size = 43223 },
 ]
 
 [[package]]
@@ -1547,10 +1538,9 @@ wheels = [
 
 [[package]]
 name = "mbpy"
-version = "2.0.6"
+version = "2.0.11"
 source = { editable = "." }
 dependencies = [
-    { name = "einops" },
     { name = "minspect" },
     { name = "mkdocs" },
     { name = "mkdocs-material" },
@@ -1601,7 +1591,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", marker = "extra == 'all'", specifier = ">=3.10.10" },
-    { name = "einops", specifier = ">=0.8.0" },
     { name = "fastui", marker = "extra == 'docs'", specifier = ">=0.7.0" },
     { name = "markdown-it-py", marker = "extra == 'docs'", specifier = ">=2.2.0" },
     { name = "mbodied", marker = "extra == 'ai'", specifier = ">=1.2.2" },

@@ -1,52 +1,101 @@
 
 import ast
-from functools import partial
+from collections.abc import Iterable
+import contextlib
+from dataclasses import dataclass, field
 import importlib.util
+import inspect
 import sys
 from collections import defaultdict
+from functools import partial
 from pathlib import Path
-from typing import Dict, NamedTuple, dataclass_transform
+from types import FunctionType, MappingProxyType
+from typing import TYPE_CHECKING, Dict, NamedTuple, Tuple, TypeVar, Union, Unpack, _type_check, dataclass_transform, overload
+from weakref import ref
 
 # Import NetworkX for graph representation
+from more_itertools import first, first_true
 import networkx as nx
+import numpy as np
 import rich_click as click
 from rich.console import Console
 from rich.pretty import Pretty
-from typing_extensions import TypedDict
+from typing_extensions import (
+    Annotated,
+    Generic,
+    Literal,
+    NotRequired,
+    ParamSpec,
+    Required,
+    TypeVarTuple,
+    TypedDict,
+    _caller,
+    _TypedDictMeta,
+    get_args,
+    get_origin,
+)
 
 console = Console()
+class ContentT(TypedDict):
+    functions: Dict[str, Dict[str, str | list[str]]] | None
+    classes: Dict[str, Dict[str, str | list[str]]] | None
+    docs: str | None
+    signature: str | MappingProxyType[str, type] | None
+    code: str | None
 
-class Node:
-    def __init__(self, name, parent=None):
-        self.name = name
-        self.parent = parent  # Reference to the parent node
-        self.children = {}
-        self.imports = []
-        self.contents = {
-            'functions': {},
-            'classes': {},
-            # Optional fields: 'docs', 'signatures', 'code', 'stats', 'info'
-        }
-        self.importance = 1.0  # Initial importance score
+class TD(TypedDict):
+    name: str
+    parent: Union["ref[Node]" , None]
+    children: Dict[str, "Node"]
+    imports: list[str]
+    contents: ContentT
+    importance: float
+    filepath: Path | None
+@dataclass()
+class Node(dict):
+  
+    @overload
+    def __getitem__(self, key: Literal["name"]) -> str:
+        ...
+    @overload
+    def __getitem__(self, key: Literal["parent"]) -> Union["ref[Node]" , None]:
+        ...
+    @overload
+    def __getitem__(self, key: Literal["children"]) -> Dict[str, "Node"]:
+        ...
+    @overload
+    def __getitem__(self, key: Literal["imports"]) -> list[str]:
+        ...
+    @overload
+    def __getitem__(self, key: Literal["contents"]) -> ContentT:
+        ...
+    
+    def __getitem__(self, key):
+        return super().__getitem__(key)
 
-    def to_graph(self, G=None):
+    name: str
+    parent: Union["ref[Node]" , None] = None
+    children: Dict[str, "Node"] = field(default_factory=dict)
+    imports: list[str] = field(default_factory=list)
+    contents: ContentT = field(default_factory=dict)
+    importance: float = 1.0
+    filepath: Path | None = None
+
+    def to_graph(self, g=None) -> nx.DiGraph:
         """Recursively adds nodes and edges to a NetworkX graph."""
-        if G is None:
-            G = nx.DiGraph()
-        G.add_node(self.name)
+        if g is None:
+            g = nx.DiGraph()
+        g.add_node(self.name)
         for imp in self.imports:
-            G.add_edge(self.name, imp)
+            g.add_edge(self.name, imp)
         for child in self.children.values():
-            child.to_graph(G)
-        return G
+            child.to_graph(g)
+        return g
 
 
 def extract_node_info(file_path, include_docs=False, include_signatures=False, include_code=False):
-    """
-    Extracts imports, function definitions, class definitions,
-    docstrings, and signatures from a Python file.
-    """
-    with open(file_path, 'r', encoding='utf-8') as f:
+    """Extracts imports, function definitions, class definitions, docstrings, and signatures from a Python file."""
+    with Path(file_path).open('r', encoding='utf-8') as f:
         source_code = f.read()
     try:
         tree = ast.parse(source_code)
@@ -66,8 +115,12 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
         module_doc = ast.get_docstring(tree)
         if module_doc:
             node_contents['docs'] = module_doc
+    if include_signatures:
+        signature = None
+        with contextlib.suppress(Exception):
+            signature = inspect.signature(ast.parse(source_code)).parameters
+        node_contents['signature'] = signature
 
-    signatures = {}
 
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.Import):
@@ -83,10 +136,14 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
             functions[func_name] = {
                 'docs': func_doc if include_docs else None,
                 'args': args,
-                # 'code' is optional
             }
             if include_signatures:
-                signatures[func_name] = f"{func_name}({', '.join(args)})"
+                signature[func_name] = f"{func_name}({', '.join(args)})"
+            if include_code:
+                start = node.lineno - 1
+                end = node.end_lineno
+                func_code = source_code.split('\n')[start:end]
+                functions[func_name]['code'] = '\n'.join(func_code)
         elif isinstance(node, ast.ClassDef):
             class_name = node.name
             class_doc = ast.get_docstring(node) if include_docs else None
@@ -102,18 +159,24 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
                         # 'code' is optional
                     }
                     if include_signatures:
-                        signatures[method_name] = f"{method_name}({', '.join(args)})"
+                        signature[method_name] = f"{method_name}({', '.join(args)})"
+                    if include_code:
+                        start = body_item.lineno - 1
+                        end = body_item.end_lineno
+                        method_code = source_code.split('\n')[start:end]
+                        methods[method_name]['code'] = '\n'.join(method_code)
             classes[class_name] = {
                 'docs': class_doc if include_docs else None,
                 'methods': methods,
                 # 'code' is optional
             }
+            if include_code:
+                start = node.lineno - 1
+                end = node.end_lineno
+                class_code = source_code.split('\n')[start:end]
+                classes[class_name]['code'] = '\n'.join(class_code)
+            
 
-    if include_signatures and signatures:
-        node_contents['signatures'] = signatures
-
-    if include_code:
-        node_contents['code'] = source_code
 
     return node_contents
 
@@ -125,174 +188,6 @@ def attempt_import(module_name):
     except (ModuleNotFoundError, ValueError):
         return False
 
-class AttrDict(dict):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
-    def __getattr__(self, name):
-        return self[name]
-
-    def __setattr__(self, name, value):
-        self[name] = value
-
-    def __delattr__(self, name):
-        del self[name]
-
-from typing import _type_check
-
-from typing_extensions import (
-    Annotated,
-    Generic,
-    NotRequired,
-    Required,
-    _caller,
-    _TypedDictMeta,
-    get_args,
-    get_origin,
-)
-
-
-class SampleDictMeta(_TypedDictMeta):
-    def __new__(cls, name, bases, ns, total=True):
-        """Create a new typed dict class object.
-
-        This method is called when TypedDict is subclassed,
-        or when TypedDict is instantiated. This way
-        TypedDict supports all three syntax forms described in its docstring.
-        Subclasses and instances of TypedDict return actual dictionaries.
-        """
-        for base in bases:
-            if type(base) is not SampleDictMeta and base is not Generic:
-                raise TypeError("cannot inherit from both a TypedDict type " "and a non-TypedDict base class")
-
-        generic_base = (Generic,) if any(issubclass(b, Generic) for b in bases) else ()
-
-        tp_dict = type.__new__(SampleDictMeta, name, (*generic_base, dict), ns)
-
-        annotations = {}
-        own_annotations = ns.get("__annotations__", {})
-        msg = "TypedDict('Name', {f0: t0, f1: t1, ...}); each t must be a type"
-        own_annotations = {n: _type_check(tp, msg, module=tp_dict.__module__) for n, tp in own_annotations.items()}
-        required_keys = set()
-        optional_keys = set()
-
-        for base in bases:
-            annotations.update(base.__dict__.get("__annotations__", {}))
-
-            base_required = base.__dict__.get("__required_keys__", set())
-            required_keys |= base_required
-            optional_keys -= base_required
-
-            base_optional = base.__dict__.get("__optional_keys__", set())
-            required_keys -= base_optional
-            optional_keys |= base_optional
-
-        annotations.update(own_annotations)
-        for annotation_key, annotation_type in own_annotations.items():
-            annotation_origin = get_origin(annotation_type)
-            if annotation_origin is Annotated:
-                annotation_args = get_args(annotation_type)
-                if annotation_args:
-                    annotation_type = annotation_args[0]
-                    annotation_origin = get_origin(annotation_type)
-
-            if annotation_origin is Required:
-                is_required = True
-            elif annotation_origin is NotRequired:
-                is_required = False
-            else:
-                is_required = total
-
-            if is_required:
-                required_keys.add(annotation_key)
-                optional_keys.discard(annotation_key)
-            else:
-                optional_keys.add(annotation_key)
-                required_keys.discard(annotation_key)
-
-        assert required_keys.isdisjoint(optional_keys), (
-            f"Required keys overlap with optional keys in {name}:" f" {required_keys=}, {optional_keys=}"
-        )
-        tp_dict.__annotations__ = annotations
-        tp_dict.__required_keys__ = frozenset(required_keys)
-        tp_dict.__optional_keys__ = frozenset(optional_keys)
-        if not hasattr(tp_dict, "__total__"):
-            tp_dict.__total__ = total
-        return tp_dict
-
-    __call__ = AttrDict
-
-    def __subclasscheck__(cls, other):
-      return cls in other.__mro_entries__
-
-    __instancecheck__ = __subclasscheck__
-
-
-def SampleDict(typename, fields=None, /, *, total=True, **kwargs):
-    """A simple typed namespace. At runtime it is equivalent to a plain dict.
-
-    TypedDict creates a dictionary type such that a type checker will expect all
-    instances to have a certain set of keys, where each key is
-    associated with a value of a consistent type. This expectation
-    is not checked at runtime.
-
-    Usage::
-
-        >>> class Point2D(TypedDict):
-        ...     x: int
-        ...     y: int
-        ...     label: str
-        ...
-        >>> a: Point2D = {'x': 1, 'y': 2, 'label': 'good'}  # OK
-        >>> b: Point2D = {'z': 3, 'label': 'bad'}           # Fails type check
-        >>> Point2D(x=1, y=2, label='first') == dict(x=1, y=2, label='first')
-        True
-
-    The type info can be accessed via the Point2D.__annotations__ dict, and
-    the Point2D.__required_keys__ and Point2D.__optional_keys__ frozensets.
-    TypedDict supports an additional equivalent form::
-
-        Point2D = TypedDict("Point2D", {"x": int, "y": int, "label": str})
-
-    By default, all keys must be present in a TypedDict. It is possible
-    to override this by specifying totality::
-
-        class Point2D(TypedDict, total=False):
-            x: int
-            y: int
-
-    This means that a Point2D TypedDict can have any of the keys omitted. A type
-    checker is only expected to support a literal False or True as the value of
-    the total argument. True is the default, and makes all items defined in the
-    class body be required.
-
-    The Required and NotRequired special forms can also be used to mark
-    individual keys as being required or not required::
-
-        class Point2D(TypedDict):
-            x: int  # the "x" key must always be present (Required is the default)
-            y: NotRequired[int]  # the "y" key can be omitted
-
-    See PEP 655 for more details on Required and NotRequired.
-    """
-    if fields is None:
-        fields = kwargs
-    elif kwargs:
-        raise TypeError("TypedDict takes either a dict or keyword arguments," " but not both")
- 
-
-    ns = {"__annotations__": dict(fields)}
-    module = _caller()
-    if module is not None:
-        # Setting correct module is necessary to make typed dict classes pickleable.
-        ns["__module__"] = module
-
-    return SampleDictMeta(typename, (), ns, total=total)
-
-
-_SampleDict = type.__new__(SampleDictMeta, "SampleDict", (), {})
-SampleDict.__mro_entries__ = lambda bases: (_SampleDict,)
-
 
 
 class GraphDict(TypedDict, total=False):
@@ -302,6 +197,8 @@ class GraphDict(TypedDict, total=False):
     reverse_adjacency_list: dict[str, set[str]]
     broken_imports: dict[str, set[str]]
     graph: nx.DiGraph
+    
+    
 
 class Graph(NamedTuple):
     root_node: Node
@@ -310,6 +207,12 @@ class Graph(NamedTuple):
     reverse_adjacency_list: dict[str, set[str]]
     broken_imports: dict[str, set[str]]
     graph: nx.DiGraph
+    
+    def __setitem__(self, key, value):
+        return self.__setattr__(key, value)
+    
+    def __getitem__(self, key):
+        return self.__getattribute__(key)
     
     def asdict(self) -> GraphDict:
         return {
@@ -324,22 +227,24 @@ class Graph(NamedTuple):
 
     
 def build_dependency_graph(
-    directory_path: Path | str,
+    directory_or_file: Path | str,
     include_site_packages: bool = False,
     include_docs: bool = False,
     include_signatures: bool = False,
     include_code: bool = False,
 )-> Graph:
-    directory_path = Path(directory_path)
-    directory_path = directory_path.parent.resolve() if directory_path.is_file() else directory_path.resolve()
+    directory_path = Path(directory_or_file)
+   
 
-    root_node = Node('root')
+    directory_path = directory_path.parent.resolve() if directory_path.is_file() else directory_path.resolve()
+    paths = [directory_path] if directory_path.is_file() else list(directory_path.rglob('*.py'))
+    root_node = Node('root', filepath=directory_path)
     module_nodes = {'root': root_node}
     adjacency_list = defaultdict(set)
     reverse_adjacency_list = defaultdict(set)  # For getting modules that import a given module
     broken_imports = defaultdict(set)  # Map broken imports to sets of file paths
 
-    for file_path in directory_path.rglob('*.py'):
+    for file_path in paths:
         # Skip site-packages and vendor directories if not included
         if not include_site_packages and (("site-packages" in file_path.parts) or ("vendor" in file_path.parts)):
             continue
@@ -362,7 +267,7 @@ def build_dependency_graph(
                 continue  # Skip files that couldn't be parsed
 
             # Create or get the module node
-            module_node = Node(module_name, parent=parent_node)
+            module_node = Node(module_name, parent=parent_node, filepath=file_path)
             module_node.imports = node_info.get('imports', [])
             module_node.contents['functions'] = node_info.get('functions', {})
             module_node.contents['classes'] = node_info.get('classes', {})
@@ -386,13 +291,15 @@ def build_dependency_graph(
                 # Initialize the importance of imported modules if not already
                 if imp not in module_nodes:
                     module_nodes[imp] = Node(imp)
+
                 # Update importance
                 module_nodes[imp].importance += module_node.importance / max(len(module_node.imports), 1)
 
                 # Attempt to import the module
                 if not attempt_import(imp):
+                    modname = imp.split(".")[0] if len(imp.split(".")) > 1 else imp
                     # Add the file path to the broken import's set
-                    broken_imports[imp].add(str(file_path))
+                    broken_imports.setdefault(modname, set()).add(file_path.as_posix())
 
         except (SyntaxError, UnicodeDecodeError, ValueError):
             continue
@@ -405,8 +312,11 @@ def build_dependency_graph(
         'graph': root_node.to_graph(),
     })
 
-def print_tree(node, level=0, include_docs=False, include_signatures=False, include_code=False):
+def print_tree(node: Node, level=0, include_docs=False, include_signatures=False, include_code=False):
+    if level == 0:
+        console.print("[bold light_goldenrod2]Dependency Graph:[/bold light_goldenrod2]")
     indent = '  ' * level
+
     console.print(f"{indent}[bold light_goldenrod2]{node.name}[/bold light_goldenrod2]:")
     if node.imports:
         console.print(f"{indent}  Imports: {node.imports}")
@@ -443,6 +353,7 @@ def print_tree(node, level=0, include_docs=False, include_signatures=False, incl
             include_code=include_code,
         )
 
+
 class GraphStats(TypedDict):
     num_modules: int
     num_imports: int
@@ -451,11 +362,14 @@ class GraphStats(TypedDict):
     avg_degree: float
     scc: list[set[str]]
     importance_scores: dict[str, float]
-    effective_size: dict[str, float]
+    effective_sizes: dict[str, float]
+    sizes: dict[str, float]
     pagerank: dict[str, float]
     
-def get_stats(module_nodes: Dict[str, Node], adjacency_list) -> GraphStats:
+    
+def get_stats(module_nodes: Dict[str, Node] | Iterable[Node], adjacency_list: dict[str, set[str]], reverse_adjacency_list: dict[str, set[str]]) -> GraphStats:
     """Computes statistics for the dependency graph."""
+    module_nodes = {node.name: node for node in module_nodes} if not isinstance(module_nodes, Dict) else module_nodes
     num_modules = len(module_nodes)
     num_imports = sum(len(node.imports) for node in module_nodes.values())
     num_functions = sum(len(node.contents.get('functions', {})) for node in module_nodes.values())
@@ -470,11 +384,8 @@ def get_stats(module_nodes: Dict[str, Node], adjacency_list) -> GraphStats:
         importance_scores = {node: 0 for node in importance_scores}
 
 
-    # Calculate average degree
-    G = nx.DiGraph()
-    for node, imports in adjacency_list.items():
-        for imp in imports:
-            G.add_edge(node, imp)
+
+    G = module_nodes['root'].to_graph()
     pg = nx.algorithms.link_analysis.pagerank_alg.pagerank(G)
     avg_degree = sum(dict(G.degree()).values()) / float(len(G)) if len(G) > 0 else 0
 
@@ -486,63 +397,68 @@ def get_stats(module_nodes: Dict[str, Node], adjacency_list) -> GraphStats:
     # Rank SCCs by number of nodes  
     scc = sorted(scc, key=lambda x: len(x), reverse=True)  
     sizes = nx.effective_size(G)
-    sizes = {k: round(v, 4) for k, v in sizes.items()}
-    # Prepare sizes dict with neighbor info  
+
+
     sizes_with_neighbors = {  
         node: {  
             "effective_size": sizes[node],  
-            "neighbors": len(list(G.neighbors(node))),
+            "neighbors": len(adjacency_list[node]) + len(reverse_adjacency_list[node]),
             "pagerank": round(pg[node] * G.number_of_edges(), 4)
         }  
         for node in G.nodes()  
     }  
-    console.print(f"\n[bold light_goldenrod2]Effective Size of the Graph:[/bold light_goldenrod2] {sizes}")
+
     return {
         'num_modules': num_modules,
         'num_imports': num_imports,
         'num_functions': num_functions,
         'num_classes': num_classes,
         'avg_degree': avg_degree,
-        'importance_scores': importance_scores,
         'scc': scc,
-        "size": sorted(sizes_with_neighbors.items(), key=lambda x: x[1]["effective_size"], reverse=True),
+        "sizes": sizes,
+        "size_importance": sorted(sizes_with_neighbors.items(), key=lambda x: x[1]["effective_size"], reverse=True),
         "pagerank": sorted(pg.items(), key=lambda x: x[1], reverse=True)
     }
 
-def display_stats(stats: GraphStats, exclude: set[str] = set()) -> None:
+from rich.table import Table, Column
+def display_stats(stats: GraphStats, exclude: set[str] = None) -> None:
     """Displays statistics for the dependency graph."""
+    exclude = exclude or set()
+    title = "Dependency Graph Statistics"
+    console.print(f"\n[bold light_goldenrod2]{title}[/bold light_goldenrod2]")
+    
     for key, value in stats.items():
-        if key in exclude or key not in ("pagerank", "size"):
+        if key in exclude or key in ("pagerank",  "scc", "sizes"):
             continue
         console.print(f"{key}")
-        console.print(Pretty(value))
+        if isinstance(value, list):
+            v = value[0]
+            values = sorted(value, key=lambda x: x[1]["pagerank"], reverse=True)
+            table = Table(title=key,style="light_goldenrod2")
+            table.add_column("Node")
+            for k in v[1].keys():
+                table.add_column(k)
+            for v in values[:10]:
+                table.add_row(v[0], *(str(x) for x in v[1].values()))
+            console.print(table)
+                
 
-    
 
     # Display average degree
     console.print(f"Average Degree: {stats['avg_degree']:.2f}")
 
-    # Display strongly connected components
-    console.print("\n[bold light_goldenrod2]Strongly Connected Components:[/bold light_goldenrod2]")
-    for i, component in enumerate(stats['scc'], start=1):
-        console.print(f"Component {i}: {component}")
-    for node, importance in stats['importance_scores'].items():
-        console.print(f"Importance of {node}: {importance:.2f}")
-        
-@click.group()
-def cli():
-    pass
 
-@cli.command("generate")
-@click.argument("path", default=".")
-@click.option("--sigs", is_flag=True, help="Include function and method signatures")
-@click.option("--docs", is_flag=True, help="Include docstrings in the output")
-@click.option("--code", is_flag=True, help="Include source code of modules in the output")
-@click.option("--who-imports", is_flag=True, help="Include modules that import each module")
-@click.option("--stats", is_flag=True, help="Include statistics and flow information")
-@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
-def main(
-    path: str = ".",
+
+        
+def display_broken(broken_imports: dict[str, set[str]]) -> None:
+    console.print("\n[bold red]Broken Imports:[/bold red]")
+    for imp, file_paths in broken_imports.items():
+        console.print(f"\nModule: {imp}")
+        for path in file_paths:
+            console.print(f" - Imported by: {path}")   
+
+def generate(
+    directory_file_or_module: str = ".",
     sigs: bool = False,
     docs: bool = False,
     code: bool = False,
@@ -551,6 +467,17 @@ def main(
     site_packages: bool = False,
 ):
     # Build dependency graph and adjacency list
+    filter_to_module = lambda x: x
+    path = Path(directory_file_or_module).resolve()
+    if not path.exists():
+        # Assume it's a module name
+        path = Path.cwd()
+        filter_to_module = lambda x: x.name == directory_file_or_module
+        filter_includes_module = lambda x: x.name in who_imports(directory_file_or_module, path, site_packages)
+    else:
+        filter_includes_module = lambda _: True
+        filter_to_module = lambda _: True
+
     result = build_dependency_graph(
         path,
         include_site_packages=site_packages,
@@ -559,9 +486,16 @@ def main(
         include_code=code,
     )
     
-    root_node, module_nodes, adjacency_list, reverse_adjacency_list, broken_imports, graph = result
-    # Print the graph
-    console.print("[bold light_goldenrod2]Dependency Graph:[/bold light_goldenrod2]")
+    
+    root_node = result.root_node
+    module_nodes = result.module_nodes
+    adjacency_list = result.adjacency_list
+    reverse_adjacency_list = result.reverse_adjacency_list
+    broken_imports = result.broken_imports
+    
+    root_node = first_true(module_nodes.values(), pred=filter_to_module)
+
+    module_nodes = filter(filter_includes_module, module_nodes.values())
     print_tree(
         root_node,
         include_docs=docs,
@@ -571,41 +505,48 @@ def main(
 
     # Display statistics if requested
     if stats:
-       display_stats(get_stats(root_node, module_nodes, adjacency_list))
+        stats = get_stats(module_nodes, adjacency_list, reverse_adjacency_list)
+        display_stats(stats)
     # Display importers if requested
     if who_imports:
-        console.print("\n[bold light_goldenrod2]Importers:[/bold light_goldenrod2]")
-        for module_name in module_nodes:
-            importers = reverse_adjacency_list.get(module_name, set())
-            if importers:
-                console.print(f"\nModule: {module_name}")
-                console.print(f"  Imported by: {list(importers)}")
-
+        who_imports: FunctionType = sys.modules[__name__].who_imports
+        who_imports(directory_file_or_module, path, site_packages=site_packages, show=True)
     # Display broken imports with file paths
     if broken_imports:
-        console.print("\n[bold red]Broken Imports:[/bold red]")
-        for imp, file_paths in broken_imports.items():
-            console.print(f"\nModule: {imp}")
-            for path in file_paths:
-                console.print(f" - Imported by: {path}")
+        display_broken(broken_imports)
+    return result, stats, broken_imports
 
-@cli.command("who-imports")
-@click.argument("module_name")
-@click.argument("path", default=".")
-@click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
-def who_imports_command(module_name, path, site_packages):
+
+def who_imports(module_name: str, path: Path | str,*, site_packages: bool, show: bool=False) -> set[str]:
     # Build dependency graph and adjacency list
+    path = Path(str(path))
     result = build_dependency_graph(path, include_site_packages=site_packages)
-    root_node, module_nodes, adjacency_list, reverse_adjacency_list, broken_imports = result
+    reverse_adjacency_list = result.reverse_adjacency_list
 
     # Get modules that import the given module
     importers = reverse_adjacency_list.get(module_name, set())
-    if importers:
+    if importers and show:
         console.print(f"\n[bold light_goldenrod2]Modules that import '{module_name}':[/bold light_goldenrod2]")
         for importer in importers:
             console.print(f" - {importer}")
     else:
         console.print(f"\n[bold red]No modules found that import '{module_name}'.[/bold red]")
+    return importers
 
+def validate_params(func, *args, **kwargs):
+    from inspect import signature
+    sig = signature(func)
+    params = sig.parameters
+    args = list(args)
+    kwargs_args = {}
+    for key, value in kwargs.items():
+        if key not in params:
+            raise TypeError(f"Unexpected keyword argument '{key}'")
+
+    return args
 if __name__ == "__main__":
-    sys.exit(cli())
+    if sys.argv[1:]:
+        validate_params(generate, *sys.argv[1:])
+        generate(*sys.argv[1:])
+    generate(stats=True)
+
