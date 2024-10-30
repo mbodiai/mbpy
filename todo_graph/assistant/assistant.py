@@ -1,14 +1,17 @@
 # First, import required modules and classes
 import asyncio
+import os
 import traceback
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Coroutine
 
+import anyio
+import gradio as gr
 from gradio import ChatInterface
 from mbodied.types.sample import Sample
 from openai import AsyncAssistantEventHandler, AsyncOpenAI
-from ui.tools import execute_python, TOOLS
 from typing_extensions import override
-from typing import Coroutine
+
+from mbpy.assistant.tools import dispatch_coding_assistant, execute_code_with_markdown, pip_install, run_shell_command, TOOLS
 
 
 class DiscreteAction(Sample):
@@ -44,54 +47,10 @@ class WorldState(Sample):
     
 
 # Initialize the OpenAI client
-client = AsyncOpenAI(api_key="sk-proj-6BvmNFHPGkJHT9NLyV04T3BlbkFJDps9Ydy01tgAwKcEYvOK")
+client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 
 
-
-
-SUPERVISOR = """
-Your goal is to evaluate an event and update the global status accordings. Events are given in the form:
-
-TASK: {TASK}, OBSERVATION: {OBSERVATION}, ACTION: {ACTION}
-"
-
-Update the global status in reference to successful completion of the task. The status can be one of the following:
-
-- OPTIMAL
-- SUB_OPTIMAL
-- NEUTRAL
-- NEGATIVE
-- CATASTROPHIC
-
-If it is catastrophic, then the agent should cease all movement and stop the task urgently. Examples of this are if the agent
-is about to collide with something. If it is negative then the agent should slow down but continue and reevaluate the 
-the situation by querying tools then formulating a new plan. If it is neutral then the agent should continue at the same pace 
-but also re-evaluate and re-plan. Return exactly one word being the status and nothing else.
-"""
-
-
-
-CODER = """You are a helpful assistant. When asked to write code always write it as a python function unless specified otherwise. Ensure it includes google style docs, and complies with RUFF guidelines including:
-- return types
-- multiline docstring with open quotes on sameline
--closed quotes on a new line
--new line between single line description and further details. 
--ensure each docstring includes an example.
-
-Below the function do the following:
-- write a unit test
-"""
-
-EXECUTOR = """ You are an execution assistant. Use the provided world state and action to execute an
-action. 
-"""
-
-import anyio
-import gradio as gr
-from tools import run_shell_command, pip_install, dispatch_coding_assistant, execute_code_with_markdown
-# Replace with actual import or definition of AsyncAssistantEventHandler and client
-# from your_project import AsyncAssistantEventHandler, client, PYTHON_RUN, execute_python
 
 # Initialize assistant as None
 assistant = None

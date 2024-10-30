@@ -1,23 +1,20 @@
 [project]
 name = "mbpy"
-version = "2.0.11"
+version = "2.0.12"
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     'minspect>=0.0.8',
-    'mkdocs-material>=9.5.42',
-    'mkdocs>=1.6.1',
-    'mkdocstrings>=0.24.3',
+    'more-itertools>=10.5.0',
     'mrender>=1.0.3',
-    'networkx>=3.4.2',
-    'pexpect>=4.9.0',
+    'pexpect>=4.9.0; sys_platform != "win32"',
+    'wexpect; sys_platform == "win32"',
     'python-dotenv>=1.0.1',
     'rich-click>=1.8.3',
-    "rich>=13.9.2",
-    'scipy>=1.14.1',
     'tomlkit>=0.12.0',
     'toolz>=1.0.0',
+    'networkx>=3.4.2',
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -33,7 +30,7 @@ mbpy = "mbpy.cli:main"
 mbpip = "mbpy.cli:cli"
 mpip = "mbpy.cli:cli"
 mrun = "mbpy.commands:cli"
-
+mb = "mbpy.cli:cli"
 [project.optional-dependencies]
 ai = [
     "mbodied>=1.2.2",
@@ -45,6 +42,9 @@ mkdocs = [
     "mkdocs>=1.6.1",
 ]
 docs = [
+    'mkdocs-material>=9.5.42',
+    'mkdocs>=1.6.1',
+    'mkdocstrings>=0.24.3',
     "fastui>=0.7.0",
     "sphinx-tippy>=0.4.3",
     "myst-parser>=0.15.1",
@@ -69,17 +69,18 @@ build-backend = "hatchling.build"
 [tool.uv]
 dev-dependencies = [
     "mypy>=1.11.2",
+    "openai>=1.52.0",
     "pytest-cov>=5.0.0",
     "pytest>=8.3.3",
     "twine>=5.1.1",
 ]
 
-[tool.uv.sources]
-mbodi = {path = "../v1"}
-mrender = { path = "../mrender", editable = true }
+# [tool.uv.sources]
+# mbodi = {path = "../v1"}
+# mrender = { path = "../mrender", editable = true }
 
-[tool.uv.workspace]
-members = ["mbpy/assistant"]
+# [tool.uv.workspace]
+# members = ["mbpy/assistant", "todo_graph/prover"]
 
 [tool.hatch.envs.default]
 dependencies = ["pytest", "pytest-cov"]

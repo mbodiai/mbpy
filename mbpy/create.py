@@ -149,33 +149,42 @@ install(max_length=10, max_string=80)
 install_traceback(show_locals=True)
 """
 
-API_CONTENT ="""# API Reference
+API_CONTENT = """# API Reference
 
 {description}
 """
 
 managers = {
-    "uv": {
+    "scm": {
         "requires": ["setuptools>=68", "setuptools_scm[toml]>=8"],
         "build-backend": "setuptools.build_meta",
     },
-    "hatch": {"requires": ["hatchling"], "build-backend": "hatchling.build"},
+    "uv": {"requires": ["hatchling", "hatch-build-scripts"], "build-backend": "hatchling.build"},
+    "hatch": {"requires": ["hatchling", "hatch-build-scripts"], "build-backend": "hatchling.build"},
 }
 
-def mmkdir(path: str | Path):
-  if not Path(str(path)).exists():
-    Path(path).mkdir(parents=True, exist_ok=True)
-    (Path(path) / ".gitkeep").touch()
 
-def mmtouch(path: str | Path, content: str | None = None, existing_content: Literal["merge", "replace", "forbid"] = "merge"):
-  Path(path).touch(exist_ok=True)
-  if content and existing_content == "forbid":
-    msg = f"File {path} already exists and is not empty. Use 'replace' or 'merge' to overwrite or merge the content."
-    raise FileExistsError(msg)
-  if content and existing_content == "merge":
-    content  = "\n".join([*Path(path).read_text().splitlines(), *content.splitlines()])
+def mmkdir(path: str | Path):
+    if not Path(str(path)).exists():
+        Path(path).mkdir(parents=True, exist_ok=True)
+        (Path(path) / ".gitkeep").touch()
+
+
+def mmtouch(
+    path: str | Path, content: str | None = None, existing_content: Literal["merge", "replace", "forbid", "leave"] = "merge"
+):
+    Path(path).touch(exist_ok=True)
+    if content and existing_content == "leave":
+        return
+    if content and existing_content == "forbid":
+        msg = (
+            f"File {path} already exists and is not empty. Use 'replace' or 'merge' to overwrite or merge the content."
+        )
+        raise FileExistsError(msg)
+    if content and existing_content == "merge":
+        content = "\n".join([*Path(path).read_text().splitlines(), *content.splitlines()])
+        Path(path).write_text(content)
     Path(path).write_text(content)
-  Path(path).write_text(content)
 
 
 def create_project(
@@ -200,15 +209,18 @@ def create_project(
     src_dir = project_path / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
     mmtouch(src_dir / "__init__.py", INIT_PY)
-    mmtouch(src_dir / "__about__.py", f"__version__ = '0.0.1'\n__author__ = '{author}'\n__description__ = '{description}'", "replace")
+    mmtouch(
+        src_dir / "__about__.py",
+        f"__version__ = '0.0.1'\n__author__ = '{author}'\n__description__ = '{description}'",
+        "replace",
+    )
+    mmtouch(project_path / "README.md", f"# {project_name}\n\n{description}", "leave")
     # Create pyproject.toml
     pyproject_path = project_path / "pyproject.toml"
     existing_content = None
     if pyproject_path.exists():
         with pyproject_path.open() as f:
             existing_content = f.read()
-
-
 
     pyproject_content = create_pyproject_toml(
         project_name,
@@ -222,24 +234,23 @@ def create_project(
     pyproject_path.write_text(pyproject_content)
 
     # Setup documentation
-    setup_documentation(
-        project_path, project_name, author, description, doc_type, docstrings or {}
-    )
+    setup_documentation(project_path, project_name, author, description, doc_type, docstrings or {})
 
     if prompt:
         from mbodied.agents.language import LanguageAgent
 
         from mbpy.commands import run
+
         tree_structure = run(f"tree -L 2 -I {IGNORE_FILES}")
         agent = LanguageAgent()
         code = agent.act(prompt, context=str(dict(locals())) + "The directory structure is: " + run("tree"))
         try:
             exec(code)
         except Exception as e:
-          import traceback
-          code = agent.act("try again and avoid the following error: " + traceback.format_exc())
-          exec(code)
+            import traceback
 
+            code = agent.act("try again and avoid the following error: " + traceback.format_exc())
+            exec(code)
 
     if add_cli:
         cli_content = f"""
@@ -254,13 +265,10 @@ if __name__ == "__main__":
 """
         (src_dir / "cli.py").write_text(cli_content)
 
-
     return project_path  # Return the project path
 
 
-def setup_documentation(
-    project_root, project_name, author, description, doc_type="mkdocs", docstrings=None
-) -> None:
+def setup_documentation(project_root, project_name, author, description, doc_type="mkdocs", docstrings=None) -> None:
     """Set up documentation for a project."""
     project_root = Path(project_root)  # Convert to Path object if it's a string
     docs_dir = project_root / "docs"
@@ -287,10 +295,7 @@ def setup_documentation(
         raise ValueError(msg)
 
 
-
-def setup_sphinx_docs(
-    docs_dir, project_name, author, description, docstrings=None
-) -> None:
+def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings=None) -> None:
     """Set up Sphinx documentation."""
     if not docstrings:
         docstrings = extract_docstrings(Path.cwd())
@@ -302,9 +307,7 @@ def setup_sphinx_docs(
 
     # Create index.rst
     (docs_dir / "index.rst").write_text(
-        SPHINX_INDEX.format(
-            project_name=project_name, description=description, author=author
-        )
+        SPHINX_INDEX.format(project_name=project_name, description=description, author=author)
     )
 
     # Create conf.py
@@ -358,6 +361,7 @@ def get_function_signature(node):
 
     return f"{node.name}({', '.join(args)})"
 
+
 def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
     project_path = Path(project_path)
     docstrings = {}
@@ -367,7 +371,7 @@ def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
             tree = ast.parse(f.read(), filename=py_file)
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef | ast.ClassDef | ast.Module):
-                    name = node.name if hasattr(node, 'name') else '__init__'
+                    name = node.name if hasattr(node, "name") else "__init__"
                     signature = ""
                     if isinstance(node, ast.FunctionDef):
                         signature = get_function_signature(node)
@@ -376,15 +380,11 @@ def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
                     elif isinstance(node, ast.Module):
                         signature = f"module {name}"
                     cleaned_docstring = inspect.cleandoc(ast.get_docstring(node) or "")
-                    docstrings[f"{py_file.stem}.{name}"] = {
-                        "signature": signature,
-                        "docstring": cleaned_docstring
-                    }
+                    docstrings[f"{py_file.stem}.{name}"] = {"signature": signature, "docstring": cleaned_docstring}
     return docstrings
 
-def setup_mkdocs(
-  docs_dir, project_name: str, author, description, docstrings
-) -> None:
+
+def setup_mkdocs(docs_dir, project_name: str, author, description, docstrings) -> None:
     docs_dir.mkdir(exist_ok=True)
     # Create mkdocs.yml in the project root
     mkdocs_content = f"""
@@ -430,7 +430,7 @@ plugins:
     docstrings = docstrings or extract_docstrings(root)
 
     if docstrings:
-        api_content = API_CONTENT.format( description=description)
+        api_content = API_CONTENT.format(description=description)
         for full_name, docstring in docstrings.items():
             module_name, obj_name = full_name.rsplit(".", 1)
             obj_api = """## {obj_name}
@@ -442,12 +442,10 @@ from {module_name} import {obj_name}
 
 ---
 """
-      
-            api_content += obj_api.format(module_name=module_name, obj_name=obj_name, docstring=docstring)
-            
-            
-    (docs_dir / "api.md").write_text(api_content)
 
+            api_content += obj_api.format(module_name=module_name, obj_name=obj_name, docstring=docstring)
+
+    (docs_dir / "api.md").write_text(api_content)
 
 
 def create_pyproject_toml(
@@ -462,15 +460,12 @@ def create_pyproject_toml(
     manager="hatch",
 ) -> str:
     try:
-        pyproject = (
-            tomlkit.parse(existing_content) if existing_content else tomlkit.document()
-        )
+        pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
     except tomlkit.exceptions.ParseError:
         pyproject = tomlkit.document()
 
     # Build system
     pyproject.setdefault("build-system", tomlkit.table()).update(managers[manager])
-
     # Project metadata
     project = pyproject.setdefault("project", tomlkit.table())
     project["name"] = project_name
@@ -591,9 +586,7 @@ def create_pyproject_toml(
     ruff_lint_pydocstyle = ruff_lint.setdefault("pydocstyle", tomlkit.table())
     ruff_lint_pydocstyle["convention"] = "google"
 
-    ruff_lint_per_file_ignores = ruff_lint.setdefault(
-        "per-file-ignores", tomlkit.table()
-    )
+    ruff_lint_per_file_ignores = ruff_lint.setdefault("per-file-ignores", tomlkit.table())
     ruff_lint_per_file_ignores["**/{tests,docs}/*"] = ["ALL"]
     ruff_lint_per_file_ignores["**__init__.py"] = ["F401"]
 
@@ -603,6 +596,16 @@ def create_pyproject_toml(
             "markers": "network: marks tests that make network calls (deselect with '-m \"not network\"')",
         }
     }
+    if manager in ("hatch", "uv"):
+        tool.setdefault("hatchling", tomlkit.table()).setdefault("build", tomlkit.table()).setdefault(
+            "hooks", tomlkit.table()
+        ).setdefault("build-scripts", tomlkit.table()).setdefault("scripts", tomlkit.table()).update(
+            {
+                "out_dir": "out",
+                "commands": ["chmod +x build.sh && ./build.sh"],
+                "artifacts": [f"~/.local/bin/{project_name}"],
+            }
+        )
 
     # Add additional Ruff configurations from the current pyproject.toml
     current_ruff = pyproject.get("tool", {}).get("ruff", {})

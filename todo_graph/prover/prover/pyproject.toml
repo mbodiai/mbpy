@@ -1,0 +1,29 @@
+[project]
+name = "prover"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Sebastian", email = "peraltas@seas.upenn.edu" } 
+]
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb>=0.5.15",
+    "openai>=1.52.2",
+    "pexpect>=4.9.0",
+]
+
+[project.scripts]
+prover = "prover:main"
+
+[build-system]
+requires = ["hatchling", "hatch-build-scripts"]
+build-backend = "hatchling.build"
+[tool.hatchling.build.hooks.build-scripts.scripts]
+out_dir =  "~/.local/bin/prover"
+commands = [
+    "chmod +x build.sh && ./build.sh",
+]
+artifacts = [
+    "~/.local/bin/prover",
+]

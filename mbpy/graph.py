@@ -99,7 +99,7 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
         source_code = f.read()
     try:
         tree = ast.parse(source_code)
-    except (SyntaxError, UnicodeDecodeError):
+    except (SyntaxError, UnicodeDecodeError, ValueError, TypeError,AttributeError):
         return None  # Skip files that can't be parsed
 
     imports = []
@@ -185,7 +185,7 @@ def attempt_import(module_name):
     try:
         spec = importlib.util.find_spec(module_name)
         return spec is not None
-    except (ModuleNotFoundError, ValueError):
+    except (ModuleNotFoundError, ValueError, ImportError,NameError,RuntimeError):
         return False
 
 

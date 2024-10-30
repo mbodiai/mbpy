@@ -345,10 +345,10 @@ def info_command(package, verbose) -> None:
 @click.argument("author")
 @click.option("--description", default="", help="Project description")
 @click.option("--deps", default=None, help="Dependencies separated by commas")
-@click.option("--python", default="3.12", help="Python version to use")
+@click.option("--python", default="3.11", help="Python version to use")
 @click.option("--no-cli", is_flag=True, help="Do not add a CLI")
 @click.option("--doc-type", type=click.Choice(["sphinx", "mkdocs"]), default="sphinx", help="Documentation type to use")
-def create_command(project_name, author, description, deps, python="3.12", no_cli=False, doc_type="sphinx") -> None:
+def create_command(project_name, author, description, deps, python="3.11", no_cli=False, doc_type="sphinx") -> None:
     """Create a new Python project. Optionally add dependencies and a CLI."""
     python_version = python
     try:

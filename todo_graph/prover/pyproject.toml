@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling", "hatch-build-scripts"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prover"
+version = "0.0.1"
+description = ""
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[[project.authors]]
+name = "mbodiai"
+
+[project.scripts]
+prover = "prover.cli:main"
+
+[tool.hatch.envs.default]
+dependencies = ["pytest", "pytest-cov"]
+
+[tool.ruff]
+line-length = 120
+select = ["A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN", "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"]
+ignore = ["D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102", "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202", "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests,docs}/*" = ["ALL"]
+"**__init__.py" = ["F401"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report=term-missing"
+testpaths = ["tests"]
+markers = ["network: marks tests that require network access (deselect with '-m \"not network\"')"]
+
+
+[tool.hatchling.build.hooks.build-scripts.scripts]
+out_dir = "out"
+commands = ["chmod +x build.sh && ./build.sh"]
+artifacts = ["~/.local/bin/prover"]
+
+[tool.uv]
+dev-dependencies = [
+    "soundfile>=0.12.1",
+]

@@ -6,11 +6,8 @@ import sys
 
 from rich.logging import RichHandler
 from rich.pretty import install
-
-
-logging.getLogger().addHandler(RichHandler()) 
-from rich.pretty import install
 from rich.traceback import install as install_traceback
 
+logging.getLogger().addHandler(RichHandler())
 install(max_length=10, max_string=80)
-install_traceback(show_locals=sys.argv[1] in ["-v", "--verbose","debug","-d","--debug"])
+install_traceback(show_locals=sys.argv and any(arg in {"-v", "--verbose","debug","-d","--debug"} for arg in sys.argv))
