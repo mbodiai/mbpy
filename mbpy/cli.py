@@ -382,7 +382,7 @@ def bump_command() -> None:
     except Exception:
         traceback.print_exc()
 
-@cli.command("publish")
+@cli.command("publish", no_args_is_help=True)
 @click.option("--bump", "-b", is_flag=True, help="Bump the version before publishing")
 @click.option("--build", "-B", is_flag=True, help="Build the package before publishing")
 @click.option(

@@ -217,69 +217,9 @@ def interact(
 
 
 
-def progress(query: str):
-    from rich.panel import Panel
-    from rich.rule import Rule
-    from rich.syntax import Syntax
-    from rich.table import Table
-
-    syntax = Syntax(
-        '''def loop_last(values: Iterable[T]) -> Iterable[Tuple[bool, T]]:
-    """Iterate and generate a tuple with a flag for last value."""
-    iter_values = iter(values)
-    try:
-        previous_value = next(iter_values)
-    except StopIteration:
-        return
-    for value in iter_values:
-        yield False, previous_value
-        previous_value = value
-    yield True, previous_value''',
-        "python",
-        line_numbers=True,
-    )
-
-    table = Table("foo", "bar", "baz")
-    table.add_row("1", "2", "3")
-
-    progress_renderables = [
-        "Text may be printed while the progress bars are rendering.",
-        Panel("In fact, [i]any[/i] renderable will work"),
-        "Such as [magenta]tables[/]...",
-        table,
-        "Pretty printed structures...",
-        {"type": "example", "text": "Pretty printed"},
-        "Syntax...",
-        syntax,
-        Rule("Give it a try!"),
-    ]
-
-    from itertools import cycle
-
-    examples = cycle(progress_renderables)
-
-    console = Console(record=True)
-
-    with Progress(
-        SpinnerColumn(),
-        *Progress.get_default_columns(),
-        TimeElapsedColumn(),
-        console=console,
-        transient=False,
-    ) as progress:
-        task1 = progress.add_task("[red]Downloading", total=1000)
-        task2 = progress.add_task("[green]Processing", total=1000)
-        task3 = progress.add_task("[yellow]Thinking", total=None)
-
-        while not progress.finished:
-            progress.update(task1, advance=0.5)
-            progress.update(task2, advance=0.3)
-            time.sleep(0.01)
-            if random.randint(0, 100) < 1:  # noqa
-                progress.log(next(examples))
 
 
-def main():
+def main() -> None:
     cli()
 
 

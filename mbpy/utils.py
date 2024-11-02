@@ -1,19 +1,7 @@
 from __future__ import annotations
 
-import argparse
-import asyncio
-import atexit
 import fcntl
-import inspect
-import io
-import json
 import logging
-import os
-import random
-import shlex
-import signal
-import socket
-import struct
 import sys
 import termios
 from contextlib import contextmanager
@@ -23,9 +11,6 @@ from threading import Thread
 from time import time
 from typing import Callable, Generic, Iterator, TypeAlias, TypeVar
 
-import pexpect.popen_spawn
-
-import rich_click as click
 from rich.console import Console
 from rich.pretty import Text
 from typing_extensions import ParamSpec
@@ -35,15 +20,23 @@ R = TypeVar("R", bound=str | Iterator[str])
 T = TypeVar("T", bound="pexpect.spawn")
 
 console = Console(force_terminal=True)
-
 if sys.platform == "win32":
-    from mbpy.utils import WinPexpect as pexpect
-    IOCTL = lambda x: x
+    import mbpy.poexpect as pexpect
+
+    pexpect.socket_pexpect = pexpect.Expecter
+
+    pexpect.spawnbase = pexpect.spawnbase
+    PexpectClass = pexpect.spawn
+
+
 else:
     import fcntl
     import termios
 
     import pexpect
+    import pexpect.popen_spawn
+    import pexpect.socket_pexpect
+    import pexpect.spawnbase
 
     PexpectClass = pexpect.spawn
     pexpect_module = pexpect
@@ -66,7 +59,6 @@ class NewCommandContext(Generic[PexpectT]):
         show=False,
         **kwargs,
     ):
-        print(f"{command=}, {args=}, {timeout=}, {cwd=}, {show=}, {kwargs=}")
         self.show = show
         if callable(command):
             self.callable_command_no_log = partial(command, args=args, timeout=timeout, cwd=cwd, **kwargs)
@@ -161,18 +153,7 @@ class NewCommandContext(Generic[PexpectT]):
 
 console = Console(force_terminal=True)
 
-if sys.platform == "win32":
-    import mbpy.poexpect as pexpect
-    pexpect.socket_pexpect = pexpect.Expecter
 
-    pexpect.spawnbase = pexpect.spawnbase
-
-    
-else:
-    import pexpect
-    import pexpect.socket_pexpect
-    import pexpect.spawnbase
-    pexpect_module: TypeAlias = pexpect
 
 PtyCommand = NewCommandContext[PexpectClass]
 
