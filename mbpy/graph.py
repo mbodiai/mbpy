@@ -466,7 +466,7 @@ def generate(
     stats: bool = False,
     site_packages: bool = False,
 ):
-    # Build dependency graph and adjacency list
+    """Build dependency graph and adjacency list."""
     filter_to_module = lambda x: x
     path = Path(directory_file_or_module).resolve()
     if not path.exists():

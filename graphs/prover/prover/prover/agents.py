@@ -1,4 +1,6 @@
+from pathlib import Path
 import re
+import traceback
 from types import FunctionType
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Generic, List, Optional, Self, Tuple, Type, TypeAlias, TypeVar, Union, dataclass_transform, NamedTuple, get_args
 from collections import defaultdict, namedtuple
@@ -15,7 +17,7 @@ from rich.console import Console
 
 from pydantic.json_schema import _get_all_json_refs, _get_typed_dict_config, _make_json_hashable, GenerateJsonSchema
 
-from embdata.sample import schema_for
+
 openai = OpenAI()
 console = Console()
 
@@ -102,7 +104,7 @@ V = TypeVar("V", bound=Union[float, str, int, bool, dict, list, "Dict", "SampleS
 if TYPE_CHECKING:
     ParentT = NamedTuple
 else:
-    ParentT = defaultdict
+    ParentT = type(defaultdict)
 
 @dataclass_transform()
 class mbdict(ParentT, Generic[ T, *Us, V]):
@@ -119,7 +121,7 @@ class mbdict(ParentT, Generic[ T, *Us, V]):
         return super().__setattr__(name, value)
 
 
-class SampleDict(mbdict,metaclass=mbdict):
+class SampleDict(defaultdict,metaclass=mbdict):
     a: int 
     b: str
 
@@ -144,13 +146,13 @@ sz = Literal
 @dataclass_transform()
 def mbclass(cls: Type[HasAnnotations[P]]) -> Type[HasAnnotations[P]]:
     mbdict.__dataclass_fields__ = {k: v for k, v in cls.__annotations__.items()}
-    mbdict.__type_adapter__ = TypeAdapter(schema_for(cls))
+    mbdict.__type_adapter__ = TypeAdapter(cls)
     
     return mbdict
 
 def mbfield(cls: Type[HasAnnotations[P]]) -> Type[HasAnnotations[P]]:
-    mbdict.__dataclass_fields__ = {k: v for k, v in cls.__annotations__.items()}
-    mbdict.__type_adapter__ = TypeAdapter(schema_for(cls))
+    mbdict.__dataclass_fields__ = dict(cls.__annotations__.items())
+    mbdict.__type_adapter__ = TypeAdapter(cls)
     return mbdict
     
 class mblist(mbdict, Generic[T, *Us]):...
@@ -173,14 +175,14 @@ class SampleArray(list):...
 
 class SampleDeque(list):...
 
-class SampleField(mbfield):...
+# class SampleField(mbfield):...
 
 
 M = TypeVar("M", bound=Primative | object)
 
 class Tool(Dict, Generic[M]):
     model: ClassVar[Type[M] | None] = None
-    _schema_generator: ClassVar[GenerateJsonSchema] = ModelPrivateAttr(GenerateJsonSchema())
+    _schema_generator: GenerateJsonSchema = GenerateJsonSchema
     arguments: Dict[str, M] | None = None
     
     
@@ -191,8 +193,11 @@ class Tool(Dict, Generic[M]):
             required = {k for k, v in params.items() if v.default == Parameter.empty}
             if any(v.annotation == Parameter.empty for v in params.values()):
                 raise ValueError("All parameters must have type hints.")
+            if not item.__name__ and not item.__qualname__:
+                raise ValueError("Function must have a name.")
+            print(item.__name__)
             basemodel = create_model(
-                cls._schema_generator.get_title_from_name(item.__name__).replace(" ", ""),
+                cls._schema_generator().get_title_from_name(name=item.__name__).replace(" ", ""),
                 **{
                     k: (
                         v.annotation,
@@ -222,7 +227,7 @@ class Tool(Dict, Generic[M]):
         model_class = cls.model
         strict = strict if strict is not None else model_class.model_config.get("strict", False)
         return JSONSchema(
-            name=cls._schema_generator.get_title_from_name(model_class.__name__).replace(" ", ""),
+            name=cls._schema_generator().get_title_from_name(model_class.__name__).replace(" ", ""),
             description=model_class.__doc__ or uncamelcase(model_class.__name__),
             schema=openai_schema(model_class),
             strict=strict,
@@ -237,11 +242,11 @@ class Tool(Dict, Generic[M]):
     
     @classmethod
     def get_name(cls) -> str:
-        return cls._schema_generator.get_title_from_name(cls.model.__name__).replace(" ", "")
+        return cls._schema_generator().get_title_from_name(cls.model.__name__).replace(" ", "")
 
 
     
-       
+    @classmethod
     def define(cls,*, strict: bool | None = None) -> Dict[str, object]:
         strict =  strict if strict is not None  else cls.model.model_config.get("strict", False)
         parameters = cls.model.model_json_schema() if not strict else openai_schema(cls.model)
@@ -253,7 +258,7 @@ class Tool(Dict, Generic[M]):
         }
 
     @classmethod
-    def call(cls, arguments: Dict[str, M] | None = Default()) -> M:
+    def call(cls, arguments: Dict[str, M] | None = None) -> M:
         return cls.model.model_validate_json(arguments)
 
     @classmethod
@@ -276,44 +281,12 @@ class Tool(Dict, Generic[M]):
         examples = f"Here are some examples:\n{examples}" if examples else ""
         return f"{system}\n{examples}"
 
-                                                                                                                          "gradio",
-                                                                                                                          "mbodi",
-                                                                                                                          "ollama","
-                                                                                                                          ]  = openai) -> Text | Image | World | WorldObject | Audio | Video | 
-
-    if client == "openai":
-        return client.chat.completions.create(
-            model=cls.model,
-            messages=[
-                {"role": "system", "content": cls.prompt()},
-            ],
-            response_format=cls.response_format(),
-        )
-    
-    
-    return openai.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": message},
-        ],
-        tool_choice="required",
-        tools=[tool],
-    )
-
-
-# resp = openai.chat.completions.create(
-#     model="gpt-4o-audio-preview-2024-10-01",
-#     messages=[
-#         {"role": "system", "content": "Sing happy birthday."},
-#     ],
-#     audio={"format": "wav", "voice":"shimmer"},
-#     modalities=["text", "audio"],
-# )
-import soundfile as sf
 from base64 import b64decode
 
-def accept_or_reject(accept: bool, feedback: str = ""):
-    return {"accept": accept, "feedback": feedback}
+
+def accept_or_reject(accept: AcceptOrReject, further_comments: str = ""):
+    return {"accept": accept, "further_comments": further_comments}
+
 print(
     Tool[accept_or_reject].prompt(),
 )
@@ -324,8 +297,6 @@ console.print(Tool[accept_or_reject].define())
 console.print(Tool[accept_or_reject].define(strict=True))
 
 
-def accept_or_reject(accept: AcceptOrReject, further_comments: str = ""):
-    return {"accept": accept, "further_comments": further_comments}
 
 console.print(Tool[accept_or_reject].define())
 console.print(Tool[accept_or_reject].define(strict=True))
@@ -358,17 +329,20 @@ tc = None
 
 async def aact_structured(tool: Type[Tool], system_prompt: str | None = None, *,structured_type: Literal["response_format", "tool_call"] = "response_format") -> str:
 
-    async with aopenai.beta.chat.completions.stream(Tool
+    async with aopenai.beta.chat.completions.stream(
         model="gpt-4o-2024-08-06",
-        messages=[
+        messages= system_prompt + [
             {
                 "role": "system",
-                "content": 
+                "content":  system_prompt or tool.prompt(),
+            },
+        ] if isinstance(system_prompt, list) else [
+            {
+                "role": "system",
+                "content":  system_prompt or tool.prompt(),
+            },
         ],
-        tool_choice="required",
-        tools=[Tool[accept_or_reject].define(strict=True)],
-        
-    ) as stream:
+            ) as stream:
             text = ""
             tool = ""
             async for event in stream:
@@ -387,9 +361,10 @@ async def aact_structured(tool: Type[Tool], system_prompt: str | None = None, *,
                     tc = Tool[accept_or_reject].call(event.arguments)
                     console.print(tc, new_line_start=True)
             input("Press Enter to continue...")
-            
-asyncio.run(async_accept_or_reject())
-console.print(tc)
+
+def act(tool: Type[Tool], system_prompt: str | None = None, *,structured_type: Literal["response_format", "tool_call"] = "response_format") -> str:
+    return asyncio.run(aact_structured(tool, system_prompt, structured_type=structured_type))
+
 
                 
 # resp = openai.beta.chat.completions.stream(
@@ -406,7 +381,7 @@ console.print(tc)
 # rich_inspect(resp.choices[0].message.tool_calls[0].function.arguments)
 # tc = Tool[accept_or_reject].call(resp.choices[0].message.tool_calls[0].function.arguments)
 # rich_inspect(tc)
-exit()
+
 
 # class Tool(BaseModel):
 #     type: str = "function"
@@ -456,7 +431,7 @@ class Prover:
 
             # Add the model output to the context
             self._context.append({"role": "assistant", "content": model_output})
-
+            return act(Tool[NaturalCoqProof], self._context)
             try:
                 # Split on code:
                 # split = model_output.split("```\n")

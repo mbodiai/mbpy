@@ -1,11 +1,10 @@
 [project]
 name = "mbpy"
-version = "2.0.12"
+version = "2.0.14"
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    'minspect>=0.0.8',
     'more-itertools>=10.5.0',
     'mrender>=1.0.3',
     'pexpect>=4.9.0; sys_platform != "win32"',
@@ -15,6 +14,9 @@ dependencies = [
     'tomlkit>=0.12.0',
     'toolz>=1.0.0',
     'networkx>=3.4.2',
+    "minspect>=0.0.8",
+    "grep-ast==0.2.0",
+    "diskcache>=5.6.3",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -58,6 +60,7 @@ docs = [
 all = [
     "aiohttp>=3.10.10",
 ]
+dev = []
 
 
 [[project.authors]]

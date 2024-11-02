@@ -11,7 +11,6 @@ from pathlib import Path
 
 import rich_click as click
 import tomlkit
-from mrender.md import Markdown
 from rich.console import Console
 from rich.traceback import Traceback
 
@@ -30,6 +29,7 @@ from mbpy.mpip import (
     name_and_version,
 )
 from mbpy.sync import append_notion_table_row
+from mrender.md import Markdown
 
 console = Console()
 # TODO add a timeout option and support windows.
@@ -99,6 +99,9 @@ def install_command(
         dependency_group (str, optional): The dependency group to use. Defaults to "dependencies".
         debug (bool, optional): Enable debug logging. Defaults to False.
     """
+    _install_command(packages, requirements, upgrade, editable, hatch_env, dependency_group, debug)
+    
+def _install_command(packages, requirements, upgrade, editable, hatch_env, dependency_group, debug=False) -> None:
     if sys.flags.debug or debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
         logging.info("Debug logging enabled.")
@@ -123,6 +126,7 @@ def install_command(
         installed_packages = []
         if requirements:
             requirements_file = requirements
+            
             package_install_cmd = [sys.executable, "-m", "pip", "install", "-r", requirements_file]
             if upgrade:
                 package_install_cmd.append("-U")
@@ -165,8 +169,6 @@ def install_command(
                 dependency_group=dependency_group,
             )
 
-
-
         if not requirements and not packages:
             click.secho("No packages specified for installation.", err=True)
 
@@ -195,6 +197,8 @@ def uninstall_command(packages, hatch_env, dependency_group, debug) -> None:
         dependency_group (str, optional): The dependency group to use. Defaults to "dependencies".
         debug (bool, optional): Enable debug logging. Defaults to False.
     """
+    return _uninstall_command(packages, hatch_env, dependency_group, debug)
+def _uninstall_command(packages, hatch_env, dependency_group,*, debug=False) -> None:
     if sys.flags.debug or debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
     for package in packages:
@@ -247,8 +251,6 @@ def show_command(package:str | None =None, hatch_env=None, debug: bool = False) 
         except Exception:
             traceback.print_exc()
     toml_path = find_toml_file()
-    if run("which uv"):
-        run("uv tree", show=True)
     try:
         with Path(toml_path).open() as f:
             content = f.read()
@@ -455,8 +457,55 @@ def publish_command(bump=False, build=False, package_manager="github", auth=None
     except Exception:
         traceback.print_exc()
 
+@cli.command("add", no_args_is_help=True)
+@click.argument("package", nargs=-1)
+@click.option("--dev", is_flag=True, help="Add as a development dependency")
+@click.option("-e", "--editable", is_flag=True, help="Add as an optional dependency")
+@click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
+@click.option("-g", "--group", default=None, help="Specify the dependency group to use")
+@click.option("-U", "--upgrade", is_flag=True, help="Upgrade the package(s)")
+def add_command(package, dev, editable, hatch_env, group, upgrade) -> None:
+    """Add a package to the dependencies in pyproject.toml."""
+    if dev and group:
+        if group != "dev":
+            msg = "Cannot specify both --dev and --group"
+            raise click.UsageError(msg)
+        group = None
+    if "not found" not in run("which uv").lower():
+        command = "uv add "
+        command += "--upgrade " if upgrade else ""
+        command += " --dev " if dev else ""
+        command += " --optional " + group if group else ""
+        command += " --editable " if editable else ""
+        command += " " + " ".join(package)
+        run(command, show=True)
+    else:
+        _install_command([package], None, upgrade, editable, hatch_env, group, False)
 
-@cli.command("run", no_args_is_help=True)
+@cli.command("remove", no_args_is_help=True)
+@click.argument("package", nargs=-1)
+@click.option("--dev", is_flag=True, help="Remove as a development dependency")
+@click.option("-e", "--editable", is_flag=True, help="Remove as an optional dependency")
+@click.option("--hatch-env", default=None, help="Specify the Hatch environment to use")
+@click.option("-g", "--group", default=None, help="Specify the dependency group to use")
+def remove_command(package, dev, editable, hatch_env, group) -> None:
+    """Remove a package from the project using uv or pip."""
+    if dev and group:
+        if group != "dev":
+            msg = "Cannot specify both --dev and --group"
+            raise click.UsageError(msg)
+        group = None
+    if run("which uv"):
+        command = "uv remove "
+        command += " --dev " if dev else ""
+        command += " --optional " + group if group else ""
+        command += " --editable " if editable else ""
+        command += " ".join(package)
+        run(command, show=True)
+    else:
+        _uninstall_command([package], hatch_env, group, False)
+
+@cli.command("run", no_args_is_help=True, context_settings={"ignore_unknown_options": True})
 @click.argument("command", nargs=-1)
 def run_cli_command(command) -> None:
     """Run a command."""
@@ -471,16 +520,16 @@ def run_cli_command(command) -> None:
 @click.argument("name", type=str)
 @click.argument("author", type=str)
 @click.option("--description", default="", help="Project description")
-@click.option("--doc-type", type=click.Choice(["sphinx", "mkdocs"]), default="sphinx", help="Documentation type to use")
-def docs_command(source,name,author,description,doc_type) -> None:
+@click.option("--kind", type=click.Choice(["sphinx", "mkdocs"]), default="sphinx", help="Documentation type to use")
+def docs_command(source,name,author,description,kind) -> None:
     from mbpy.create import setup_documentation
     try:
-        setup_documentation(source, name, author, description, doc_type)
+        setup_documentation(source, name, author, description, kind)
     except Exception:
         traceback.print_exc()
 
 
-@cli.command("generate")
+@cli.command("graph", no_args_is_help=True)
 @click.argument("path", default=".")
 @click.option("--sigs", is_flag=True, help="Include function and method signatures")
 @click.option("--docs", is_flag=True, help="Include docstrings in the output")
@@ -488,8 +537,8 @@ def docs_command(source,name,author,description,doc_type) -> None:
 @click.option("--who-imports", is_flag=True, help="Include modules that import each module")
 @click.option("--stats", is_flag=True, help="Include statistics and flow information")
 @click.option("--site-packages", is_flag=True, help="Include site-packages and vendor directories")
-def generate_command(path, sigs, docs, code, who_imports, stats, site_packages) -> None:
-    """Generate a report for a Python project."""
+def graph_command(path, sigs, docs, code, who_imports, stats, site_packages) -> None:
+    """Generate a dependency graph of a Python project."""
     from mbpy.graph import generate as generate_report
     try:
         generate_report(path, sigs, docs, code, who_imports, stats, site_packages)

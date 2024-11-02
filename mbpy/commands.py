@@ -19,17 +19,19 @@ from threading import Thread
 from time import time
 from typing import Callable, Generic, Iterator, TypeVar
 
-from mbpy.utils import NewCommandContext, PtyCommand, console, pexpect_module
 import rich_click as click
 
+from mbpy.utils import IOCTL, NewCommandContext, PtyCommand, console, pexpect_module
+
+
 @click.command()
-@click.argument("command", nargs=-1, required=True)
+@click.argument("command", nargs=-1, required=True, type=click.UNPROCESSED)
 @click.option("--cwd", default=None, help="Current working directory")
 @click.option("--timeout", default=10, help="Timeout for command")
 @click.option("--no-show", default=False, is_flag=True, help="Show output")
-@click.option("-i", "--interactive", default=False, help="Interact with command", is_flag=True)
+@click.option("-i", "--interactive", default=False, help="Interact with command.  Not supported on windows", is_flag=True)
 @click.option("-d", "--debug", default=False, help="Debug mode", is_flag=True)
-def cli(command, cwd, timeout, no_show, interactive: bool = False, debug: bool = False):
+def cli(command, cwd, timeout, no_show, *,interactive: bool = False, debug: bool = False):
     if debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
     if interactive:
@@ -112,7 +114,8 @@ def run(
     show=True,
 ) -> str:
     """Run command and return output as a string."""
-    return run_command(as_exec_args(command), cwd=cwd, timeout=timeout, show=show).readlines()
+    return PtyCommand(*as_exec_args(command), cwd=cwd, timeout=timeout, echo=False, show=show).readlines()
+
 
 
 def sigwinch_passthrough(sig, data, p: pexpect_module.spawn):
@@ -180,8 +183,8 @@ def resolve(cmd: list[str]) -> list[str]:
 def as_exec_args(cmd: str | list[str]) -> tuple[str, list[str]]:
     c = shlex.split(cmd) if isinstance(cmd, str) else cmd
     c = resolve(c)
-    if not contains_exec(c):
-        return os.getenv("SHELL", "bash"), ["-c", " ".join(c)]
+    # if not contains_exec(c):
+    #     return os.getenv("SHELL", "bash"), ["-c",*c]
     return c[0], c[1:]
 
 
@@ -201,10 +204,17 @@ def interact(
     >>> choice.terminal.send("exit")
 
     """
-    cmd = run_local(*as_exec_args(cmd), **kwargs, interact=True, cwd=cwd, timeout=timeout, show=show)
+    cmd = run_local(
+        *as_exec_args(cmd),
+        interact=True,
+        cwd=cwd,
+        timeout=timeout,
+        show=show,
+        **kwargs,
+    )
     for response in cmd:
         cmd = yield response
-    return
+
 
 
 def progress(query: str):

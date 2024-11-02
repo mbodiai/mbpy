@@ -21,13 +21,13 @@ from functools import partial, wraps
 from pathlib import Path
 from threading import Thread
 from time import time
-from types import ModuleType
-from typing import Any, Callable, Generic, Iterator, Type, TypeAlias, TypeVar
+from typing import Callable, Generic, Iterator, TypeAlias, TypeVar
+
+import pexpect.popen_spawn
 
 import rich_click as click
 from rich.console import Console
 from rich.pretty import Text
-from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 from typing_extensions import ParamSpec
 
 P = ParamSpec("P")
@@ -37,11 +37,8 @@ T = TypeVar("T", bound="pexpect.spawn")
 console = Console(force_terminal=True)
 
 if sys.platform == "win32":
-    import wexpect
-
-    PexpectClass = wexpect.spawn
-    pexpect_module = wexpect
-    IOCTL = partial(wexpect.getwinsize, sys.stdout.fileno())
+    from mbpy.utils import WinPexpect as pexpect
+    IOCTL = lambda x: x
 else:
     import fcntl
     import termios
@@ -65,9 +62,11 @@ class NewCommandContext(Generic[PexpectT]):
         args: list[str] | None = None,
         timeout=20,
         cwd=None,
+        *,
         show=False,
         **kwargs,
     ):
+        print(f"{command=}, {args=}, {timeout=}, {cwd=}, {show=}, {kwargs=}")
         self.show = show
         if callable(command):
             self.callable_command_no_log = partial(command, args=args, timeout=timeout, cwd=cwd, **kwargs)
@@ -100,7 +99,7 @@ class NewCommandContext(Generic[PexpectT]):
         return item in " ".join(self.lines)
 
     @contextmanager
-    def inbackground(self, show=True, timeout=10):
+    def inbackground(self,*, show=True, timeout=10):
         show = show if show is not None else self.show
         try:
             self.start()
@@ -110,7 +109,7 @@ class NewCommandContext(Generic[PexpectT]):
             self.thread.join(timeout) if self.thread else None
 
     @wraps(inbackground)
-    def inbg(self, show=False, timeout=10):
+    def inbg(self, *,show=False, timeout=10):
         show = show if show is not None else self.show
         yield from self.inbackground(show=show, timeout=timeout)
 
@@ -161,16 +160,19 @@ class NewCommandContext(Generic[PexpectT]):
 
 
 console = Console(force_terminal=True)
+
 if sys.platform == "win32":
-   import wepexpect as pexpect
-   import wepexpect.socket_pexpect
-   import wepexpect.spawnbase
-   pexpect_module = pexpect
+    import mbpy.poexpect as pexpect
+    pexpect.socket_pexpect = pexpect.Expecter
+
+    pexpect.spawnbase = pexpect.spawnbase
+
+    
 else:
-   import pexpect
-   import pexpect.socket_pexpect
-   import pexpect.spawnbase
-   pexpect_module: TypeAlias = pexpect
+    import pexpect
+    import pexpect.socket_pexpect
+    import pexpect.spawnbase
+    pexpect_module: TypeAlias = pexpect
 
 PtyCommand = NewCommandContext[PexpectClass]
 
