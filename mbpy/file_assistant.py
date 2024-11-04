@@ -171,19 +171,19 @@ class HierarchicalLanguageAgent:
         return summary
 
     async def _generate_leaf_summary(self) -> str:
-        """Generate a summary for leaf nodes."""
-        return await self.summarize(self.path, self.name)
-
-    async def _default_summarize(self, path: Path, name: str) -> str:
-        """Default summarization using AST for Python files."""
+        """Generate a summary for leaf nodes using AST parsing."""
         summary = {}
-        for entry in await async_scandir(path):
+        for entry in await async_scandir(self.path):
             if entry.is_file() and entry.name.endswith(".py"):
-                with open(entry.path, "r", encoding="utf-8") as file:
-                    tree = ast.parse(file.read(), filename=entry.name)
-                    for node in ast.walk(tree):
-                        if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
-                            summary[node.name] = ast.get_docstring(node)
+                try:
+                    async with aiofiles.open(entry.path, "r", encoding="utf-8") as file:
+                        content = await file.read()
+                        tree = ast.parse(content, filename=entry.name)
+                        for node in ast.walk(tree):
+                            if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+                                summary[node.name] = ast.get_docstring(node)
+                except Exception as e:
+                    logging.error(f"Error parsing {entry.name}: {e}")
         return summary
 
     async def _default_get_children(self, path: Path) -> Dict[str, Optional["HierarchicalLanguageAgent"]]:
