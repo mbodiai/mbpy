@@ -67,6 +67,22 @@ class HierarchicalLanguageAgent:
         self.curr_dir_hash = None
         register(partial(dumps, self.summary_cache))
 
+    async def _default_summarize(self, path: Path, name: str) -> str:
+        """Default summarization using AST for Python files."""
+        summary = {}
+        for entry in await async_scandir(path):
+            if entry.is_file() and entry.name.endswith(".py"):
+                try:
+                    async with aiofiles.open(entry.path, "r", encoding="utf-8") as file:
+                        content = await file.read()
+                        tree = ast.parse(content, filename=entry.name)
+                        for node in ast.walk(tree):
+                            if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+                                summary[node.name] = ast.get_docstring(node)
+                except Exception as e:
+                    logging.error(f"Error parsing {entry.name}: {e}")
+        return summary
+
     async def _discover_children(self):
         """Discover child directories that are valid packages and contain .md or .py files."""
         for entry in await async_scandir(self.path):
