@@ -167,10 +167,15 @@ class HierarchicalLanguageAgent:
             if mod is None:
                 return f"Failed to import {self.name}"
             try:
-                return pyclbr.readmodule(self.name, [self.path])
+                module_info = pyclbr.readmodule(self.name, [self.path])
+                return module_info
             except AttributeError as e:
-                logging.error(f"Error reading module {self.name}: {e}")
-                return f"Failed to read module {self.name}: {e}"
+                if hasattr(mod.__loader__, 'get_filename'):
+                    logging.error(f"Error reading module {self.name}: {e}")
+                    return f"Failed to read module {self.name}: {e}"
+                else:
+                    logging.error(f"Module loader for {self.name} does not support get_filename")
+                    return f"Module loader for {self.name} does not support get_filename"
 
     async def get_summary(self, cache=True) -> str:
         """Get a summary for the directory and its children using a shared cache."""
