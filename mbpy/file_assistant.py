@@ -6,7 +6,6 @@ import hashlib
 import asyncio
 from pathlib import Path
 import pyclbr
-import pydoc
 from aiofiles.os import scandir as async_scandir
 from typing import Dict, Optional
 from contextlib import chdir
