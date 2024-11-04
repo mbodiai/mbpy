@@ -167,8 +167,12 @@ class HierarchicalLanguageAgent:
                 mod = pydoc.safeimport(self.name)
                 if mod is None:
                     return f"Failed to import {self.name}"
-                module_info = pyclbr.readmodule(self.name, [self.path])
-                return module_info
+                if hasattr(mod.__loader__, 'get_filename'):
+                    module_info = pyclbr.readmodule(self.name, [self.path])
+                    return module_info
+                else:
+                    logging.error(f"Module loader for {self.name} does not support get_filename")
+                    return f"Module loader for {self.name} does not support get_filename"
             except Exception as e:
                 logging.error(f"Error processing module {self.name}: {e}")
                 return f"Failed to process module {self.name}: {e}"
