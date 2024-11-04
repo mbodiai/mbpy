@@ -172,8 +172,8 @@ class HierarchicalLanguageAgent:
                     logging.debug(f"Loader type for {self.name}: {type(loader)}")
                     logging.debug(f"Loader attributes for {self.name}: {dir(loader)}")
                     if hasattr(loader, 'get_filename'):
-                    module_info = pyclbr.readmodule(self.name, [self.path])
-                    return module_info
+                        module_info = pyclbr.readmodule(self.name, [self.path])
+                        return module_info
                 else:
                     logging.error(f"Module loader for {self.name} does not support get_filename")
                     return f"Module loader for {self.name} does not support get_filename"
