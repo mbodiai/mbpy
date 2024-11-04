@@ -167,7 +167,8 @@ class HierarchicalLanguageAgent:
                 mod = pydoc.safeimport(self.name)
                 if mod is None:
                     return f"Failed to import {self.name}"
-                if hasattr(mod.__loader__, 'get_filename'):
+                loader = getattr(mod, '__loader__', None)
+                if loader and hasattr(loader, 'get_filename'):
                     module_info = pyclbr.readmodule(self.name, [self.path])
                     return module_info
                 else:
