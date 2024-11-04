@@ -166,7 +166,11 @@ class HierarchicalLanguageAgent:
             mod = pydoc.safeimport(self.name)
             if mod is None:
                 return f"Failed to import {self.name}"
-            return pyclbr.readmodule(self.name, [self.path])
+            try:
+                return pyclbr.readmodule(self.name, [self.path])
+            except AttributeError as e:
+                logging.error(f"Error reading module {self.name}: {e}")
+                return f"Failed to read module {self.name}: {e}"
 
     async def get_summary(self, cache=True) -> str:
         """Get a summary for the directory and its children using a shared cache."""
