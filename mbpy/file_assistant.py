@@ -168,7 +168,10 @@ class HierarchicalLanguageAgent:
                 if mod is None:
                     return f"Failed to import {self.name}"
                 loader = getattr(mod, '__loader__', None)
-                if loader and hasattr(loader, 'get_filename'):
+                if loader:
+                    logging.debug(f"Loader type for {self.name}: {type(loader)}")
+                    logging.debug(f"Loader attributes for {self.name}: {dir(loader)}")
+                    if hasattr(loader, 'get_filename'):
                     module_info = pyclbr.readmodule(self.name, [self.path])
                     return module_info
                 else:
