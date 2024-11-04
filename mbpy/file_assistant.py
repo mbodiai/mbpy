@@ -253,7 +253,9 @@ class HierarchicalLanguageAgent:
 if __name__ == "__main__":
     agent = HierarchicalLanguageAgent(model_src="gpt-2", path=".")
     import logging
-
+    from rich.console import Console
+    from rich.pretty import pprint
+    console = Console()
     logging.basicConfig(level=logging.INFO)
     summary = asyncio.run(agent.get_summary(cache=True))
-    print(summary)
+    pprint(summary)

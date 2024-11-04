@@ -168,4 +168,5 @@ xxhash==3.5.0
 yarl==1.14.0
 zipp==3.20.2
 fastui
-mrender==1.0.3
+mrender
+aiofiles

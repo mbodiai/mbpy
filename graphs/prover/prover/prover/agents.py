@@ -96,7 +96,7 @@ def openai_schema(model_class: Type[BaseModel],strict=True) -> Dict[str, object]
         schema = remove_additional_properties(schema_out, schema_out.get("$defs"))
     return schema
 
-Primative: TypeAlias = Union[float, str, int, bool, dict, list, "Dict", "SampleState", "List", "SampleStr", "SampleFloat", "SampleArray", "SampleDeque"]
+Primative: TypeAlias = Union[float, str, int, bool, dict, list, "Dict", "List", BaseModel]
 T = TypeVar("T", bound=Union[float, str, int, bool, dict, list, "Dict", "SampleState", "List", "SampleStr", "SampleFloat", "SampleArray", "SampleDeque"])
 Us = TypeVarTuple("Us")
 V = TypeVar("V", bound=Union[float, str, int, bool, dict, list, "Dict", "SampleState", "List", "SampleStr", "SampleFloat", "SampleArray", "SampleDeque"])
@@ -111,7 +111,7 @@ class mbdict(ParentT, Generic[ T, *Us, V]):
 
     
     __pydantic_config__: ClassVar[ConfigDict] = {"arbitrary_types_allowed": True, "defer_build": True, "from_attributes": True}
-    def __getattribute__(self, name):
+    def __getattribute__(self, name: str):
         if not name.startswith("_"):
             return self.get(name)
         return super().__getattribute__(name)
@@ -130,8 +130,10 @@ a = SampleDict()
 class Derived(SampleDict):
     c: float
 
+from typing import Literal, ParamSpec, ParamSpecKwargs, Protocol, Type, TypeVar
+
 from numpy import ndarray
-from typing import Protocol, Type, TypeVar, Annotated, ParamSpec, Literal, _SpecialForm, ParamSpecKwargs
+
 P = ParamSpec("P")
 class HasAnnotations(Protocol[P]):
     __annotations__: ParamSpecKwargs
@@ -145,7 +147,7 @@ sz = Literal
     
 @dataclass_transform()
 def mbclass(cls: Type[HasAnnotations[P]]) -> Type[HasAnnotations[P]]:
-    mbdict.__dataclass_fields__ = {k: v for k, v in cls.__annotations__.items()}
+    mbdict.__dataclass_fields__ = dict(cls.__annotations__.items())
     mbdict.__type_adapter__ = TypeAdapter(cls)
     
     return mbdict
@@ -178,43 +180,41 @@ class SampleDeque(list):...
 # class SampleField(mbfield):...
 
 
-M = TypeVar("M", bound=Primative | object)
+M = TypeVar("M", bound=Type[BaseModel] | FunctionType | Any)
 
 class Tool(Dict, Generic[M]):
     model: ClassVar[Type[M] | None] = None
-    _schema_generator: GenerateJsonSchema = GenerateJsonSchema
+    _schema_generator: ClassVar[Type[GenerateJsonSchema]] = GenerateJsonSchema
     arguments: Dict[str, M] | None = None
     
     
-        
-    def __class_getitem__(cls, item: M | FunctionType) -> Type[Self]:
-        if isinstance(item, FunctionType):
-            params = inspect.signature(item).parameters
-            required = {k for k, v in params.items() if v.default == Parameter.empty}
-            if any(v.annotation == Parameter.empty for v in params.values()):
-                raise ValueError("All parameters must have type hints.")
-            if not item.__name__ and not item.__qualname__:
-                raise ValueError("Function must have a name.")
-            print(item.__name__)
-            basemodel = create_model(
-                cls._schema_generator().get_title_from_name(name=item.__name__).replace(" ", ""),
-                **{
-                    k: (
-                        v.annotation,
-                        FieldInfo.from_annotation(v.annotation)
-                        if v.default == Parameter.empty
-                        else FieldInfo.from_annotated_attribute(v.annotation, v.default),
-                    )
-                    for k, v in params.items()
-                },
-            )
-            item = basemodel
-        elif not issubclass(item, BaseModel):
-            raise ValueError("Item must be a BaseModel subclass or a function.")
-        else:
-            required = {
-                k for k, v in inspect.signature(item.__init__).parameters.items() if v.default == Parameter.empty
-            }
+    
+    def __class_getitem__(cls, item: M | FunctionType | BaseModel | type | Any) -> Type[Self]:
+        print(f"Item: {item}, {type(item)}")
+        if not isinstance(item, FunctionType | type):
+            item = type(item)
+        if isinstance(item,type) and not issubclass(item, BaseModel) and not isinstance(item, FunctionType):
+            item = item.__init__
+
+        params = inspect.signature(item).parameters
+        required = {k for k, v in params.items() if v.default == Parameter.empty}
+        if any(v.annotation == Parameter.empty for v in params.values()):
+            raise ValueError("All parameters must have type hints.")
+        if not item.__name__ and not item.__qualname__:
+            raise ValueError("Function must have a name.")
+        basemodel = create_model(
+            cls._schema_generator().get_title_from_name(name=item.__name__).replace(" ", ""),
+            **{
+                k: (
+                    v.annotation,
+                    FieldInfo.from_annotation(v.annotation)
+                    if v.default == Parameter.empty
+                    else FieldInfo.from_annotated_attribute(v.annotation, v.default),
+                )
+                for k, v in params.items()
+            },
+        )
+        item = basemodel
 
         if not required:
             raise ValueError("At least one required parameter or base model field is required.")
@@ -256,9 +256,12 @@ class Tool(Dict, Generic[M]):
             "type": "function",
             "function": FunctionDefinition(name=name, parameters=parameters,strict=strict).model_dump(by_alias=True),
         }
-
+    
+    
+    
     @classmethod
-    def call(cls, arguments: Dict[str, M] | None = None) -> M:
+    def call(cls, **arguments: M | None) -> M:
+        
         return cls.model.model_validate_json(arguments)
 
     @classmethod
@@ -306,20 +309,11 @@ from datetime import datetime
 for assistant in sorted(resp.data, key=lambda x: x.created_at, reverse=True):
     console.print(assistant.id, assistant.name, assistant.tool_resources, assistant.model, datetime.fromtimestamp(assistant.created_at))
 
-resp = openai.beta.chat.completions.parse(
-    model="gpt-4o-2024-08-06",
-    messages=[
-        {
-            "role": "system",
-            "content": Tool[accept_or_reject].prompt(),
-        },
-    ],
-    response_format=Tool[accept_or_reject].response_format(),
-)
+
 rich_inspect(resp)
 
-rp = Tool[accept_or_reject].call(resp.choices[0].message.content)
-rich_inspect(rp)
+# rp = Tool[accept_or_reject].call(resp.choices[0].message.content)
+# rich_inspect(rp)
 from openai import AsyncOpenAI
 from uvloop import install
 import asyncio
@@ -364,6 +358,8 @@ async def aact_structured(tool: Type[Tool], system_prompt: str | None = None, *,
 
 def act(tool: Type[Tool], system_prompt: str | None = None, *,structured_type: Literal["response_format", "tool_call"] = "response_format") -> str:
     return asyncio.run(aact_structured(tool, system_prompt, structured_type=structured_type))
+
+
 
 
                 
@@ -460,7 +456,7 @@ class Prover:
 
         return natural, coq
 
-
+from openai.types.beta.assistant_response_format_option_param
 class Checker:
     """A stateless agent that evaluates the proofs generated by the prover."""
 
@@ -477,35 +473,20 @@ class Checker:
 
     def check(self, input: str) -> Tuple[str, bool]:  # noqa
         """Return feedback on the proof."""
-        accept_tool = {
-            "type": "function",
-            "function": {
-                "name": "accept_or_reject",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "accept": {"type": "boolean"},
-                        "feedback": {"type": "string"},
-                    },
-                    "required": ["accept"],
-                },
-            },
-        }
-        response = openai.chat.completions.create(
+        class AcceptOrReject(BaseModel):
+            accept: bool
+            feedback: str 
+        response = openai.beta.chat.completions.parse(
             model=self._model,
             messages=[
                 {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": input},
             ],
-            tools=[accept_tool],
-            tool_choice="required",
+            response_format=Tool[AcceptOrReject].response_format(),
         )
+   
 
-        class AcceptOrReject(BaseModel):
-            accept: bool
-            feedback: str = ""
-
-        args = response.choices[0].message.tool_calls[0].function.arguments
+        args = response.choices[0].message.content
         accepted = AcceptOrReject.model_validate_json(args)
 
         # Check if the proof is ACCEPTED

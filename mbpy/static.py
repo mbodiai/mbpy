@@ -10,7 +10,7 @@ copyright = '2024, {author}'
 author = '{author}'
 
 extensions = [
-    'sphinx.ext.autodoc',
+    'sphinx.ext.autodoc2',
     'sphinx.ext.napoleon',
 ]
 

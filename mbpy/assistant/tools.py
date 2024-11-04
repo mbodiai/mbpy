@@ -146,9 +146,10 @@ def extract_code_inside_backticks(text: str) -> tuple[list[str], list[str]]:
 import subprocess
 import sys
 import tempfile
-from typing_extensions import TypedDict
 import traceback
-from mbodi.main import main as coder_main
+
+from typing_extensions import TypedDict
+
 from mbpy.commands import run
 
 

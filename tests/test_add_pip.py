@@ -38,7 +38,7 @@ dependencies = [
     "gymnasium==0.29.1",
     "importlib-resources==6.4.0",
     "methodtools==0.4.7",
-    "numpy==1.26.4",
+    "numpy>=1.26.4",
     "pydantic==2.7.4",
     "requires",
     "rich==13.7.1",

@@ -43,7 +43,7 @@ else:
     IOCTL = partial(fcntl.ioctl, sys.stdout.fileno(), termios.TIOCGWINSZ)
 
 
-PexpectT = TypeVar("PexpectClass", bound=PexpectClass)
+PexpectT = TypeVar("PexpectClass", bound=PexpectClass)  # noqa: PLC0132
 
 
 class NewCommandContext(Generic[PexpectT]):

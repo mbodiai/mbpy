@@ -9,7 +9,6 @@ import itertools
 import operator
 import os
 import platform
-import random
 import re
 import shutil
 import stat
@@ -18,16 +17,14 @@ import sys
 import tempfile
 import types
 import urllib.request
-from collections.abc import Container, Iterable, Mapping
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, Iterator, TypeVar, Union, _T_co, overload
+from collections.abc import Container, Hashable, Iterable, Mapping
+from pathlib import Path
+from time import sleep, time
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, Iterator, TypeVar, Union, overload
 
 import numpy as np
 from typing_extensions import Final
-
-if sys.version_info < (3, 12):
-    from backports import tarfile
-else:
-    import tarfile
+import tarfile
 
 
 @contextlib.contextmanager
@@ -77,8 +74,8 @@ def tarball(url, target_dir: str | os.PathLike | None = None) -> Iterator[str | 
     True
     """
     if target_dir is None:
-        target_dir = os.path.basename(url).replace(".tar.gz", "").replace(".tgz", "")
-    os.mkdir(target_dir)
+        target_dir = Path(url).name.replace(".tar.gz", "").replace(".tgz", "")
+    Path(target_dir).mkdir(exist_ok=True)
     try:
         req = urllib.request.urlopen(url)
         with tarfile.open(fileobj=req, mode="r|*") as tf:
@@ -281,8 +278,7 @@ class ExceptionTrap:
         return wrapper
 
     def passes(self, func):
-        """Wrap func and replace the result with the truth
-        value of the trap (True if no exception).
+        """Wrap func and replace the result with the truth value of the trap (True if no exception).
 
         First, give the decorator an alias to support Python 3.8
         Syntax.
@@ -345,8 +341,8 @@ class on_interrupt(contextlib.ContextDecorator):
             raise SystemExit(self.code) from excinst
         return self.action == "suppress"
 
-
-def method_cache(method, cache_wrapper=functools.lru_cache()):
+METHOD_CACHE_INIT = functools.lru_cache(maxsize=None)
+def method_cache(method, cache_wrapper=METHOD_CACHE_INIT):
     """Wrap lru_cache to support storing the cache data in the object instances.
 
     Abstracts the common paradigm where the method explicitly saves an
@@ -475,10 +471,10 @@ class Throttler:
 
     def _wait(self):
         """Ensure at least 1/max_rate seconds from last call."""
-        elapsed = time.time() - self.last_called
+        elapsed = time() - self.last_called
         must_wait = 1 / self.max_rate - elapsed
-        time.sleep(max(0, must_wait))
-        self.last_called = time.time()
+        sleep(max(0, must_wait))
+        self.last_called = time()
 
     def __get__(self, obj, owner=None):
         return first_invoke(self._wait, functools.partial(self.func, obj))
@@ -616,10 +612,10 @@ class Throttler:
 
 
 def first_invoke(func1, func2):
-    """
-    Return a function that when invoked will invoke func1 without
+    """Return a function that when invoked will invoke func1 without
     any parameters (for its side effect) and then invoke func2
     with whatever parameters were passed, returning its result.
+    
     """
 
     def wrapper(*args, **kwargs):
@@ -752,7 +748,7 @@ def dict_map(function, dictionary):
     return dict((key, function(value)) for key, value in dictionary.items())
 
 
-class RangeMap(Dict[_RangeMapKT, _VT]):
+class MapInputsToRanges(Dict[_RangeMapKT, _VT]):
     """
     A dictionary-like object that uses the keys as bounds for a range.
     Inclusion of the value for that range is determined by the
@@ -832,41 +828,95 @@ class RangeMap(Dict[_RangeMapKT, _VT]):
     ('a', 'a', 'a', 'b', 'b', 'b')
 
     """
-
     def __init__(
         self,
         source: (
             SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
         ),
         sort_params: Mapping[str, Any] = {},
-        key_match_comparator: Callable[[_RangeMapKT, _RangeMapKT], bool] = operator.le,
+        discriminator: Callable[[Any], Hashable] | None = None,
+    ):
+        dict.__init__(self, source)
+        self.sort_params = sort_params
+        self.match = discriminator  
+    def __init__(
+        self,
+        source: (
+            SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
+        ),
+        sort_params: Mapping[str, Any] = {},
+        key_match_comparator: Callable[[Any, Any], bool] = operator.le,
     ):
         dict.__init__(self, source)
         self.sort_params = sort_params
         self.match = key_match_comparator
 
     @classmethod
-    def left(
+    def GreaterThan(
         cls,
         source: (
             SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
         ),
     ) -> Self:
         return cls(
-            source, sort_params=dict(reverse=True), key_match_comparator=operator.ge
+            source, sort_params=dict(reverse=True), key_match_comparator=operator.gt
         )
 
     def __getitem__(self, item: _RangeMapKT) -> _VT:
         sorted_keys = sorted(self.keys(), **self.sort_params)
-        if isinstance(item, RangeMap.Item):
+        if isinstance(item, MapInputsToRanges.Item):
             result = self.__getitem__(sorted_keys[item])
         else:
             key = self._find_first_match_(sorted_keys, item)
             result = dict.__getitem__(self, key)
-            if result is RangeMap.undefined_value:
+            if result is MapInputsToRanges.undefined_value:
                 raise KeyError(key)
         return result
 
+    @classmethod
+    def LessThan(
+        cls,
+        source: (
+            SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
+        ),
+    ) -> Self:
+        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.lt)
+    
+    @classmethod
+    def LessThanOrEqualTo(
+        cls,
+        source: (
+            SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
+        ),
+    ) -> Self:
+        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.le)
+    
+    @classmethod
+    def GreaterThan(
+        cls,
+        source: (
+            SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
+        ),
+    ) -> Self:
+        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.gt)
+    @classmethod
+    def GreaterThanOrEqualTo(
+        cls,
+        source: (
+            SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
+        ),
+    ) -> Self:
+        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.ge)
+    
+    @classmethod
+    def By(
+        cls,
+        source: (
+            SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
+        ),
+        discriminator: Callable[[Any], Hashable],
+    ) -> Self:
+        return cls(source, discriminator=discriminator)
     @overload  # type: ignore[override] # Signature simplified over dict and Mapping
     def get(self, key: _RangeMapKT, default: _T) -> _VT | _T: ...
     @overload
@@ -894,7 +944,7 @@ class RangeMap(Dict[_RangeMapKT, _VT]):
 
     def bounds(self) -> tuple[_RangeMapKT, _RangeMapKT]:
         sorted_keys = sorted(self.keys(), **self.sort_params)
-        return (sorted_keys[RangeMap.first_item], sorted_keys[RangeMap.last_item])
+        return (sorted_keys[MapInputsToRanges.first_item], sorted_keys[MapInputsToRanges.last_item])
 
     # some special values for the RangeMap
     undefined_value = type('RangeValueUndefined', (), {})()
@@ -1067,7 +1117,7 @@ class FoldedCaseKeyedDict(KeyTransformingDict):
 
     @staticmethod
     def transform_key(key):
-        return jaraco.text.FoldedCase(key)
+        text.FoldedCase(key)
 
 
 class DictAdapter:
@@ -1661,7 +1711,7 @@ class Accumulator:
         return self.val
 
 
-class WeightedLookup(RangeMap):
+class WeightedLookup(MapInputsToRanges):
     """Given parameters suitable for a dict representing keys
     and a weighted proportion, return a RangeMap representing
     spans of values proportial to the weights:
@@ -1721,6 +1771,7 @@ def _caller(depth=1, default='__main__'):
 # In typeshed, `structseq` is only ever used as a mixin in combination with a fixed-length `Tuple`
 # See discussion at #6546 & #6560
 # `structseq` classes are unsubclassable, so are all decorated with `@final`.
+_T_co = TypeVar('T_co', covariant=True)
 class structseq(Generic[_T_co]):
     n_fields: Final[int]
     n_unnamed_fields: Final[int]
@@ -1734,3 +1785,4 @@ class structseq(Generic[_T_co]):
     def __new__(cls: type[Self], sequence: Iterable[_T_co], dict: dict[str, Any] = ...) -> Self: ...
     if sys.version_info >= (3, 13):
         def __replace__(self: Self, **kwargs: Any) -> Self: ...
+        

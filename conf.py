@@ -19,6 +19,7 @@ autodoc2_docstring_parser_regexes = [
     (
         ".*",
         "projects/mbpy/docutils/docs_parser",
+
     ),
 ]
 templates_path = ['_templates']

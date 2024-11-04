@@ -1,7 +1,8 @@
 import ast
+import contextlib
 import inspect
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
 import tomlkit
 
@@ -138,7 +139,8 @@ jobs:
 
       - name: Run tests
         # For example, using `pytest`
-        run: uv run pytest tests"""
+        run: uv run pytest tests
+"""
 
 INIT_PY = """# Path: __init__.py
 # This file is automatically created by mbpy.
@@ -258,11 +260,11 @@ import rich_click as click
 
 @click.command()
 def main():
-    click.echo("Hello from {project_name}!")
+    click.echo(Hello from {project_name})
 
 if __name__ == "__main__":
     main()
-"""
+""" + ""
         (src_dir / "cli.py").write_text(cli_content)
 
     return project_path  # Return the project path
@@ -361,6 +363,109 @@ def get_function_signature(node):
 
     return f"{node.name}({', '.join(args)})"
 
+class suppress(contextlib.AbstractContextManager):
+    """Context manager to suppress specified exceptions
+
+    After the exception is suppressed, execution proceeds with the next
+    statement following the with statement.
+
+         with suppress(FileNotFoundError):
+             os.remove(somefile)
+         # Execution still resumes here if the file was already removed
+    """
+
+    def __init__(self, *exceptions):
+        self._exceptions = exceptions
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exctype, excinst, exctb):
+        # Unlike isinstance and issubclass, CPython exception handling
+        # currently only looks at the concrete type hierarchy (ignoring
+        # the instance and subclass checking hooks). While Guido considers
+        # that a bug rather than a feature, it's a fairly hard one to fix
+        # due to various internal implementation details. suppress provides
+        # the simpler issubclass based semantics, rather than trying to
+        # exactly reproduce the limitations of the CPython interpreter.
+        #
+        # See http://bugs.python.org/issue12029 for more details
+        return exctype is not None and issubclass(exctype, self._exceptions)
+
+
+def generate_rst_for_module(module_path, output_dir, package_name=""):
+    """Generate an .rst file for a Python module using Sphinx autodoc directives.
+
+    Parameters:
+        module_path (str): Path to the Python file.
+        output_dir (str): Directory to output the .rst files.
+        package_name (str): Optional package prefix for module paths.
+    """
+    with open(module_path, 'r', encoding='utf-8') as file:
+        module_content = file.read()
+
+    # Parse the module content
+    module_tree = ast.parse(module_content)
+    module_name = os.path.splitext(os.path.basename(module_path))[0]
+    full_module_name = f"{package_name}.{module_name}" if package_name else module_name
+
+    # Generate RST content
+    rst_content = f"{module_name}\n{'=' * len(module_name)}\n\n"
+    rst_content += f".. automodule:: {full_module_name}\n    :members:\n    :undoc-members:\n\n"
+
+    # Add classes and functions to the .rst content
+    for node in module_tree.body:
+        if isinstance(node, ast.ClassDef):
+            rst_content += f".. autoclass:: {full_module_name}.{node.name}\n    :members:\n    :undoc-members:\n\n"
+        elif isinstance(node, ast.FunctionDef):
+            rst_content += f".. autofunction:: {full_module_name}.{node.name}\n\n"
+
+    # Write to .rst file
+    output_path = os.path.join(output_dir, f"{module_name}.rst")
+    os.makedirs(output_dir, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as rst_file:
+        rst_file.write(rst_content)
+    print(f"Generated {output_path}")
+
+def generate_rst_for_project(source_dir, output_dir, package_name=""):
+    """
+    Recursively generate .rst files for each Python module in a project.
+
+    Parameters:
+        source_dir (str): Root directory of the source code.
+        output_dir (str): Directory to output the .rst files.
+        package_name (str): Optional package prefix for module paths.
+    """
+    for root, _, files in os.walk(source_dir):
+        for file in files:
+            if file.endswith(".py") and not file.startswith("__init__"):
+                module_path = os.path.join(root, file)
+                # Adjust package_name based on subdirectories
+                relative_path = os.path.relpath(root, source_dir).replace(os.sep, ".")
+                full_package_name = f"{package_name}.{relative_path}" if package_name else relative_path
+                generate_rst_for_module(module_path, output_dir, package_name=full_package_name.strip("."))
+
+def generate_index_rst(output_dir: str, project_name: str | None = None):
+    """Generate a master index.rst file that links to all generated .rst files.
+
+    Parameters:
+        output_dir (str): Directory where .rst files are stored.
+        project_name (str): Title for the main index.
+    """
+    index_content = f"{project_name}\n{'=' * len(project_name)}\n\n"
+    index_content += "Contents:\n\n.. toctree::\n    :maxdepth: 2\n\n"
+
+    # Add each .rst file to the index
+    for file in sorted(os.listdir(output_dir)):
+        if file.endswith(".rst") and file != "index.rst":
+            index_content += f"    {file[:-4]}\n"
+
+    # Write index.rst
+    index_path = os.path.join(output_dir, "index.rst")
+    with open(index_path, 'w', encoding='utf-8') as index_file:
+        index_file.write(index_content)
+    print(f"Generated {index_path}")
+
 
 def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
     project_path = Path(project_path)
@@ -368,7 +473,8 @@ def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
 
     for py_file in project_path.rglob("*.py"):
         with py_file.open() as f:
-            tree = ast.parse(f.read(), filename=py_file)
+            with contextlib.suppress(SyntaxError):
+                tree = ast.parse(f.read(), filename=py_file)
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef | ast.ClassDef | ast.Module):
                     name = node.name if hasattr(node, "name") else "__init__"

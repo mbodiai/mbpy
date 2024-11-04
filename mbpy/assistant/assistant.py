@@ -1,9 +1,8 @@
-# First, import required modules and classes
 import asyncio
-from collections.abc import AsyncIterator
-from itertools import chain
 import json
 import traceback
+from collections.abc import AsyncIterator
+from itertools import chain
 from typing import Any, AsyncGenerator, Callable, Coroutine, Dict
 
 import anyio
@@ -15,7 +14,7 @@ from openai import AsyncAssistantEventHandler, AsyncOpenAI
 from openai.types.beta.assistant_stream_event import AssistantStreamEvent, ThreadRunRequiresAction
 from openai.types.beta.threads.run import Run
 from openai.types.beta.threads.run_submit_tool_outputs_params import ToolOutput
-from openai.types.beta.threads.runs import ToolCall, ToolCallDelta, RunStepDelta
+from openai.types.beta.threads.runs import RunStepDelta, ToolCall, ToolCallDelta
 from rich.console import Console
 from tools import (
     ToolOutput as CommandResponse,
@@ -66,7 +65,7 @@ class WorldState(Sample):
 
 
 # Initialize the OpenAI client
-client = AsyncOpenAI(api_key="sk-proj-6BvmNFHPGkJHT9NLyV04T3BlbkFJDps9Ydy01tgAwKcEYvOK")
+client = AsyncOpenAI()
 
 
 SUPERVISOR = """
@@ -136,13 +135,11 @@ class EventHandler(AsyncAssistantEventHandler):
         if tool_call.type == "function":
             print(f"Function name: {tool_call.function.name}")
             print(f"Function arguments: {tool_call.function.arguments}")
-
+        
     async def on_tool_call_delta(self, delta: ToolCallDelta, snapshot: ToolCall) -> None:
         if delta.type == "function" and delta.function.arguments:
             content = f"\nassistant {delta.function.name}:  {delta.function.arguments}\n"
-            print(content)
-            print(f"Output: {snapshot}")
-
+          
     async def on_tool_call_done(self, tool_call: ToolCall):
         print(f"Tool call done: {tool_call}")
         if tool_call.type == "function":
@@ -253,12 +250,12 @@ async def predict(message, history) -> AsyncGenerator[str, None]:
     # Update HISTORY with the latest conversation
     HISTORY.append(not_none(history[-2])) if len(history) > 1 else None
     HISTORY.append(not_none(history[-1])) if len(history) > 0 else None
-
+    handler = EventHandler()
     response = ""
     try:
         # Create a new thread with the updated history
-        thread = await client.beta.threads.create(messages=HISTORY + [{"role": "user", "content": message}])
-        handler = EventHandler()
+        thread = await client.beta.threads.create(messages=HISTORY + [{"role": "user", "content": str(message)}])
+   
         # Stream the assistant's response
         async with client.beta.threads.runs.stream(
             thread_id=thread.id,
@@ -307,7 +304,7 @@ def get_demo():
         font="arial",
         font_mono=["consolas"],
     )
-    return ChatInterface(fn=predict, theme=THEME, type="messages", multimodal=True)
+    return gr.ChatInterface(fn=predict, theme=THEME, type="messages", multimodal=True)
 
 
 async def main():
@@ -323,7 +320,7 @@ async def main():
 
     # Define the ChatInterface with the async predict function
     with get_demo() as demo:
-        demo.queue().launch(server_name="0.0.0.0", server_port=4005)
+        demo.queue().launch(server_name="0.0.0.0", server_port=5005)
 
 
 # Run the main function using asyncio

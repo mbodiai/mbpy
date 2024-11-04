@@ -5,18 +5,20 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    'aiofiles',
+    'aiofiles>=24.1.0',
+    'diskcache>=5.6.3',
+    'grep-ast==0.2.0',
     'more-itertools>=10.5.0',
-    'mrender>=1.0.3',
+    'mrender',
+    'networkx>=3.4.2',
     'pexpect>=4.9.0; sys_platform != "win32"',
-    'wexpect; sys_platform == "win32"',
     'python-dotenv>=1.0.1',
+    'requests>=2.26.0',
     'rich-click>=1.8.3',
     'tomlkit>=0.12.0',
     'toolz>=1.0.0',
-    'networkx>=3.4.2',
-    "minspect>=0.0.8",
-    "grep-ast==0.2.0",
-    "diskcache>=5.6.3",
+    'uvloop>=0.21.0',
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -34,14 +36,14 @@ mpip = "mbpy.cli:cli"
 mrun = "mbpy.commands:cli"
 mb = "mbpy.cli:cli"
 [project.optional-dependencies]
-ai = [
-    "mbodied>=1.2.2",
-]
-notion = [
+sync = [
     "notion-client>=2.2.1",
 ]
 mkdocs = [
     "mkdocs>=1.6.1",
+]
+sphinx = [
+    "sphinx>=6.2.1",
 ]
 docs = [
     'mkdocs-material>=9.5.42',
@@ -61,6 +63,14 @@ all = [
     "aiohttp>=3.10.10",
 ]
 dev = []
+extra = [
+    "gradio-client>=1.4.2",
+    "gymnasium>=1.0.0",
+    "jsonref>=1.1.0",
+]
+ai = [
+    "openai>=1.53.0",
+]
 
 
 [[project.authors]]
@@ -71,12 +81,23 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
+    "embdata",
+    "ipython>=8.29.0",
+    "mbpy",
     "mypy>=1.11.2",
     "openai>=1.52.0",
     "pytest-cov>=5.0.0",
     "pytest>=8.3.3",
+    "sympy>=1.13.1",
     "twine>=5.1.1",
 ]
+
+[tool.uv.sources]
+embdata = { path = "../embdata", editable = true }
+mrender = { path = "../mrender", editable = true }
+mbodi = { path = "../v1" }
+mbodied = { path = "../embodied-agents", editable = true }
+mbpy = { workspace = true }
 
 # [tool.uv.sources]
 # mbodi = {path = "../v1"}

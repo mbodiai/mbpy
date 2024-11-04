@@ -3,9 +3,8 @@ from typing import Tuple
 from rich.console import Console
 from rich.panel import Panel
 
-
-from prover.interact import Coqtop
 from prover.agents import Checker, Prover
+from prover.interact import Coqtop
 
 console = Console()
 prover = Prover(
