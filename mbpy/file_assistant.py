@@ -48,8 +48,16 @@ class HierarchicalLanguageAgent:
     semaphore = asyncio.Semaphore(100)  # Limits concurrency
 
     def __init__(
-        self, path: str | None = None, name: str | None = None, model_src: str | None = None, api_key: str | None = None
+        self,
+        path: str | None = None,
+        name: str | None = None,
+        model_src: str | None = None,
+        api_key: str | None = None,
+        get_children=None,
+        summarize=None,
     ):
+        self.get_children = get_children or self._default_get_children
+        self.summarize = summarize or self._default_summarize
         self.path = Path(path).resolve() if path else Path.cwd().resolve().expanduser()
         self.name = name if name else self.path.name
         self.model_src = model_src
@@ -162,32 +170,28 @@ class HierarchicalLanguageAgent:
         return summary
 
     async def _generate_leaf_summary(self) -> str:
-        """Generate a summary for leaf nodes using pydoc."""
-        with chdir(self.path):
-            try:
-                mod = pydoc.safeimport(self.name)
-                if mod is None:
-                    return f"Failed to import {self.name}"
-                loader = getattr(mod, '__loader__', None)
-                if loader:
-                    logging.debug(f"Loader type for {self.name}: {type(loader)}")
-                    logging.debug(f"Loader attributes for {self.name}: {dir(loader)}")
-                    if hasattr(loader, 'get_filename'):
-                        try:
-                            module_info = pyclbr.readmodule(self.name, [self.path])
-                            return module_info
-                        except Exception as e:
-                            logging.error(f"Error reading module {self.name}: {e}")
-                            return f"Failed to read module {self.name}: {e}"
-                    else:
-                        logging.error(f"Module loader for {self.name} does not support get_filename")
-                        return f"Module loader for {self.name} does not support get_filename"
-                else:
-                    logging.error(f"No loader found for module {self.name}")
-                    return f"No loader found for module {self.name}"
-            except Exception as e:
-                logging.error(f"Error processing module {self.name}: {e}")
-                return f"Failed to process module {self.name}: {e}"
+        """Generate a summary for leaf nodes."""
+        return await self.summarize(self.path, self.name)
+
+    async def _default_summarize(self, path: Path, name: str) -> str:
+        """Default summarization using AST for Python files."""
+        summary = {}
+        for entry in await async_scandir(path):
+            if entry.is_file() and entry.name.endswith(".py"):
+                with open(entry.path, "r", encoding="utf-8") as file:
+                    tree = ast.parse(file.read(), filename=entry.name)
+                    for node in ast.walk(tree):
+                        if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+                            summary[node.name] = ast.get_docstring(node)
+        return summary
+
+    async def _default_get_children(self, path: Path) -> Dict[str, Optional["HierarchicalLanguageAgent"]]:
+        """Default method to discover child directories."""
+        children = {}
+        for entry in await async_scandir(path):
+            if entry.is_dir() and not entry.name.startswith("."):
+                children[entry.name] = None
+        return children
 
     async def get_summary(self, cache=True) -> str:
         """Get a summary for the directory and its children using a shared cache."""
