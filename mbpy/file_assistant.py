@@ -168,15 +168,19 @@ class HierarchicalLanguageAgent:
     async def generate_summary(self, cache=True) -> str:
         """Generate a nested summary of the directory."""
         summary = {
-            self.name: {
-                "brief": f"Summary for {self.name}",
-                "details": await self._generate_leaf_summary(),
-                "children": {},
-            }
+            "name": self.name,
+            "brief": f"Summary for {self.name}",
+            "details": await self._generate_leaf_summary(),
+            "children": {}
         }
 
-        summaries = await self.request_summary_from_children(cache=cache)
-        summary[self.name]["children"].update(summaries)
+        # Only request summaries for immediate children
+        for child_name in self.children.keys():
+            child_agent = await self._load_child_agent(child_name)
+            summary["children"][child_name] = {
+                "brief": f"Summary for {child_name}",
+                "details": None  # Placeholder for lazy loading
+            }
 
         logging.info(f"Caching summary for {self.name} with hash {self.curr_dir_hash}")
         async with self.cache_lock:
