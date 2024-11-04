@@ -163,19 +163,15 @@ class HierarchicalLanguageAgent:
     async def _generate_leaf_summary(self) -> str:
         """Generate a summary for leaf nodes using pydoc."""
         with chdir(self.path):
-            mod = pydoc.safeimport(self.name)
-            if mod is None:
-                return f"Failed to import {self.name}"
             try:
+                mod = pydoc.safeimport(self.name)
+                if mod is None:
+                    return f"Failed to import {self.name}"
                 module_info = pyclbr.readmodule(self.name, [self.path])
                 return module_info
-            except AttributeError as e:
-                if hasattr(mod.__loader__, 'get_filename'):
-                    logging.error(f"Error reading module {self.name}: {e}")
-                    return f"Failed to read module {self.name}: {e}"
-                else:
-                    logging.error(f"Module loader for {self.name} does not support get_filename")
-                    return f"Module loader for {self.name} does not support get_filename"
+            except Exception as e:
+                logging.error(f"Error processing module {self.name}: {e}")
+                return f"Failed to process module {self.name}: {e}"
 
     async def get_summary(self, cache=True) -> str:
         """Get a summary for the directory and its children using a shared cache."""
