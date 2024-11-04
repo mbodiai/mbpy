@@ -130,7 +130,7 @@ class HierarchicalLanguageAgent:
                 hash_md5.update(str(stat.st_mtime).encode("utf-8"))
                 hash_md5.update(str(stat.st_size).encode("utf-8"))
             elif entry.is_dir():
-                child_agent = self._load_child_agent(entry.name)
+                child_agent = await self._load_child_agent(entry.name)
                 child_hash = await child_agent._create_directory_hash()
                 hash_md5.update(child_hash.encode("utf-8"))
 
