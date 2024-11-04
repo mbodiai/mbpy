@@ -154,9 +154,10 @@ class HierarchicalLanguageAgent:
         summaries = await self.request_summary_from_children(cache=cache)
         summary[self.name]["children"].update(summaries)
 
-        # Cache the summary
+        logging.info(f"Caching summary for {self.name} with hash {self.curr_dir_hash}")
         async with self.cache_lock:
             self.summary_cache[self.curr_dir_hash] = summary
+            logging.debug(f"Summary cached: {summary}")
 
         return summary
 
@@ -190,7 +191,9 @@ class HierarchicalLanguageAgent:
 
     async def get_summary(self, cache=True) -> str:
         """Get a summary for the directory and its children using a shared cache."""
+        logging.info(f"Checking for changes in directory {self.path}")
         new_changes = await self.update_directory_hash()
+        logging.info(f"Directory hash updated: {self.curr_dir_hash}")
         if not new_changes:
             logging.info("No changes detected")
         async with self.cache_lock:
