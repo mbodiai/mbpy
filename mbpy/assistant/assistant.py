@@ -3,12 +3,11 @@ import json
 import traceback
 from collections.abc import AsyncIterator
 from itertools import chain
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict
+from typing import Any, AsyncGenerator, Callable, Dict
 
 import anyio
 import anyio.to_thread
 import gradio as gr
-from gradio import ChatInterface
 from mbodied.types.sample import Sample
 from openai import AsyncAssistantEventHandler, AsyncOpenAI
 from openai.types.beta.assistant_stream_event import AssistantStreamEvent, ThreadRunRequiresAction
@@ -16,9 +15,6 @@ from openai.types.beta.threads.run import Run
 from openai.types.beta.threads.run_submit_tool_outputs_params import ToolOutput
 from openai.types.beta.threads.runs import RunStepDelta, ToolCall, ToolCallDelta
 from rich.console import Console
-from tools import (
-    ToolOutput as CommandResponse,
-)
 from tools import (
     dispatch_coding_assistant,
     execute_code_with_markdown,
@@ -28,6 +24,9 @@ from tools import (
 from typing_extensions import override
 
 from mbpy.assistant.tools import TOOLS
+from mbpy.assistant.tools import (
+    ToolOutput as CommandResponse,
+)
 
 console = Console(style="bold light_goldenrod2")
 print = console.print

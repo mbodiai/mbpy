@@ -1,11 +1,13 @@
-from pathlib import Path
-import networkx as nx
+import http.server
 import json
 import os
-import webbrowser
-import http.server
 import socketserver
 import threading
+import webbrowser
+from pathlib import Path
+
+import networkx as nx
+
 
 # load GraphML file and transfer to JSON
 def graphml_to_json(g: nx.Graph):

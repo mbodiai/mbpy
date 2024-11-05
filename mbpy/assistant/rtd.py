@@ -1,5 +1,6 @@
 from mbodied.agents.language import LanguageAgent
 
+
 class Minimalist(LanguageAgent):
   def __init__(self, context=None):
     self.context = context

@@ -1,8 +1,6 @@
 # To add a new cell, type '# %%'
 # To add a new markdown cell, type '# %% [markdown]'
 # %%
-from IPython import get_ipython
-
 # %% [markdown]
 # # Density based retrieval relevance
 #
@@ -24,11 +22,11 @@ from IPython import get_ipython
 # This approach is still very preliminary, and we welcome contributions and alternative approaches - some ideas are listed at the end of this notebook.
 # %% [markdown]
 # ## Preliminaries
-
 # %%
 # Install required packages
-
 import sys
+
+from IPython import get_ipython
 
 get_ipython().system("{sys.executable} -m pip install chromadb numpy umap-learn[plot] matplotlib tqdm datasets")
 

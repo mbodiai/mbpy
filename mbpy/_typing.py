@@ -14,6 +14,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import types
 import urllib.request
@@ -24,7 +25,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, Iterator, TypeVa
 
 import numpy as np
 from typing_extensions import Final
-import tarfile
 
 
 @contextlib.contextmanager

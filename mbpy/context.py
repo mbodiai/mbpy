@@ -34,10 +34,10 @@ from traceback import TracebackException
 from types import ModuleType, TracebackType
 from typing import Self
 
-from embdata.sample import Sample
 from rich.console import Console
 from rich.traceback import Traceback
 
+from embdata.sample import Sample
 from mbpy._typing import ExceptionTrap, _caller
 from mbpy.graph import generate
 
@@ -57,17 +57,16 @@ class suppress(AbstractContextManager): # type: ignore # noqa: N801
         self._exceptions = exceptions
         self.exc = None
         self.exc_type = None
+        self.traceback = None
 
     def __enter__(self) -> Self:
         return self
 
-    def __call__(self, capture: bool = False) -> Self:
+    def __call__(self,*, capture: bool = False) -> Self:
         self.capture = capture
         return self
 
-    def __exit__(
-        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None, /
-    ):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None) -> bool: # noqa
         # Unlike isinstance and issubclass, CPython exception handling
         # currently only looks at the concrete type hierarchy (ignoring
         # the instance and subclass checking hooks). While Guido considers
@@ -84,19 +83,29 @@ class suppress(AbstractContextManager): # type: ignore # noqa: N801
             return True
         return False
 
+from io import StringIO
+from pydoc import HTMLDoc
 
+from embdata import sample
+
+console = Console()
 def test_pydoc_methods():
     console.print(
         f"allmethods: {allmethods(Sample)}\n"
-        f"apropos: {apropos('traceback')}\n"
+        f"apropos: {apropos('sample')}\n"
         f"classify_class_attrs: {classify_class_attrs(Sample)}\n"
-        f"synopsis: {synopsis(Sample)}\n"
-        f"source_synopsis: {source_synopsis(Sample)}\n"
-        f"splitdoc: {splitdoc(Sample)}\n"
-        f"safeimport: {safeimport('traceback')}\n"
+        f"synopsis: {synopsis(sample.__file__)}\n"
+        f"source_synopsis: {source_synopsis(StringIO(Path(sample.__file__).read_text()))}\n"
+        f"splitdoc: {splitdoc(Sample.__doc__)}\n"
+        f"safeimport: {safeimport('embdata')}\n"
         f"describe: {describe(Sample)}\n"
-        f"HTMLDoc: {HTMLDoc(ToolCall)}\n"
+        f"locate: {locate('embdata.sample')}\n"
     )
+    Path("html").write_text(HTMLDoc().docmodule(sample))
+       
+
+
+
 
 with suppress(FileNotFoundError) as ex:
     os.remove("somefile")
@@ -106,12 +115,12 @@ def getcurrentmodule():
 def getparentmodule():
     return sys.modules[_caller()]
 
-print(getcurrentmodule())
-print(getparentmodule())
-print(topics.topics["atom-literals"])
-print(topics.topics["atom-identifiers"])
-test_pydoc_methods()
-exit()
+# print(getcurrentmodule())
+# print(getparentmodule())
+# print(topics.topics["atom-literals"])
+# print(topics.topics["atom-identifiers"])
+# test_pydoc_methods()
+
 def string(iterable):
     return "".join(iterable)
 import sys

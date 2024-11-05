@@ -111,7 +111,7 @@ class NewCommandContext(Generic[PexpectT]):
         while True:
             try:
                 line = stream.readline()
-            except type(self).process_type.EOF:
+            except type(self).process_type.eof():
                 yield self.process.before
                 return
             if not line:

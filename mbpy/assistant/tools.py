@@ -1,3 +1,13 @@
+import subprocess
+import sys
+import tempfile
+import traceback
+from pathlib import Path
+
+from typing_extensions import TypedDict
+
+from mbpy.commands import run
+
 TOOLS = [
     {
         "type": "function",
@@ -143,15 +153,6 @@ def extract_code_inside_backticks(text: str) -> tuple[list[str], list[str]]:
     return code_blocks, non_code_parts
 
 
-import subprocess
-import sys
-import tempfile
-import traceback
-
-from typing_extensions import TypedDict
-
-from mbpy.commands import run
-
 
 class ToolOutput(TypedDict):
     output: str
@@ -192,9 +193,7 @@ def dispatch_coding_assistant(
             {
                 "instruction": si,
                 "result": run(
-                    "mbodi --yes --auto-test --test-cmd `pytest tests` --input_history_file hist{i}.txt --chat-history-file chat{i}.txt --msg {instruction}".format(
-                        i=i, instruction=instruction
-                    )
+                    f"mbodi --yes --auto-test --test-cmd `pytest tests` --input_history_file hist{i}.txt --chat-history-file chat{i}.txt --msg {instruction}"
                 ),
             }
             for i, si in enumerate([subtask1, subtask2, subtask3, subtask4])
@@ -243,11 +242,9 @@ def execute_python(code: str) -> dict[str, str]:
             "returncode": -1,
         }
     finally:
-        # Clean up the temporary file
-        import os
 
-        if os.path.exists(temp_file_name):
-            os.remove(temp_file_name)
+        if Path.exists(temp_file_name):
+            Path.unlink(temp_file_name)
 
 
 #     """
