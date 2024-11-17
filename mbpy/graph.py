@@ -1,40 +1,49 @@
 
 import ast
-from collections.abc import Iterable
 import contextlib
-from dataclasses import dataclass, field
+import functools
 import importlib.util
 import inspect
+import logging
 import sys
+import uuid
 from collections import defaultdict
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from types import FunctionType, MappingProxyType
-from typing import TYPE_CHECKING, Dict, NamedTuple, Tuple, TypeVar, Union, Unpack, _type_check, dataclass_transform, overload
+from types import FunctionType, MappingProxyType, ModuleType, NoneType, SimpleNamespace, new_class
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    NamedTuple,
+    Optional,
+    Self,
+    Set,
+    Tuple,
+    TypeAlias,
+    TypeVar,
+    Union,
+)
 from weakref import ref
 
-# Import NetworkX for graph representation
-from more_itertools import first, first_true
 import networkx as nx
-import numpy as np
-import rich_click as click
+
+# Import NetworkX for graph representation
+from more_itertools import first_true, ilen
+from pydantic import BaseModel, Field, model_validator
 from rich.console import Console
-from rich.pretty import Pretty
+from rich.table import Table
 from typing_extensions import (
-    Annotated,
-    Generic,
     Literal,
-    NotRequired,
-    ParamSpec,
-    Required,
-    TypeVarTuple,
     TypedDict,
-    _caller,
-    _TypedDictMeta,
-    get_args,
-    get_origin,
 )
 
+from mbpy import context
+from mbpy.utils.collections import compose
+T = TypeVar("T")
 console = Console()
 class ContentT(TypedDict):
     functions: Dict[str, Dict[str, str | list[str]]] | None
@@ -43,54 +52,6 @@ class ContentT(TypedDict):
     signature: str | MappingProxyType[str, type] | None
     code: str | None
 
-class TD(TypedDict):
-    name: str
-    parent: Union["ref[Node]" , None]
-    children: Dict[str, "Node"]
-    imports: list[str]
-    contents: ContentT
-    importance: float
-    filepath: Path | None
-@dataclass()
-class Node(dict):
-  
-    @overload
-    def __getitem__(self, key: Literal["name"]) -> str:
-        ...
-    @overload
-    def __getitem__(self, key: Literal["parent"]) -> Union["ref[Node]" , None]:
-        ...
-    @overload
-    def __getitem__(self, key: Literal["children"]) -> Dict[str, "Node"]:
-        ...
-    @overload
-    def __getitem__(self, key: Literal["imports"]) -> list[str]:
-        ...
-    @overload
-    def __getitem__(self, key: Literal["contents"]) -> ContentT:
-        ...
-    
-    def __getitem__(self, key):
-        return super().__getitem__(key)
-
-    name: str
-    parent: Union["ref[Node]" , None] = None
-    children: Dict[str, "Node"] = field(default_factory=dict)
-    imports: list[str] = field(default_factory=list)
-    contents: ContentT = field(default_factory=dict)
-    importance: float = 1.0
-    filepath: Path | None = None
-
-    def to_graph(self, g=None) -> nx.DiGraph:
-        """Recursively adds nodes and edges to a NetworkX graph."""
-        if g is None:
-            g = nx.DiGraph()
-        g.add_node(self.name)
-        for imp in self.imports:
-            g.add_edge(self.name, imp)
-        for child in self.children.values():
-            child.to_graph(g)
-        return g
 
 
 def extract_node_info(file_path, include_docs=False, include_signatures=False, include_code=False):
@@ -117,8 +78,10 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
             node_contents['docs'] = module_doc
     if include_signatures:
         signature = None
-        with contextlib.suppress(Exception):
+        with context.suppress(Exception) as e:
             signature = inspect.signature(ast.parse(source_code)).parameters
+        if e.exc:
+            logging.error(f"Error extracting signatures from '{file_path}': {e.exc}")
         node_contents['signature'] = signature
 
 
@@ -180,52 +143,178 @@ def extract_node_info(file_path, include_docs=False, include_signatures=False, i
 
     return node_contents
 
-def attempt_import(module_name):
+def attempt_import(module_name) -> bool:
     """Attempts to import a module by name. Returns True if successful, False otherwise."""
-    try:
+    with  context.suppress(Exception) as e:
         spec = importlib.util.find_spec(module_name)
         return spec is not None
-    except (ModuleNotFoundError, ValueError, ImportError,NameError,RuntimeError):
-        return False
+    if e.exc:
+        logging.debug(f"Error importing module '{module_name}': {e.exc}")
+    return False
 
 
 
-class GraphDict(TypedDict, total=False):
-    root_node: Node
-    module_nodes: dict[str, Node]
-    adjacency_list: dict[str, set[str]]
-    reverse_adjacency_list: dict[str, set[str]]
-    broken_imports: dict[str, set[str]]
-    graph: nx.DiGraph
+
+
+
+
+if TYPE_CHECKING:
+    dec = dataclass
+    ParentT = BaseModel
+else:
+    dec = lambda x: x
+    ParentT = BaseModel
+
+
+
+class TreeNode(ParentT, Generic[T]):
+    """A tree node with a name, parent, status, importance, and report."""
+    name: str = Field(default_factory=compose(str, uuid.uuid4))
+    parent: Optional["ref[TreeNode[T]]"] | None = None
+    root: Optional["ref[TreeNode[T]]"] | None = None
+    status: Literal["waiting", "running", "done"] | None = None
+    importance: float = 1.0
+    report: str | None = None
+    """A report on the status of the subtree."""
+    children: Dict[str, "TreeNode[T]"] = Field(default_factory=dict)
+    adjacency_list: Dict[str, set[str]] = Field(default_factory=dict)
+    reverse_adjacency_list: Dict[str, set[str]] = Field(default_factory=dict)
+    nxgraph: nx.DiGraph | None = None
+    value: T | None = None
+    Type: type[T] | None = None
     
-    
+    @model_validator(mode="before")
+    @classmethod
+    def makerefs(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        if "parent" in v:
+            v["parent"] = ref(v["parent"])
+        if "root" in v:
+            v["root"] = ref(v["root"])
+        return v
 
-class Graph(NamedTuple):
-    root_node: Node
-    module_nodes: dict[str, Node]
-    adjacency_list: dict[str, set[str]]
-    reverse_adjacency_list: dict[str, set[str]]
-    broken_imports: dict[str, set[str]]
-    graph: nx.DiGraph
+    
+    @classmethod
+    def from_dict(cls, d: dict, name=None, parent=None) -> "TreeNode":
+        return cls(name=name or d.pop("name",None), parent=parent or d.pop("parent",None), **d)
+  
+    @classmethod
+    def __class_getitem__(cls, value_type: type[T]):
+        cls.Type = value_type
+        return cls
     
     def __setitem__(self, key, value):
         return self.__setattr__(key, value)
-    
-    def __getitem__(self, key):
-        return self.__getattribute__(key)
-    
-    def asdict(self) -> GraphDict:
-        return {
-            'root_node': self.root_node,
-            'module_nodes': self.module_nodes,
-            'adjacency_list': self.adjacency_list,
-            'reverse_adjacency_list': self.reverse_adjacency_list,
-            'broken_imports': self.broken_imports,
-            'graph': self.graph,
-        }
+ 
+    def graph(self,g: nx.DiGraph=None) -> nx.DiGraph:
+        """Recursively adds nodes and edges to a NetworkX graph."""
+        g = g or nx.DiGraph()
+        g.add_node(self.name)
+       
+        for child in self.children.values():
+            child.graph(g)
+        return g
+
+    class GraphDict(TypedDict):
+            name: str
+            parent: Optional["ref[TreeNode[T]]"]
+            status: Literal["waiting", "running", "done"] | None
+            report: str | None
+            children: dict[str, "TreeNode[T]"]
+            adjacency_list: dict[str, set[str]]
+            reverse_adjacency_list: dict[str, set[str]]
+            nxgraph: nx.DiGraph
+            value: T
+            Type: T
+
+    def dict(self) -> GraphDict:
+        return self.model_dump()
+    if TYPE_CHECKING:
+        
+
+        def __iter__(self):
+            NT = TypeVar("NT")
+            class GraphTuple(NamedTuple, Generic[NT]):
+                name: str | None = None
+                parent: Union["ref[TreeNode[NT]]",None] | None = None
+                status: Literal["waiting", "running", "done"] | None = None
+                report: str | None = None
+                children: dict[str, "TreeNode[NT]"] | None = None
+                adjacency_list: dict[str, set[str]] | None = None
+                reverse_adjacency_list: dict[str, set[str]] | None = None
+                nxgraph: nx.DiGraph | None = None
+                value: NT | None = None
+                Type: NT | None = None
+            return GraphTuple( ).__iter__()
+        
+
+        
+        
+        # def __getattribute__(self, name):
+        #     # class GraphTuple(NamedTuple):
+        #     #     name: str
+        #     #     parent: "ref[TreeNode[T]]" | None
+        #     #     status: Literal["waiting", "running", "done"] | None
+        #     #     report: str | None
+        #     #     children: dict[str, "TreeNode[T]"]
+        #     #     adjacency_list: dict[str, set[str]]
+        #     #     reverse_adjacency_list: dict[str, set[str]]
+        #     #     nxgraph: nx.DiGraph
+        #     #     value: T
+        #     #     Type: T
+        
+        #     # g = GraphTuple()
+        #     return g.__getattribute__(name)
+
+     
+            
+    else:
+        model_config = {"arbitrary_types_allowed": True}
+
+    if not TYPE_CHECKING:
+
+        def __init__(self, *args, **kwargs):
+            kwargs.update(dict(zip(list(self.model_fields.keys())[: len(args)], args)))
+
+            super().__init__(**kwargs)
+
+        def __iter__(self):
+            return iter(self.model_dump().values())
 
 
+ImportToBrokenDict = dict[str, set[str]]
+NameToModuleDict = dict[str, "ModuleNode"]
+
+class ModuleNode(TreeNode[ModuleType]):
+    imports: list[str] = Field(default_factory=list)
+    contents: ContentT = Field(default_factory=dict)
+    filepath: Path | None = None
+
+    if not TYPE_CHECKING:
+        def __init__(self, *args, **kwargs):
+            kwargs.update(dict(zip(list(self.model_fields.keys())[:len(args)], args)))
+
+            super().__init__(**kwargs)
     
+    broken_imports: ImportToBrokenDict = Field(default_factory=dict)
+    module_nodes: NameToModuleDict = Field(default_factory=dict)
+
+Graph = ModuleNode
+# g = Graph("root", broken_imports={}, module_nodes={})
+# b = TreeNode("root",adjacency_list={}, reverse_adjacency_list={}, name="root", nxgraph=nx.DiGraph(), value=Path.cwd().stem)
+# c, d,e,f,*h = g.__iter__()
+# a = b
+
+
+
+
+# Define excluded directories
+EXCLUDED_DIRS = {'site-packages', 'vendor', 'venv', '.venv', 'env', '.env'}
+
+def isexcluded(path: Path, allow_site_packages=False) -> bool:
+    if allow_site_packages and "site-packages" in path.parts:
+        return False
+    return any(excluded in path.parts for excluded in EXCLUDED_DIRS)
+
 def build_dependency_graph(
     directory_or_file: Path | str,
     include_site_packages: bool = False,
@@ -238,21 +327,29 @@ def build_dependency_graph(
 
     directory_path = directory_path.parent.resolve() if directory_path.is_file() else directory_path.resolve()
     paths = [directory_path] if directory_path.is_file() else list(directory_path.rglob('*.py'))
-    root_node = Node('root', filepath=directory_path)
+    root_node = ModuleNode("root", filepath=directory_path)
     module_nodes = {'root': root_node}
     adjacency_list = defaultdict(set)
+    adjacency_list['root'] = set()
     reverse_adjacency_list = defaultdict(set)  # For getting modules that import a given module
+    reverse_adjacency_list['root'] = set()
     broken_imports = defaultdict(set)  # Map broken imports to sets of file paths
 
     for file_path in paths:
         # Skip site-packages and vendor directories if not included
-        if not include_site_packages and (("site-packages" in file_path.parts) or ("vendor" in file_path.parts)):
+        
+        if isexcluded(file_path, allow_site_packages=include_site_packages):
+            logging.debug(f"Skipping {file_path}")
             continue
         try:
             # Compute module's import path
             relative_path = file_path.relative_to(directory_path)
             parts = relative_path.with_suffix('').parts  # Remove '.py' suffix
-            module_name = '.'.join(parts)
+            if relative_path.name == '__init__.py':
+                module_name = ".".join(parts[:-1]) if len(parts) > 1 else "root"
+            else:
+                module_name = '.'.join(parts)
+
             parent_module_name = '.'.join(parts[:-1]) if len(parts) > 1 else 'root'
             parent_node = module_nodes.get(parent_module_name, root_node)
 
@@ -267,7 +364,7 @@ def build_dependency_graph(
                 continue  # Skip files that couldn't be parsed
 
             # Create or get the module node
-            module_node = Node(module_name, parent=parent_node, filepath=file_path)
+            module_node = ModuleNode(module_name, parent=parent_node, filepath=file_path)
             module_node.imports = node_info.get('imports', [])
             module_node.contents['functions'] = node_info.get('functions', {})
             module_node.contents['classes'] = node_info.get('classes', {})
@@ -283,14 +380,16 @@ def build_dependency_graph(
 
             # Add to parent's children
             parent_node.children[module_name] = module_node
-
+            adjacency_list[parent_module_name].add(module_name)
+            adjacency_list[module_name] = set()
+            reverse_adjacency_list[module_name].add(parent_module_name)
             # Update adjacency list for PageRank
             for imp in module_node.imports:
                 adjacency_list[module_name].add(imp)
                 reverse_adjacency_list[imp].add(module_name)
                 # Initialize the importance of imported modules if not already
                 if imp not in module_nodes:
-                    module_nodes[imp] = Node(imp)
+                    module_nodes[imp] = ModuleNode(imp)
 
                 # Update importance
                 module_nodes[imp].importance += module_node.importance / max(len(module_node.imports), 1)
@@ -303,16 +402,19 @@ def build_dependency_graph(
 
         except (SyntaxError, UnicodeDecodeError, ValueError):
             continue
-    return Graph(**{
-        'root_node': root_node,
-        'module_nodes': module_nodes,
-        'adjacency_list': adjacency_list,
-        'reverse_adjacency_list': reverse_adjacency_list,
-        'broken_imports': broken_imports,
-        'graph': root_node.to_graph(),
-    })
+    root_node.module_nodes = module_nodes
+    root_node.adjacency_list = adjacency_list
+    root_node.reverse_adjacency_list = reverse_adjacency_list
+    root_node.broken_imports = broken_imports
+    return Graph(
+        root=root_node,
+        module_nodes=module_nodes,
+        adjacency_list=adjacency_list,
+        reverse_adjacency_list=reverse_adjacency_list,
+        broken_imports=broken_imports,
+    )
 
-def print_tree(node: Node, level=0, include_docs=False, include_signatures=False, include_code=False):
+def print_tree(node: ModuleNode, level=0, include_docs=False, include_signatures=False, include_code=False):
     if level == 0:
         console.print("[bold light_goldenrod2]Dependency Graph:[/bold light_goldenrod2]")
     indent = '  ' * level
@@ -354,6 +456,9 @@ def print_tree(node: Node, level=0, include_docs=False, include_signatures=False
         )
 
 
+
+
+
 class GraphStats(TypedDict):
     num_modules: int
     num_imports: int
@@ -361,52 +466,75 @@ class GraphStats(TypedDict):
     num_classes: int
     avg_degree: float
     scc: list[set[str]]
-    importance_scores: dict[str, float]
-    effective_sizes: dict[str, float]
-    sizes: dict[str, float]
-    pagerank: dict[str, float]
-    
-    
-def get_stats(module_nodes: Dict[str, Node] | Iterable[Node], adjacency_list: dict[str, set[str]], reverse_adjacency_list: dict[str, set[str]]) -> GraphStats:
+    size_importance: list[tuple[str, Dict[str, float]]]
+
+
+# FILE: structuralholes.py
+
+
+
+def get_stats(
+    module_nodes: Dict[str, ModuleNode],
+    adjacency_list: Dict[str, Set[str]],
+    reverse_adjacency_list: Dict[str, Set[str]],
+) -> GraphStats:
     """Computes statistics for the dependency graph."""
-    module_nodes = {node.name: node for node in module_nodes} if not isinstance(module_nodes, Dict) else module_nodes
+    num_modules = ilen(module_nodes)
+    num_imports = sum(ilen(node.imports) for node in module_nodes.values())
+    num_functions = sum(ilen(node.contents.get("functions", {})) for node in module_nodes.values())
+    num_classes = sum(ilen(node.contents.get("classes", {})) for node in module_nodes.values())
+
     num_modules = len(module_nodes)
+
     num_imports = sum(len(node.imports) for node in module_nodes.values())
+    logging.debug(f"Number of imports: {num_imports}")
+
     num_functions = sum(len(node.contents.get('functions', {})) for node in module_nodes.values())
+    logging.debug(f"Number of functions: {num_functions}")
+
     num_classes = sum(len(node.contents.get('classes', {})) for node in module_nodes.values())
-     # Apply PageRank to determine module importance
-    importance_scores = {node_name: node.importance for node_name, node in module_nodes.items()}
-    total_importance = sum(importance_scores.values())
-    # Normalize the importance scores
-    if total_importance > 0:
-        importance_scores = {node: score / total_importance for node, score in importance_scores.items()}
-    else:
-        importance_scores = {node: 0 for node in importance_scores}
+    logging.debug(f"Number of classes: {num_classes}")# Build the graph
+    G = nx.DiGraph()
+    for node, neighbors in adjacency_list.items():
+        for neighbor in neighbors:
+            G.add_edge(node, neighbor)
 
+    # Add standalone nodes
+    for node in module_nodes:
+        if node not in G:
+            G.add_node(node)
 
+    # Compute PageRank
+    try:
+        pg = nx.pagerank(G)
+        pg = {k: round(v, 4) for k, v in pg.items()}
+    except Exception as e:
+        logging.error(f"PageRank computation failed: {e}")
+        pg = {node: 0.0 for node in G.nodes()}
 
-    G = module_nodes['root'].to_graph()
-    pg = nx.algorithms.link_analysis.pagerank_alg.pagerank(G)
+    # Compute average degree
     avg_degree = sum(dict(G.degree()).values()) / float(len(G)) if len(G) > 0 else 0
-
-    pg = {k: round(v, 4) for k, v in pg.items()}
     avg_degree = round(avg_degree, 2)
 
-   # Find strongly connected components and rank them by size  
-    scc = list(nx.strongly_connected_components(G))  
-    # Rank SCCs by number of nodes  
-    scc = sorted(scc, key=lambda x: len(x), reverse=True)  
-    sizes = nx.effective_size(G)
+    # Strongly Connected Components
+    scc = list(nx.strongly_connected_components(G))
+    scc = sorted(scc, key=lambda x: len(x), reverse=True)
+
+    # Compute Effective Size
+    effective_sizes = nx.effective_size(G)
+
+    sizes_with_neighbors = {
+        node: {
+            "effective_size": effective_sizes.get(node, 0.0),
+            "neighbors": len(adjacency_list.get(node, [])) + len(reverse_adjacency_list.get(node, [])),
+            "pagerank": pg.get(node, 0.0)
+        }
+        for node in adjacency_list
+    }
+
+    size_importance = sorted(sizes_with_neighbors.items(), key=lambda x: x[1]["pagerank"], reverse=True)
 
 
-    sizes_with_neighbors = {  
-        node: {  
-            "effective_size": sizes[node],  
-            "neighbors": len(adjacency_list[node]) + len(reverse_adjacency_list[node]),
-            "pagerank": round(pg[node] * G.number_of_edges(), 4)
-        }  
-        for node in G.nodes()  
-    }  
 
     return {
         'num_modules': num_modules,
@@ -415,38 +543,128 @@ def get_stats(module_nodes: Dict[str, Node] | Iterable[Node], adjacency_list: di
         'num_classes': num_classes,
         'avg_degree': avg_degree,
         'scc': scc,
-        "sizes": sizes,
-        "size_importance": sorted(sizes_with_neighbors.items(), key=lambda x: x[1]["effective_size"], reverse=True),
-        "pagerank": sorted(pg.items(), key=lambda x: x[1], reverse=True)
+        "size_importance": size_importance,
     }
 
-from rich.table import Table, Column
-def display_stats(stats: GraphStats, exclude: set[str] = None) -> None:
+
+def get_stats2(
+    module_nodes: Dict[str, ModuleNode],
+    adjacency_list: Dict[str, Set[str]],
+    reverse_adjacency_list: Dict[str, Set[str]],
+) -> GraphStats:
+    """Computes statistics for the dependency graph."""
+    num_modules = ilen(module_nodes)
+    num_imports = sum(ilen(node.imports) for node in module_nodes.values())
+    num_functions = sum(ilen(node.contents.get("functions", {})) for node in module_nodes.values())
+    num_classes = sum(ilen(node.contents.get("classes", {})) for node in module_nodes.values())
+
+    # Build the graph
+    G = nx.DiGraph()
+    for node, neighbors in adjacency_list.items():
+        for neighbor in neighbors:
+            G.add_edge(node, neighbor)
+
+    # Add standalone nodes
+    for node in module_nodes:
+        if node not in G:
+            G.add_node(node)
+
+    # Compute PageRank
+    try:
+        pg = nx.pagerank(G)
+        pg = {k: round(v, 4) for k, v in pg.items()}
+    except Exception as e:
+        logging.error(f"PageRank computation failed: {e}")
+        pg = {node: 0.0 for node in G.nodes()}
+
+    # Compute average degree
+    avg_degree = sum(dict(G.degree()).values()) / float(len(G)) if len(G) > 0 else 0
+    avg_degree = round(avg_degree, 2)
+
+    # Strongly Connected Components
+    scc = list(nx.strongly_connected_components(G))
+    scc = sorted(scc, key=lambda x: len(x), reverse=True)
+
+    # Compute Effective Size
+    effective_sizes = nx.effective_size(G)
+
+    sizes_with_neighbors = {
+        node: {
+            "effective_size": effective_sizes.get(node, 0.0),
+            "neighbors": len(adjacency_list.get(node, [])) + len(reverse_adjacency_list.get(node, [])),
+            "pagerank": pg.get(node, 0.0),
+        }
+        for node in G.nodes()
+    }
+
+    size_importance = sorted(sizes_with_neighbors.items(), key=lambda x: x[1]["pagerank"], reverse=True)
+
+    return {
+        "num_modules": num_modules,
+        "num_imports": num_imports,
+        "num_functions": num_functions,
+        "num_classes": num_classes,
+        "avg_degree": avg_degree,
+        "scc": scc,
+        "size_importance": size_importance,
+    }
+
+
+from typing import Dict, Set
+from rich.table import Table
+from rich.console import Console
+
+console = Console()
+
+
+def display_stats(stats: GraphStats, exclude: Set[str] = None) -> None:
     """Displays statistics for the dependency graph."""
     exclude = exclude or set()
     title = "Dependency Graph Statistics"
-    console.print(f"\n[bold light_goldenrod2]{title}[/bold light_goldenrod2]")
-    
+    console.print(f"\n[bold light_goldenrod2]{title}[/bold light_goldenrod2]\n")
+
     for key, value in stats.items():
-        if key in exclude or key in ("pagerank",  "scc", "sizes"):
+        if key in exclude or key in {"pagerank", "scc", "sizes"}:
             continue
-        console.print(f"{key}")
+
         if isinstance(value, list):
-            v = value[0]
-            values = sorted(value, key=lambda x: x[1]["pagerank"], reverse=True)
-            table = Table(title=key,style="light_goldenrod2")
+            # Assuming this is the 'size_importance' list of tuples
+            if not value:
+                console.print(f"{key}: No data available.\n")
+                continue
+
+            # Create a table for list-type statistics
+            console.print(f"[bold]{key}[/bold]")
+            table = Table(title=key, style="light_goldenrod2")
+
+            # Extract column headers from the first item's dictionary
+            _, first_dict = value[0]
+            for column in first_dict.keys():
+                table.add_column(column.replace("_", " ").capitalize())
             table.add_column("Node")
-            for k in v[1].keys():
-                table.add_column(k)
-            for v in values[:10]:
-                table.add_row(v[0], *(str(x) for x in v[1].values()))
+
+            # Add rows to the table
+            for node, metrics in value[:10]:  # Display top 10 entries
+                row = [
+                    f"{metrics[col]:.2f}" if isinstance(metrics[col], float) else str(metrics[col])
+                    for col in first_dict.keys()
+                ]
+                row.append(node)
+                table.add_row(*row)
+
             console.print(table)
-                
+            console.print("")  # Add an empty line for better readability
+        else:
+            # Display scalar statistics
+            if isinstance(value, float):
+                console.print(f"[bold]{key.capitalize()}[/bold]: {value:.2f}\n")
+            else:
+                console.print(f"[bold]{key.capitalize()}[/bold]: {value}\n")
 
-
-    # Display average degree
-    console.print(f"Average Degree: {stats['avg_degree']:.2f}")
-
+    # Specifically display average degree if it's not already included
+    if "avg_degree" not in exclude and "avg_degree" in stats:
+        avg_degree = stats["avg_degree"]
+        console.print(f"[bold]Average Degree[/bold]: {avg_degree:.2f}\n")
 
 
         
@@ -465,6 +683,7 @@ def generate(
     who_imports: bool = False,
     stats: bool = False,
     site_packages: bool = False,
+    show_broken: bool = True,
 ):
     """Build dependency graph and adjacency list."""
     filter_to_module = lambda x: x
@@ -473,7 +692,7 @@ def generate(
         # Assume it's a module name
         path = Path.cwd()
         filter_to_module = lambda x: x.name == directory_file_or_module
-        filter_includes_module = lambda x: x.name in who_imports(directory_file_or_module, path, site_packages)
+        filter_includes_module = lambda x: x.name in _who_imports(directory_file_or_module, path, site_packages)
     else:
         filter_includes_module = lambda _: True
         filter_to_module = lambda _: True
@@ -485,34 +704,34 @@ def generate(
         include_signatures=sigs,
         include_code=code,
     )
-    
-    
-    root_node = result.root_node
-    module_nodes = result.module_nodes
+    print(result.dict())
+    root_node = first_true(result.module_nodes.values(), pred=filter_to_module)
+    module_nodes = root_node.module_nodes
     adjacency_list = result.adjacency_list
     reverse_adjacency_list = result.reverse_adjacency_list
     broken_imports = result.broken_imports
-    
-    root_node = first_true(module_nodes.values(), pred=filter_to_module)
+  
 
-    module_nodes = filter(filter_includes_module, module_nodes.values())
-    print_tree(
-        root_node,
-        include_docs=docs,
-        include_signatures=sigs,
-        include_code=code,
-    )
+
+    # print_tree(
+    #     root_node,
+    #     include_docs=docs,
+    #     include_signatures=sigs,
+    #     include_code=code,
+    # )
 
     # Display statistics if requested
     if stats:
         stats = get_stats(module_nodes, adjacency_list, reverse_adjacency_list)
+        display_stats(stats)
+        stats = get_stats2(root_node.module_nodes, adjacency_list, reverse_adjacency_list)
         display_stats(stats)
     # Display importers if requested
     if who_imports:
         who_imports: FunctionType = sys.modules[__name__].who_imports
         who_imports(directory_file_or_module, path, site_packages=site_packages, show=True)
     # Display broken imports with file paths
-    if broken_imports:
+    if show_broken and broken_imports:
         display_broken(broken_imports)
     return result, stats, broken_imports
 
@@ -533,6 +752,7 @@ def who_imports(module_name: str, path: Path | str,*, site_packages: bool, show:
         console.print(f"\n[bold red]No modules found that import '{module_name}'.[/bold red]")
     return importers
 
+_who_imports = who_imports
 def validate_params(func, *args, **kwargs):
     from inspect import signature
     sig = signature(func)
@@ -545,6 +765,7 @@ def validate_params(func, *args, **kwargs):
 
     return args
 if __name__ == "__main__":
+
     if sys.argv[1:]:
         validate_params(generate, *sys.argv[1:])
         generate(*sys.argv[1:])

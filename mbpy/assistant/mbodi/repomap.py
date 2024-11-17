@@ -210,7 +210,7 @@ class RepoMap:
             language = get_language(lang)
             parser = get_parser(lang)
         except Exception as err:
-            print(f"Skipping file {fname}: {err}")
+            # print(f"Skipping file {fname}: {err}")
             return
 
         query_scm = get_scm_fname(lang)
@@ -425,7 +425,7 @@ class RepoMap:
         dump(ranked_definitions)
 
         for (fname, ident), rank in ranked_definitions:
-            print(f"{rank:.03f} {fname} {ident}")
+            # print(f"{rank:.03f} {fname} {ident}")
             if fname in chat_rel_fnames:
                 continue
             ranked_tags += list(definitions.get((fname, ident), []))

@@ -1,0 +1,20 @@
+
+    /* custom.css */
+
+    /* Sidebar Background */
+    .wy-side-scroll {
+        background-color: #ed3d5d; /* mbodi_color.c500 */
+    }
+
+    /* Sidebar Border */
+    .wy-side-scroll:after {
+        border-color: #852333; /* mbodi_color.c700 */
+    }
+
+    /* Additional Custom Styles */
+    body {
+        background-color: #fde8e8; /* mbodi_color.c50 */
+    }
+
+    /* Add more styles as needed */
+    

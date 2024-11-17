@@ -1,17 +1,32 @@
 """Synchronizes requirements and hatch pyproject."""
 
 import argparse
+
 import logging
+import os
+import re
 import sys
 import traceback
 from copy import deepcopy
 from pathlib import Path
-from typing import Dict, List, Optional
-from typing_extensions import TypedDict
+from typing import Dict, List, Optional, cast, overload
+
 import click
 import requests
 import tomlkit
+from rich.console import Console
+from rich.prompt import Confirm
+from tomlkit import array, table
+from tomlkit.items import Array, Table
+from typing_extensions import Literal, TypedDict
 
+from mbpy.commands import run
+from mbpy.context import suppress
+from mbpy.repair import equals
+from mbpy.utils.collections import PathLike, PathType, compose, first, re_iter, replace, filterfalse
+console = Console()
+ENV_VARS = ["CONDA_PREFIX", "VIRTUAL_ENV", "MBNIX_ENV", "COLCON_PREFIX"]
+PYTHON_ENV_PATH = Path(sys.executable).parts[:-3]
 INFO_KEYS = [
     "author",
     "author_email",
@@ -58,14 +73,15 @@ def get_latest_version(package_name: str) -> str | None:
         response = requests.get(f"https://pypi.org/pypi/{package_name}/json", timeout=5)
         response.raise_for_status()  # Raises stored HTTPError, if one occurred.
         data = response.json()
-        return data['info']['version']
+        return data["info"]["version"]
     except requests.RequestException as e:
         logging.exception(f"Error fetching latest version for {package_name}: {e}")
     except (KeyError, ValueError) as e:
         logging.exception(f"Error parsing response for {package_name}: {e}")
     except Exception as e:
         logging.exception(f"Unexpected error fetching latest version for {package_name}: {e}")
-    return None
+    return ""
+
 
 def get_package_names(query_key) -> list[str]:
     """Fetch package names from PyPI search results."""
@@ -75,9 +91,9 @@ def get_package_names(query_key) -> list[str]:
     page_content = response.text
 
     # Extract package names from search results
-    start_token = '<a class="package-snippet"' # noqa
-    end_token = "</a>" # noqa
-    name_token = '<span class="package-snippet__name">' # noqa
+    start_token = '<a class="package-snippet"'  # noqa
+    end_token = "</a>"  # noqa
+    name_token = '<span class="package-snippet__name">'  # noqa
 
     package_names = []
     start = 0
@@ -96,14 +112,15 @@ def get_package_names(query_key) -> list[str]:
         start = end
     return package_names
 
-from rich.console import Console
-console = Console()
+
+
 
 class UploadInfo(TypedDict, total=False):
     version: Optional[str]
     upload_time: str
     requires_python: Optional[str]
-    
+
+
 class PackageInfo(TypedDict, total=False):
     name: str
     version: str
@@ -116,11 +133,36 @@ class PackageInfo(TypedDict, total=False):
     github_url: str
     description: str
     requires_python: str
-    releases: Optional[List[Dict[str, UploadInfo]]]
-    
-    
-def get_package_info(package_name, verbose=False, include=None, release=None) -> PackageInfo:
+    releases: List[Dict[str, UploadInfo]] | None
+
+
+def ensure_backticks(text: str) -> str:
+    """Ensure that backticks are completed in the given text."""
+    # Triple quotes first
+
+    open_backticks = text.count("\n```")
+    close_backticks = text.count("```\n")
+    while open_backticks > close_backticks:
+        text += "`"
+        close_backticks += 1
+    while close_backticks > open_backticks:
+        text = "`" + text
+        open_backticks += 1
+    # Single quotes next
+    open_backticks = text.count(" `")
+    close_backticks = text.count("` ")
+    while open_backticks > close_backticks:
+        text += "`"
+        close_backticks += 1
+    while close_backticks > open_backticks:
+        text = "`" + text
+        open_backticks += 1
+    return text
+
+
+def get_package_info(package_name, verbosity=0, include=None, release=None) -> PackageInfo:
     """Retrieve detailed package information from PyPI JSON API."""
+    package_name = getbase(package_name.strip().lower().replace("-", "_"))
     package_url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(package_url, timeout=10)
     if response.status_code != 200:
@@ -128,7 +170,7 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
         return {}
     package_data: dict = deepcopy(response.json())
     logging.debug("package_data")
-    logging.debug(package_data  )
+    logging.debug(package_data)
     info = package_data.get("info", {})
     if release:
         release_found = False
@@ -138,30 +180,25 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
                 info = package_data.get("releases", {}).get(key, [{}])[0]
                 break
         if not release_found:
-            releases = package_data.get('releases', {}).keys()
-            preview = 4 if len(releases) > 8 else 2
+            releases = package_data.get("releases", {}).keys()
+            preview = 4 if len(releases) > 8 else 2 if len(releases) > 4 else 1
             first = ", ".join(list(releases)[:preview])
             last = ", ".join(list(releases)[-preview:])
             color = "spring_green1"
-            console.print(f"[bold {color}]{package_name}[/bold {color}] release `{release}` not found in  {first} ... {last}")
+            console.print(
+                f"[bold {color}]{package_name}[/bold {color}] release `{release}` not found in  {first} ... {last}"
+            )
 
     if not info:
         raise ValueError(f"Package not found: {package_name} {'for release' + str(release) if release else ''}")
-    
 
-
-
-    
     releases = package_data.get("releases", {})
 
-    
     if releases:
         releases = sorted(
-            releases.items(), 
-            key=lambda x: x[1][0]["upload_time"] if len(x[1]) > 0 else "zzzzzzz",
-            reverse=True
+            releases.items(), key=lambda x: x[1][0]["upload_time"] if len(x[1]) > 0 else "zzzzzzz", reverse=True
         )
-    
+
         if releases and len(releases[0][1]) > 0 and len(releases[-1][1]) > 0:
             latest, earliest = releases[0], releases[-1]
         else:
@@ -169,7 +206,7 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
     else:
         latest, earliest = None, None
 
-    package_info = {
+    package_info: PackageInfo = {
         "name": info.get("name", ""),
         "version": info.get("version", ""),
         "summary": info.get("summary", ""),
@@ -179,28 +216,25 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
             "version": earliest[0],
             "upload_time": earliest[1][0]["upload_time"],
             "requires_python": earliest[1][0].get("requires_python", ""),
-        } if earliest else {},
+        }
+        if earliest
+        else {},
         "urls": info.get("project_urls", info.get("urls", {})),
-        "description": info.get("description", "")[:250],
+        "description": ensure_backticks(info.get("description", ""))[: verbosity * 250],
         "requires_python": info.get("requires_python", ""),
-        "releases": [
-            {release[0]: {"upload_time": release[1][0]["upload_time"]}}
-        for release in releases
-        ] if releases and len(releases[0][1]) > 0 else [],
+        "releases": [{release[0]: {"upload_time": release[1][0]["upload_time"]}} for release in releases]
+        if releases and len(releases[0][1]) > 0
+        else [],
     }
 
-    
-
-    if verbose:
+    if verbosity > 2:
         package_info["description"] = info.get("description", "")
 
-    project_urls = info.get("project_urls", info.get("urls", {}))
+    project_urls: Dict[str,str] = info.get("project_urls", info.get("urls", {}))
     try:
-        package_info["github_url"] = next(
-            (url for _, url in project_urls.items() if "github.com" in url.lower()), None
-        )
+        package_info["github_url"] = next((url for _, url in project_urls.items() if "github.com" in url.lower()), None) or ""
     except (StopIteration, TypeError, AttributeError):
-        package_info["github_url"] = None
+        package_info["github_url"] = ""
 
     include = [include] if isinstance(include, str) else include or []
     if include and "all" in include:
@@ -216,19 +250,19 @@ def get_package_info(package_name, verbose=False, include=None, release=None) ->
         else:
             raise ValueError(f"Invalid key: {key}")
 
-    if not "releases" in include:
+    if "releases" not in include:
         package_info.pop("releases", None)
     return package_info
 
 
-def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, release=None) -> list[PackageInfo]:
+def find_and_sort(query_key, limit=7, sort=None, verbosity=0, include=None, release=None) -> list[PackageInfo]:
     """Find and sort potential packages by a specified key.
 
     Args:
         query_key (str): The key to query for.
         limit (int): The maximum number of results to return.
         sort (str): The key to sort by. Defaults to None.
-        verbose (bool): Whether to include verbose output.
+        verbosity (int): The verbosity level for package descriptions.
         include (str or list): Additional information to include.
         release (str): Specific release to search for.
 
@@ -239,9 +273,8 @@ def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, re
         package_names = get_package_names(query_key)
         packages = []
         for package_name in package_names:
-            package_info = get_package_info(package_name, verbose, include, release)
+            package_info = get_package_info(package_name, verbosity, include, release)
             packages.append(package_info)
-
 
         if sort:
             packages.sort(key=lambda x: x.get(sort, 0), reverse=True)
@@ -255,14 +288,12 @@ def find_and_sort(query_key, limit=7, sort=None, verbose=False, include=None, re
         logging.debug(f"Error fetching package info for {query_key}")
         traceback.print_exc()
         return []
-
-
-
+equals_pkg = lambda basename : compose(equals(basename),getbase)
 
 def modify_requirements(
-    package_name,
-    package_version=None,
-    action="install",
+    package_name:str,
+    package_version: str | None = None,
+    action: Literal["install", "uninstall", "upgrade"] = "install",
     requirements="requirements.txt",
 ) -> None:
     """Modify the requirements.txt file to install or uninstall a package.
@@ -276,70 +307,50 @@ def modify_requirements(
     Raises:
         FileNotFoundError: If the requirements.txt file does not exist when attempting to read.
     """
-    lines = get_requirements_packages(requirements, as_set=False)
-    logging.debug(f"modifying {package_name} {package_version} {action} {requirements}")
-    # Extract the base package name and optional extras
-    base_package_name, *extras = package_name.split("[")
-    extras_str = "[" + ",".join(extras) if extras else ""
-    package_line = next(
-        (
-            line
-            for line in lines
-            if base_package_name == line.split("[")[0].split("==")[0]
-        ),
-        None,
-    )
+    base_name = getbase(package_name)
+    version = package_version or getversion(package_name)
+    lines: list[str] = get_requirements_packages(requirements, "list")
+    logging.debug(f"modifying {package_name} {version} {action} {requirements}")
+    match = re.search(r"\[([^\]]+)\]", package_name)
+    extras = f"[{match.group(1)}]" if match else ""
+
+    matched_line = first(filter(equals_pkg(base_name), lines))
 
     if action == "install":
-        if package_version is not None:
-            new_line = f"{base_package_name}{extras_str}=={package_version}"
-        else:
-            new_line = f"{base_package_name}{extras_str}"
+        new_line = pkg_str(base_name,version,extras)
 
-        if package_line:
+        if matched_line:
             # Replace the line with the same base package name
-            lines = [
-                line
-                if base_package_name != line.split("[")[0].split("==")[0]
-                else new_line
-                for line in lines
-            ]
+            lines = replace(lines, equals_pkg(base_name),new_line)
         else:
             lines.append(new_line)
 
     elif action == "uninstall":
         # Remove lines with the same base package name
-        lines = [
-            line
-            for line in lines
-            if base_package_name != line.split("[")[0].split("==")[0]
-        ]
-    # Ensure each line ends with a newline character
-    lines = [line + "\n" for line in lines]
-    with Path(requirements).open("w") as f:
-        f.writelines(lines)
+        lines = filterfalse( lines, equals_pkg(base_name))
+        print(list(lines))
+    Path(requirements).write_text("\n".join(lines) + "\n")
 
 
 def is_group(line) -> bool:
-    return (
-        "[" in line
-        and "]" in line
-        and '"' not in line[line.index("[") : line.index("]")]
-    )
+    return "[" in line and "]" in line and '"' not in line[line.index("[") : line.index("]")]
+
 
 def parse_dependencies(dependencies) -> list[str]:
     if isinstance(dependencies, str):
         dependencies = dependencies.strip()
-        if dependencies.startswith('[') and dependencies.endswith(']'):
+        if dependencies.startswith("[") and dependencies.endswith("]"):
             return dependencies[1:-1].strip(), True
         return dependencies, False
     return dependencies, False
 
+
 def split_dependencies(dependencies) -> list[str]:
     if isinstance(dependencies, str):
         import re
+
         # This regex handles package names with extras and versions
-        pattern = r'([^,\s\[]+(?:\[[^\]]*\])?(?:==?[^,\s]+)?)'
+        pattern = r"([^,\s\[]+(?:\[[^\]]*\])?(?:==?[^,\s]+)?)"
         return [dep.strip() for dep in re.findall(pattern, dependencies)]
     return dependencies
 
@@ -350,7 +361,7 @@ def process_dependencies(dependencies, output_lines=None) -> list[str]:
 
     dependencies, add_closing_bracket = parse_dependencies(dependencies)
     if add_closing_bracket:
-        output_lines.append('dependencies = [')
+        output_lines.append("dependencies = [")
 
     deps_list = split_dependencies(dependencies)
 
@@ -359,18 +370,19 @@ def process_dependencies(dependencies, output_lines=None) -> list[str]:
         output_lines.append(formatted_dep)
 
     if add_closing_bracket:
-        output_lines.append(']')
+        output_lines.append("]")
 
     return output_lines
 
+
 def format_dependency(dep) -> str:
-    formatted_dep = dep.strip().strip('"').rstrip(',')  # Remove quotes and trailing comma
-    if '[' in formatted_dep and ']' in formatted_dep:
-        name, rest = formatted_dep.split('[', 1)
-        extras, *version = rest.split(']')
-        extras = extras.replace(',', ', ').strip()
-        version = ']'.join(version).strip()
-        formatted_dep = f'{name.strip()}[{extras}]{version}'
+    formatted_dep = dep.strip().strip('"').rstrip(",")  # Remove quotes and trailing comma
+    if "[" in formatted_dep and "]" in formatted_dep:
+        name, rest = formatted_dep.split("[", 1)
+        extras, *version = rest.split("]")
+        extras = extras.replace(",", ", ").strip()
+        version = "]".join(version).strip()
+        formatted_dep = f"{name.strip()}[{extras}]{version}"
     return f'  "{formatted_dep}"'
 
 
@@ -424,7 +436,7 @@ def write_pyproject(data, filename="pyproject.toml") -> None:
             f.write(original_data)
 
 
-def base_name(package_name) -> str:
+def getbase(package_name) -> str:
     """Extract the base package name from a package name with optional extras.
 
     Args:
@@ -433,25 +445,61 @@ def base_name(package_name) -> str:
     Returns:
         str: The base package name without extras.
     """
-    return package_name.split("[")[0].split("==")[0]
+    package_name =str(package_name).strip()
+    package_name = package_name.split("[")[0]
+    if "==" in package_name:
+        return package_name.split("==")[0]
+    if ">=" in package_name:
+        return package_name.split(">=")[0]
+    if "<=" in package_name:
+        return package_name.split("<=")[0]
+    if ">" in package_name:
+        return package_name.split(">")[0]
+    if "<" in package_name:
+        return package_name.split("<")[0]
+    
+    return package_name
 
+def getversion(package_name: str) -> str:
+    """Get the version string from a package name."""
+    if "==" in package_name:
+        return package_name.split("==")[1]
+    if ">=" in package_name:
+        return package_name.split(">=")[1]
+    if "<=" in package_name:
+        return package_name.split("<=")[1]
+    if ">" in package_name:
+        return package_name.split(">")[1]
+    if "<" in package_name:
+        return package_name.split("<")[1]
+    return ""
 
+def getextras(package_name: str) -> list[str]:
+    """Get the package extras from a package name."""
+    l = package_name.find("[")
+    r = package_name.rfind("]")
+    return package_name[l:r+1].split(",")
+
+def pkg_str(base_name, version, extras) -> str:
+    """Get the package string from a base name, version, and extras."""
+    extras_str = f"[{','.join(extras)}]" if extras else ""
+    version_str = f">={version}" if version else ""
+    return f"{base_name}{extras_str}{version_str}"
 def name_and_version(package_name, upgrade=False) -> tuple[str, str]:
     if upgrade:
-        version = get_latest_version(base_name(package_name))
-        return base_name(package_name), version
-    if "==" in package_name:
-        return package_name.split("==")
-    return package_name, None
+        version = get_latest_version(getbase(package_name))
+        return getbase(package_name), ".".join(version.split(".")[:-1]) if version else ""
+
+    return getbase(package_name), getversion(package_name)
 
 
 def modify_pyproject_toml(
     package_name: str,
     package_version: str = "",
-    action: str = "install",
-    hatch_env: str | None = None,
-    dependency_group: str = "dependencies",
-    pyproject_path: str = "pyproject.toml",
+    action: Literal["install", "uninstall", "upgrade"] = "install",
+    env: str | None = None,
+    group: str = "dependencies",
+    pyproject_path: PathType = "pyproject.toml",
 ) -> None:
     """Modify the pyproject.toml file to update dependencies based on action.
 
@@ -459,15 +507,16 @@ def modify_pyproject_toml(
         package_name (str): Name of the package to modify.
         package_version (str): Version of the package (optional).
         action (str): Action to perform, either 'install' or 'uninstall'.
-        hatch_env (Optional[str]): Hatch environment to modify (if applicable).
-        dependency_group (str): Dependency group to modify (default is 'dependencies').
+        env (Optional[str]): Environment to modify (if applicable).
+        group (str): Dependency group to modify (default is 'dependencies').
         pyproject_path (str): Path to the pyproject.toml file.
 
     Raises:
         FileNotFoundError: If pyproject.toml is not found.
         ValueError: If Hatch environment is specified but not found in pyproject.toml.
     """
-    logging.debug(f"modifying {package_name} {package_version} {action} {hatch_env} {dependency_group}")
+    group = group.strip("-").strip(".").strip() if group is not None else "dependencies"
+    logging.debug(f"modifying {package_name} {package_version} {action} {env} {group}")
     pyproject_path = find_toml_file(pyproject_path)
     logging.debug(f"modifying {pyproject_path}")
     if not pyproject_path.exists():
@@ -476,32 +525,30 @@ def modify_pyproject_toml(
     with pyproject_path.open() as f:
         pyproject = tomlkit.parse(f.read())
 
-    is_optional = dependency_group != "dependencies"
-    is_hatch_env = hatch_env and "tool" in pyproject and "hatch" in pyproject.get("tool", {})
-    if hatch_env and not is_hatch_env:
-        raise ValueError("Hatch environment specified but hatch tool not found in pyproject.toml.")
+    is_optional = group is not None and group != "dependencies"
 
-    package_version_str = f"{package_name}{('==' + package_version) if package_version else ''}"
-    
-    if is_hatch_env:
-        base_project = pyproject.setdefault("tool", {}).setdefault("hatch", {}).setdefault("envs", {}).setdefault(hatch_env, {})
+    package_version_str = f"{package_name}{('>=' + package_version) if package_version else ''}"
+
+    if env:
+        base_project = (
+            pyproject.setdefault("tool", {}).setdefault("pynix", {}).setdefault("envs", {}).setdefault(env, {})
+        )
     else:
-        base_project = pyproject.setdefault("project", {})
-    
+        base_project: Table = pyproject.setdefault("project", {})
+
     if is_optional:
         optional_base = base_project.setdefault("optional-dependencies", {})
-        dependencies = optional_base.get(dependency_group, [])
-        optional_base[dependency_group] = modify_dependencies(dependencies, package_version_str, action)
+        dependencies = optional_base.get(group, [])
+        optional_base[group] = modify_dependencies(dependencies, package_version_str, action)
         all_group = optional_base.get("all", [])
         optional_base["all"] = modify_dependencies(all_group, package_version_str, action)
     else:
         dependencies = base_project.get("dependencies", [])
-        base_project["dependencies"] = modify_dependencies(dependencies, package_version_str, action)
+        base_project["dependencies"] = array(str(modify_dependencies(dependencies, package_version_str, action)))
 
     # Ensure dependencies are written on separate lines
     if "dependencies" in base_project:
-        base_project["dependencies"] = tomlkit.array(base_project["dependencies"])
-        base_project["dependencies"].multiline(True)
+        cast(Array,base_project["dependencies"]).multiline(True)
         logging.debug(f"dependencies: {base_project['dependencies']}")
 
     pyproject_path.write_text(tomlkit.dumps(pyproject))
@@ -509,7 +556,9 @@ def modify_pyproject_toml(
     # Update requirements.txt if it exists
     requirements_path = pyproject_path.parent / "requirements.txt"
     if requirements_path.exists():
+        package_name = str(package_name)
         modify_requirements(package_name, package_version, action, str(requirements_path))
+
 
 def modify_dependencies(dependencies: List[str], package_version_str: str, action: str) -> List[str]:
     """Modify the dependencies list for installing or uninstalling a package.
@@ -522,34 +571,68 @@ def modify_dependencies(dependencies: List[str], package_version_str: str, actio
     Returns:
         List[str]: Modified list of dependencies.
     """
-    package_name = base_name(package_version_str)
-    
-    dependencies = [
-        dep for dep in dependencies
-        if base_name(dep) != package_name
-    ]
+    package_name = getbase(package_version_str)
+
+    dependencies = [dep for dep in dependencies if getbase(dep) != package_name]
     if action == "install":
         dependencies.append(package_version_str.strip())
-    dependencies.sort(key=lambda x: base_name(x).lower())  # Sort dependencies alphabetically
-    
+    dependencies.sort(key=lambda x: getbase(x).lower())  # Sort dependencies alphabetically
+
     return dependencies
 
-
-
-def search_parents_for_file(file_name, max_levels=3, cwd: str | None = None) -> Path:
-    """Search parent directories for a file."""
-    current_dir = Path(cwd) if cwd else Path.cwd()
-    it = 0
-    target_file = Path(str(file_name))
-    while not target_file.exists():
-        logging.debug(f"Checking {current_dir}")
-        if it > max_levels:
-            break
-        current_dir = current_dir.parent
+def search_parents_for_file(file_name: PathType, max_levels=3, cwd: str | None = None) -> Path:
+        """Search parent directories for a file. If not found, search environment variable paths located 3 directories outside of mbnix."""
+        current_dir = Path(cwd) if cwd else Path.cwd()
+        it = 0
         target_file = current_dir / file_name
-    return target_file
+        found_paths: list[PathLike] = []
 
-def find_toml_file(path: str | Path = "pyproject.toml") -> Path:
+        while it <= max_levels and not target_file.exists():
+            logging.debug(f"Checking {current_dir}")
+            current_dir = current_dir.parent
+            target_file = current_dir / file_name
+            it += 1
+
+        if not target_file.exists():
+            # Search environment variable paths, including Conda
+            for env_var in ENV_VARS:
+                env_path = Path(os.environ.get(env_var, ""))
+                if env_path and env_path.exists():
+                    try:
+                        potential_path = "/".join(env_path.parts[:-3]) / PathLike(file_name)
+                        if potential_path.exists():
+                            found_paths.append(potential_path)
+                    except IndexError:
+                        logging.warning(f"Environment variable {env_var} does not have enough parent directories.")
+
+            if len(found_paths) == 1:
+                target_file = found_paths[0]
+            elif len(found_paths) > 1:
+                console.print(f"Multiple locations found for {file_name}:")
+                for idx, path in enumerate(found_paths, 1):
+                    console.print(f"{idx}. {path}")
+                choice = click.prompt("Select the file path by number", type=int)
+                if 1 <= choice <= len(found_paths):
+                    target_file = found_paths[choice - 1]
+                else:
+                    raise FileNotFoundError(f"Invalid selection for {file_name}.")
+            else:
+                raise FileNotFoundError(
+                    f"'{file_name}' not found within {max_levels} parent directories or environment paths."
+                )
+
+        return target_file
+
+
+def get_ordered_environs() -> List[str]:
+    """Get the ordered list of virtual environments active in the current session."""
+    envs = os.environ
+    env_keys = [key for key in envs if any(key.startswith(envvar) for envvar in ENV_VARS)]
+    # Prioritize Conda environments first
+    env_keys.sort(key=lambda x: (x.startswith("CONDA_PREFIX"), envs[x]), reverse=True)
+    return env_keys
+
+def find_toml_file(path: PathType = "pyproject.toml") -> Path:
     """Find the pyproject.toml file in the current directory or parent directories."""
     path = path or "pyproject.toml"
     toml_file = search_parents_for_file(path, max_levels=3)
@@ -557,36 +640,70 @@ def find_toml_file(path: str | Path = "pyproject.toml") -> Path:
         raise FileNotFoundError("pyproject.toml file not found in current or parent directories.")
     return toml_file
 
-def get_requirements_packages(requirements="requirements.txt", as_set=True) -> set[str] | list[str]:
+@overload
+def get_requirements_packages(
+    requirements: PathType = "requirements.txt", astype: Literal["list"] = "list"
+) -> list[str]:...
+@overload
+def get_requirements_packages(requirements: PathType, astype: Literal["set"]) -> set[str]:...
+
+def get_requirements_packages(requirements: PathType = "requirements.txt", astype: Literal["set", "list"] = "list"):
     """Get the list of packages from the requirements.txt file.
 
     Args:
         requirements (str): Path to the requirements file. Defaults to "requirements.txt".
-        as_set (bool): Whether to return the result as a set. Defaults to True.
+        astype (bool): Whether to return the result as a set. Defaults to True.
 
     Returns:
         set or list: Packages listed in the requirements file.
     """
     requirements_path = search_parents_for_file(requirements, max_levels=3)
     if not requirements_path.exists():
-        click.echo(
-            f"\033[93mWarning: Requirements file '{requirements}' not found. Creating an empty one.\033[0m"
-        )
+        click.secho(f"Warning: Requirements file '{requirements}' not found. Creating an empty one.", color="yellow")
         requirements_path.touch()
-        return set() if as_set else []
+        return set() if astype == "set" else []
     lines = requirements_path.read_text().splitlines()
-    lines = [
-        line.strip()
-        for line in lines
-        if line.strip() and not line.strip().startswith("#")
-    ]
-    return set(lines) if as_set else lines
+    lines = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+    
+    return set(lines) if astype == "set" else lines
+
+def check_gh(package):
+        with suppress.logignore():
+            return package.startswith("git+")
+def check_editable(package):
+        with suppress.logignore():
+            
+            return package.split("")
+def check_requirements_file(requirements="requirements.txt", prompt=False) -> None:
+    """Check if the requirements file exists and create it if not."""
+    pkgs = []
+    for package in get_requirements_packages(requirements):
+        if prompt and getbase(package) not in parse_dict(run(f"pip show {getbase(package)}", show=False))\
+            and Confirm.ask(
+            f"{package} not found. Install?"
+        ):
+            from mbpy.cli import _install_command
+
+            _install_command(package, broken="repair")
+        pkgs.append(package)
+        if check_gh(package) or check_editable(package):
+            pkgs.append(package)
+            continue
+        with suppress.logignore() as e:
+            getbase(package)
+            extra_pkgs = getextras(package)
+            version = getversion(package)
+            pkgs.append(pkg_str(getbase(package),version, extra_pkgs))
+        if e:
+            logging.warning(f"Skipped {package} as it was incorrectly")
+
+def parse_dict(data: str, kv_separator: str = "=", comment_marker="#") -> dict:
+    """Parse a string into a dictionary."""
+    pattern = rf"(\w+){kv_separator}(\w+)"
+    return dict(re_iter(pattern, data))
 
 
 def main() -> None:
-    get_package_info("aider-chat")
+    get_package_info("pydub")
 
 
-if __name__ == "__main__":
-    main()
-# Copy the entire contents of the root pypip.py file here

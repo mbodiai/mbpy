@@ -44,3 +44,8 @@ class Decomposer(Minimalist):
         
         Ensure that the subtasks are exhaustive and non-overlapping."""
         return super().act(prompt, context)
+      
+      
+def main():
+  from rich.prompt import Prompt
+  from rich.protocol import Protocol

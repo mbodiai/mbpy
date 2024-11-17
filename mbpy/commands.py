@@ -1,28 +1,20 @@
 from __future__ import annotations
 
-import importlib
-import inspect
-import io
-import json
 import logging
-import os
-import random
 import shlex
 import signal
 import socket
 import struct
-import sys
-from contextlib import contextmanager
-from functools import partial, wraps
+from functools import partial
 from pathlib import Path
-from threading import Thread
-from time import time
-from typing import Callable, Generic, Iterator, TypeVar
+import traceback
+from typing import Iterator, cast
 
 import rich_click as click
 
-from mbpy.utils import IOCTL, NewCommandContext, PtyCommand, console, pexpect_module
-
+from mbpy.utils import poexpect
+from mbpy.utils.cmd_utils import IOCTL, NewCommandContext, PtyCommand, console, pexpect_module
+from mbpy.context import suppress
 
 @click.command()
 @click.argument("command", nargs=-1, required=True, type=click.UNPROCESSED)
@@ -45,7 +37,13 @@ def cli(command, cwd, timeout, no_show, *,interactive: bool = False, debug: bool
             
     else:
         logging.debug(f"{command=}")
-        run(command, cwd=cwd, timeout=timeout, show=not no_show)
+        with suppress(Exception) as e:
+            for line in run_command(command, cwd=cwd, timeout=timeout, show=not no_show).streamlines():
+                console.print(line)
+        if e:
+            print(e)
+
+
 
 
 def run_command_background(
@@ -54,7 +52,7 @@ def run_command_background(
     timeout: int = 10,
     debug=False,
 ):
-    from mbpy.utils import PtyCommand
+    from mbpy.utils.cmd_utils import PtyCommand
     exec_, *args = command if isinstance(command, list) else command.split()
     proc = PtyCommand(exec_, args, cwd=cwd, timeout=timeout, echo=False)
     return proc.inbackground()
@@ -71,7 +69,8 @@ def run_command_remote(
 ):
 
     exec_, *args = command if isinstance(command, list) else command.split()
-    return NewCommandContext[pexpect_module.socket_pexpect.SocketSpawn](
+    socket_spawn = cast(poexpect.SocketSpawn, pexpect_module.socket_pexpect.SocketSpawn)
+    return NewCommandContext[socket_spawn](
         exec_,
         args,
         timeout=timeout,

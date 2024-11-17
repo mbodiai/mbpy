@@ -1,6 +1,7 @@
+import inspect
 import re
-import traceback
 from collections import defaultdict, namedtuple
+from inspect import Parameter
 from pathlib import Path
 from types import FunctionType
 from typing import (
@@ -11,7 +12,6 @@ from typing import (
     Generic,
     List,
     NamedTuple,
-    Optional,
     Self,
     Tuple,
     Type,
@@ -19,28 +19,24 @@ from typing import (
     TypeVar,
     Union,
     dataclass_transform,
-    get_args,
 )
 
 from openai import OpenAI
 from openai.types.shared.function_definition import FunctionDefinition
 from openai.types.shared.response_format_json_schema import JSONSchema, ResponseFormatJSONSchema
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, create_model
-from pydantic.fields import ModelPrivateAttr
-from pydantic.json_schema import GenerateJsonSchema, _get_all_json_refs, _get_typed_dict_config, _make_json_hashable
+from pydantic.fields import FieldInfo, ModelPrivateAttr
+from pydantic.json_schema import (
+    GenerateJsonSchema,
+    JsonSchemaValue,
+)
 from rich import inspect as rich_inspect
 from rich.console import Console
 from typing_extensions import TypedDict, TypeVarTuple
 
-import inspect
-from inspect import Parameter
-from pydantic.fields import FieldInfo
-from pydantic.json_schema import JsonSchemaValue
-
 openai = OpenAI()
 console = Console()
 
-import re
 
 def uncamelcase(name: str) -> str:
     """Convert a camel case string into separate words.
@@ -120,9 +116,11 @@ else:
     ParentT = type(defaultdict)
 
 @dataclass_transform()
-class mbdict(ParentT, Generic[ T, *Us, V]):
+class mbdict(ParentT, Generic[ T, *Us, V]): # type: ignore # noqa
+    __slots__ = ("__dataclass_fields__", "__type_adapter__")
 
-    
+    __getitem__ = defaultdict.__getitem__
+    __setitem__ = defaultdict.__setitem__
     __pydantic_config__: ClassVar[ConfigDict] = {"arbitrary_types_allowed": True, "defer_build": True, "from_attributes": True}
     def __getattribute__(self, name: str):
         if not name.startswith("_"):
@@ -134,22 +132,18 @@ class mbdict(ParentT, Generic[ T, *Us, V]):
         return super().__setattr__(name, value)
 
 
-class SampleDict(defaultdict,metaclass=mbdict):
-    a: int 
-    b: str
 
-a = SampleDict()
 
 class Derived(SampleDict):
     c: float
 
 from typing import Literal, ParamSpec, ParamSpecKwargs, Protocol, Type, TypeVar
 
-from numpy import ndarray
 
-P = ParamSpec("P")
-class HasAnnotations(Protocol[P]):
-    __annotations__: ParamSpecKwargs
+
+
+class HasAnnotations(Protocol[T]):
+    __annotations__: Dict[str,type]
 class DataclassType(HasAnnotations[P]):
     __dataclass_fields__: ParamSpecKwargs = __annotations__
 
@@ -203,6 +197,33 @@ class SampleDeque(list):...
 M = TypeVar("M", bound=Type[BaseModel] | FunctionType | Any)
 
 class Tool(Dict, Generic[M]):
+    """A tool that can be used to interact with the OpenAI API.
+
+    ```python
+    resp = openai.beta.chat.completions.stream(
+    model="gpt-4o-realtime-preview-2024-10-01",
+    messages=[
+        {
+            "role": "system",
+            "content": Tool[accept_or_reject].prompt(),
+        }
+    ],
+    tool_choice="required",
+    tools=[Tool[accept_or_reject].define(strict=True)],
+    )
+    rich_inspect(resp.choices[0].message.tool_calls[0].function.arguments)
+    tc = Tool[accept_or_reject].call(resp.choices[0].message.tool_calls[0].function.arguments)
+    rich_inspect(tc).
+
+
+    class Tool(BaseModel):
+    type: str = "function"
+    function: Dict[str, T] = Field(default_factory=dict)
+
+    args = response.choices[0].message.tool_calls[0].function.arguments
+    accepted = AcceptOrReject.model_validate_json(args)
+    ```
+    """
     model: ClassVar[Type[M] | None] = None
     _schema_generator: ClassVar[Type[GenerateJsonSchema]] = GenerateJsonSchema
     arguments: Dict[str, M] | None = None
@@ -307,29 +328,6 @@ class Tool(Dict, Generic[M]):
 
 
                 
-# resp = openai.beta.chat.completions.stream(
-#     model="gpt-4o-realtime-preview-2024-10-01",
-#     messages=[
-#         {
-#             "role": "system",
-#             "content": Tool[accept_or_reject].prompt(),
-#         }
-#     ],
-#     tool_choice="required",
-#     tools=[Tool[accept_or_reject].define(strict=True)],
-# )
-# rich_inspect(resp.choices[0].message.tool_calls[0].function.arguments)
-# tc = Tool[accept_or_reject].call(resp.choices[0].message.tool_calls[0].function.arguments)
-# rich_inspect(tc)
-
-
-# class Tool(BaseModel):
-#     type: str = "function"
-#     function: Dict[str, T] = Field(default_factory=dict)
-
-# args = response.choices[0].message.tool_calls[0].function.arguments
-# accepted = AcceptOrReject.model_validate_json(args)
-
 
 class Prover:
     """An agent that uses an interactive theorem prover to generate proofs."""
@@ -372,35 +370,9 @@ class Prover:
             # Add the model output to the context
             self._context.append({"role": "assistant", "content": model_output})
             return act(Tool[NaturalCoqProof], self._context)
-            try:
-                # Split on code:
-                # split = model_output.split("```\n")
-                # natural = split[0]
-                # coq = split[1]
 
-                match = re.search(r"```(?:\w+\n)?(.*?)```", model_output, re.DOTALL)
-                if not match:
-                    raise ValueError("The model output should contain exactly one code block.")
-                natural = model_output.split("```")[0].strip()
-                coq = match.group(1).strip()
 
-                break
-            except (IndexError, ValueError, AttributeError) as e:
-                # Step again, but remind the model to use the format.
-                traceback.print_exc()
-                self._context.append(
-                    {
-                        "role": "user",
-                        "content": "You caused an error: "
-                        + traceback.format_exc()
-                        + " Please use the specified format. Do not leave out any of the sections. Do not add any additional output.",
-                    }
-                )
-                continue
 
-        return natural, coq
-
-from openai.types.beta.assistant_response_format_option_param import AssistantResponseFormatOptionParam
 async def aact_structured(tool: Type[Tool], system_prompt: str | None = None, *,structured_type: Literal["response_format", "tool_call"] = "response_format") -> str:
 
         async with aopenai.beta.chat.completions.stream(
@@ -513,9 +485,10 @@ if __name__ =="__main__":
 
     # rp = Tool[accept_or_reject].call(resp.choices[0].message.content)
     # rich_inspect(rp)
+    import asyncio
+
     from openai import AsyncOpenAI
     from uvloop import install
-    import asyncio
     install()
     aopenai = AsyncOpenAI()
     tc = None

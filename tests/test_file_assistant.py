@@ -4,7 +4,7 @@ import asyncio
 import tempfile
 import shutil
 from pathlib import Path
-from mbpy.file_assistant import HierarchicalLanguageAgent
+from mbpy.assistant.file_assistant import HierarchicalLanguageAgent
 
 class TestHierarchicalLanguageAgent(unittest.TestCase):
     def setUp(self):

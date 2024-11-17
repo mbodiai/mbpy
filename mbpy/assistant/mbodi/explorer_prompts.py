@@ -34,4 +34,4 @@ You are a helpful assistant for performing research and gathering information be
 You have the following capabilities that can be used to assist you in your tasks. To use one, you must
 respond in json format or a list of json formatted objects.
 
-TOOLS:{TOOLS}
+TOOLS:{TOOLS}"""

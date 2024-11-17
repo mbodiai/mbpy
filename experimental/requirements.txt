@@ -1,0 +1,5 @@
+hatch
+pytest
+pytest-cov
+rich==13.9.4
+sphinx

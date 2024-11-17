@@ -1,10 +1,24 @@
 import ast
-import contextlib
 import inspect
+import traceback
+from functools import partial
+from importlib import import_module
+from itertools import filterfalse
 from pathlib import Path
-from typing import Literal, Self
+from types import ModuleType
+from typing import Any, Callable, Generator, Literal, Type, TypeVar, Union, overload
 
 import tomlkit
+from click import types as t
+from rich.console import Console
+from rich.prompt import Confirm
+from rich.table import Table
+from tomlkit.exceptions import ParseError
+
+from mbpy import context
+from mbpy.graph import TreeNode as Node
+from mbpy.utils.collections import PathLike
+from mbpy.utils.makesphinx import setup_sphinx_docs
 
 DEFAULT_PYTHON = "3.11"
 getcwd = Path.cwd
@@ -172,9 +186,20 @@ def mmkdir(path: str | Path):
         (Path(path) / ".gitkeep").touch()
 
 
-def mmtouch(
+def maybetouch(
     path: str | Path, content: str | None = None, existing_content: Literal["merge", "replace", "forbid", "leave"] = "merge"
 ):
+    """Create a file if it doesn't exist, optionally with content.
+    
+    Args:
+        path (str | Path): The path to the file.
+        content (str | None): The content to write to the file.
+        existing_content (Literal["merge", "replace", "forbid", "leave"]): How to handle existing content.
+            - "merge": Append the new content to the existing content.
+            - "replace": Overwrite the existing content with the new content.
+            - "forbid": Raise an error if the file is not empty.
+            - "leave": Do nothing if the file is not empty.
+    """
     Path(path).touch(exist_ok=True)
     if content and existing_content == "leave":
         return
@@ -188,6 +213,41 @@ def mmtouch(
         Path(path).write_text(content)
     Path(path).write_text(content)
 
+T = TypeVar("T")
+
+def walk_bfs(node: T, max_depth=0, depth=0) -> Generator[T, None, None]:
+    queue = [node]
+    walk_children_to_depth = partial(walk, max_depth=max_depth, depth=depth+1)
+    if max_depth > 0 and depth > max_depth:
+        return
+    yield node
+    from mbpy.graph import TreeNode
+    if isinstance(node, str | Path) and Path(str(node)).exists():
+        yield from map(walk_children_to_depth,Path(node).iterdir())
+
+    if isinstance(node, Node):
+        yield from map(node.children, walk_children_to_depth)
+    if isinstance(node, dict):
+        makenode = partial(Node, parent=node)
+        yield from  map(walk_children_to_depth(map(makenode, node.items())))
+    if isinstance(node, ModuleType | Type):
+        yield from map(walk_children_to_depth, node.__dict__.items())
+    with context.suppress(Exception) as e :
+        if isinstance(node, str)  and (mods := ast.parse(node)):
+            yield from  map(walk_children_to_depth, mods)
+    with context.suppress(Exception) as e:
+        makenode = partial(Node, parent=node,name= node.__name__)
+        if mod := import_module(node):
+            yield from map(walk_children_to_depth, map(makenode, mod.__dict__.items()))
+    with context.suppress(Exception) as e:
+        if etree := TreeNode(node):
+            yield from map(walk_children_to_depth, etree.children)
+    return False
+
+def walk(node: T, ignore_pred: str | Callable[[T], bool] = IGNORE_FILES, max_depth=-1, depth=0) -> list[T]:
+    yield from filterfalse(ignore_pred, walk_bfs(node, depth=depth, max_depth=max_depth))
+
+            
 
 def create_project(
     project_name: str,
@@ -197,8 +257,7 @@ def create_project(
     python_version=DEFAULT_PYTHON,
     *,
     add_cli=False,
-    doc_type="sphinx",
-    docstrings: dict | None = None,
+    autodoc="sphinx",
     project_root: Path | None = None,
     prompt: str | None = None,
 ) -> Path:
@@ -206,17 +265,16 @@ def create_project(
     if project_root is None:
         project_root = Path.cwd()
     project_path = project_root
-
     # Create project structure
     src_dir = project_path / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
-    mmtouch(src_dir / "__init__.py", INIT_PY)
-    mmtouch(
+    maybetouch(src_dir / "__init__.py", INIT_PY)
+    maybetouch(
         src_dir / "__about__.py",
         f"__version__ = '0.0.1'\n__author__ = '{author}'\n__description__ = '{description}'",
         "replace",
     )
-    mmtouch(project_path / "README.md", f"# {project_name}\n\n{description}", "leave")
+    maybetouch(project_path / "README.md", f"# {project_name}\n\n{description}", "leave")
     # Create pyproject.toml
     pyproject_path = project_path / "pyproject.toml"
     existing_content = None
@@ -236,19 +294,22 @@ def create_project(
     pyproject_path.write_text(pyproject_content)
 
     # Setup documentation
-    setup_documentation(project_path, project_name, author, description, doc_type, docstrings or {})
+    setup_documentation(project_name=project_name, author=author, description=description, autodoc=autodoc, project_root=project_root)
 
     if prompt:
-        from mbodied.agents.language import LanguageAgent
+        with context.suppress(Exception) as e:
+          from mbodied.language.agents import LanguageAgent
+        if e.exc:
+          raise ImportError("Please install `mbodied` ```bash $ pip install mbodied``` to use the prompt feature.")
 
         from mbpy.commands import run
 
         tree_structure = run(f"tree -L 2 -I {IGNORE_FILES}")
         agent = LanguageAgent()
         code = agent.act(prompt, context=str(dict(locals())) + "The directory structure is: " + run("tree"))
-        try:
+        with context.suppress(Exception) as e:
             exec(code)
-        except Exception as e:
+        if e.exc:
             import traceback
 
             code = agent.act("try again and avoid the following error: " + traceback.format_exc())
@@ -265,219 +326,96 @@ def main():
 if __name__ == "__main__":
     main()
 """ + ""
-        (src_dir / "cli.py").write_text(cli_content)
-
-    return project_path  # Return the project path
+    return maybetouch(src_dir / "cli.py", cli_content, "leave")
 
 
-def setup_documentation(project_root, project_name, author, description, doc_type="mkdocs", docstrings=None) -> None:
+
+console = Console()
+def find_readme(pu: Path = None, pd: Path = None, search_window=5) -> Path | None:
+    for _ in range(search_window):
+        if pu and (pu / "README.md").exists():
+            return pu
+        if pd and (pd / "README.md").exists():
+            return pd
+        if pu:
+            pu = pu.parent
+        if pd:
+            for sub in pd.iterdir():
+                if sub.is_dir():
+                    found = find_readme(pu, sub)
+                    if found:
+                        return found
+            pd = pd.parent
+    return None
+def find_pyproject(pu: Path = None, pd: Path = None,search_window=5) -> Path | None:
+    for _ in range(search_window):
+        if pu and (pu / "pyproject.toml").exists():
+            return pu
+        if pd and (pd / "pyproject.toml").exists():
+            return pd
+        if pu:
+            pu = pu.parent
+        if pd:
+            for sub in pd.iterdir():
+                if sub.is_dir():
+                    found = find_pyproject(pu, sub)
+                    if found:
+                        return found
+            pd = pd.parent
+    return None
+
+
+def setup_documentation(
+    project_name: str,
+    author: str,
+    description: str,
+    autodoc: str = "sphinx",
+    project_root: PathLike | None = None,
+    search_window: int = 5
+) -> None:
     """Set up documentation for a project."""
-    project_root = Path(project_root)  # Convert to Path object if it's a string
+    if project_root is None:
+        project_root = Path.cwd()
+        pup = project_root
+        pdown = project_root
+
+    project_root = project_root or find_pyproject(pup, pdown)
+    if not project_root:
+        raise FileNotFoundError(f"Could not find project root {search_window} directories up or down.")
+    console.print(f"Using project root: {project_root}...", style="bold light_goldenrod2")
     docs_dir = project_root / "docs"
     docs_dir.mkdir(exist_ok=True, parents=True)
-
-    if doc_type == "sphinx":
-        setup_sphinx_docs(
-            docs_dir,
-            project_name,
-            author,
-            description,
-            docstrings or extract_docstrings(project_root),
-        )
-    elif doc_type == "mkdocs":
+    if docs_dir.exists() and len(list(docs_dir.iterdir())) > 0:
+        resp = Confirm.ask(console=console, prompt="Documentation directory is not empty. Do you want to continue? (y/n)")
+        if not resp:
+            console.print("Exiting...", style="bold blue")
+    if autodoc == "sphinx":
+        setup_sphinx_docs(docs_dir=docs_dir, project_name=project_name, author=author, description=description, source_dir=project_root)
+    elif autodoc == "mkdocs":
         setup_mkdocs(
             docs_dir,
             project_name,
             author,
             description,
-            docstrings or extract_docstrings(project_root),
+            extract_docstrings(project_root),
         )
     else:
-        msg = "Invalid doc_type. Choose 'sphinx' or 'mkdocs'."
-        raise ValueError(msg)
-
-
-def setup_sphinx_docs(docs_dir, project_name, author, description, docstrings=None) -> None:
-    """Set up Sphinx documentation."""
-    if not docstrings:
-        docstrings = extract_docstrings(Path.cwd())
-
-    from mbpy.static import SPHINX_API, SPHINX_CONF, SPHINX_INDEX, SPHINX_MAKEFILE
-
-    docs_dir = Path(str(docs_dir)) if docs_dir else Path("docs")
-    docs_dir.mkdir(exist_ok=True)
-
-    # Create index.rst
-    (docs_dir / "index.rst").write_text(
-        SPHINX_INDEX.format(project_name=project_name, description=description, author=author)
-    )
-
-    # Create conf.py
-    (docs_dir / "conf.py").write_text(SPHINX_CONF.format(project_name=project_name, author=author))
-
-    # Create Makefile
-    (docs_dir / "Makefile").write_text(SPHINX_MAKEFILE)
-
-    # Create api.rst
-    (docs_dir / "api.rst").write_text(SPHINX_API.format(project_name=project_name))
-
-
-def get_function_signature(node):
-    """Construct a function signature from an AST FunctionDef node."""
-    args = []
-    defaults = [None] * (len(node.args.args) - len(node.args.defaults)) + node.args.defaults
-
-    for arg, default in zip(node.args.args, defaults, strict=False):
-        arg_name = arg.arg
-        if arg.annotation:
-            arg_type = ast.unparse(arg.annotation)
-            arg_str = f"{arg_name}: {arg_type}"
-        else:
-            arg_str = arg_name
-
-        if default:
-            default_value = ast.unparse(default)
-            arg_str += f" = {default_value}"
-
-        args.append(arg_str)
-
-    if node.args.vararg:
-        args.append(f"*{node.args.vararg.arg}")
-
-    for kwarg, default in zip(node.args.kwonlyargs, node.args.kw_defaults, strict=False):
-        kwarg_name = kwarg.arg
-        if kwarg.annotation:
-            kwarg_type = ast.unparse(kwarg.annotation)
-            kwarg_str = f"{kwarg_name}: {kwarg_type}"
-        else:
-            kwarg_str = kwarg_name
-
-        if default:
-            default_value = ast.unparse(default)
-            kwarg_str += f" = {default_value}"
-
-        args.append(kwarg_str)
-
-    if node.args.kwarg:
-        args.append(f"**{node.args.kwarg.arg}")
-
-    return f"{node.name}({', '.join(args)})"
-
-class suppress(contextlib.AbstractContextManager):
-    """Context manager to suppress specified exceptions
-
-    After the exception is suppressed, execution proceeds with the next
-    statement following the with statement.
-
-         with suppress(FileNotFoundError):
-             os.remove(somefile)
-         # Execution still resumes here if the file was already removed
-    """
-
-    def __init__(self, *exceptions):
-        self._exceptions = exceptions
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(self, exctype, excinst, exctb):
-        # Unlike isinstance and issubclass, CPython exception handling
-        # currently only looks at the concrete type hierarchy (ignoring
-        # the instance and subclass checking hooks). While Guido considers
-        # that a bug rather than a feature, it's a fairly hard one to fix
-        # due to various internal implementation details. suppress provides
-        # the simpler issubclass based semantics, rather than trying to
-        # exactly reproduce the limitations of the CPython interpreter.
-        #
-        # See http://bugs.python.org/issue12029 for more details
-        return exctype is not None and issubclass(exctype, self._exceptions)
-
-
-def generate_rst_for_module(module_path, output_dir, package_name=""):
-    """Generate an .rst file for a Python module using Sphinx autodoc directives.
-
-    Parameters:
-        module_path (str): Path to the Python file.
-        output_dir (str): Directory to output the .rst files.
-        package_name (str): Optional package prefix for module paths.
-    """
-    with open(module_path, 'r', encoding='utf-8') as file:
-        module_content = file.read()
-
-    # Parse the module content
-    module_tree = ast.parse(module_content)
-    module_name = os.path.splitext(os.path.basename(module_path))[0]
-    full_module_name = f"{package_name}.{module_name}" if package_name else module_name
-
-    # Generate RST content
-    rst_content = f"{module_name}\n{'=' * len(module_name)}\n\n"
-    rst_content += f".. automodule:: {full_module_name}\n    :members:\n    :undoc-members:\n\n"
-
-    # Add classes and functions to the .rst content
-    for node in module_tree.body:
-        if isinstance(node, ast.ClassDef):
-            rst_content += f".. autoclass:: {full_module_name}.{node.name}\n    :members:\n    :undoc-members:\n\n"
-        elif isinstance(node, ast.FunctionDef):
-            rst_content += f".. autofunction:: {full_module_name}.{node.name}\n\n"
-
-    # Write to .rst file
-    output_path = os.path.join(output_dir, f"{module_name}.rst")
-    os.makedirs(output_dir, exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as rst_file:
-        rst_file.write(rst_content)
-    print(f"Generated {output_path}")
-
-def generate_rst_for_project(source_dir, output_dir, package_name=""):
-    """
-    Recursively generate .rst files for each Python module in a project.
-
-    Parameters:
-        source_dir (str): Root directory of the source code.
-        output_dir (str): Directory to output the .rst files.
-        package_name (str): Optional package prefix for module paths.
-    """
-    for root, _, files in os.walk(source_dir):
-        for file in files:
-            if file.endswith(".py") and not file.startswith("__init__"):
-                module_path = os.path.join(root, file)
-                # Adjust package_name based on subdirectories
-                relative_path = os.path.relpath(root, source_dir).replace(os.sep, ".")
-                full_package_name = f"{package_name}.{relative_path}" if package_name else relative_path
-                generate_rst_for_module(module_path, output_dir, package_name=full_package_name.strip("."))
-
-def generate_index_rst(output_dir: str, project_name: str | None = None):
-    """Generate a master index.rst file that links to all generated .rst files.
-
-    Parameters:
-        output_dir (str): Directory where .rst files are stored.
-        project_name (str): Title for the main index.
-    """
-    index_content = f"{project_name}\n{'=' * len(project_name)}\n\n"
-    index_content += "Contents:\n\n.. toctree::\n    :maxdepth: 2\n\n"
-
-    # Add each .rst file to the index
-    for file in sorted(os.listdir(output_dir)):
-        if file.endswith(".rst") and file != "index.rst":
-            index_content += f"    {file[:-4]}\n"
-
-    # Write index.rst
-    index_path = os.path.join(output_dir, "index.rst")
-    with open(index_path, 'w', encoding='utf-8') as index_file:
-        index_file.write(index_content)
-    print(f"Generated {index_path}")
-
+        raise ValueError("Invalid doc_type. Choose 'sphinx' or 'mkdocs'.")
 
 def extract_docstrings(project_path) -> dict[str, dict[str, str]]:
     project_path = Path(project_path)
     docstrings = {}
 
-    for py_file in project_path.rglob("*.py"):
-        with py_file.open() as f:
-            with contextlib.suppress(SyntaxError):
+    for py_file in project_path.rglob(f"*.py | !{IGNORE_FILES} | !*//.*"):
+        with Path(py_file).open() as f:
+            tree: Any = None
+            with context.suppress.logignore(SyntaxError,UnicodeError,FileNotFoundError) as e:
                 tree = ast.parse(f.read(), filename=py_file)
+            if e:
+                continue
             for node in ast.walk(tree):
                 if isinstance(node, ast.FunctionDef | ast.ClassDef | ast.Module):
-                    name = node.name if hasattr(node, "name") else "__init__"
+                    name = node.name if not isinstance(node, ModuleType | ast.Module) else node.__name__
                     signature = ""
                     if isinstance(node, ast.FunctionDef):
                         signature = get_function_signature(node)
@@ -520,7 +458,7 @@ plugins:
         python:
           rendering:
             show_source: true
-"""
+""" + ""
     docs_dir = Path(str(docs_dir)) if docs_dir else Path("docs")
     root = Path(str(docs_dir)).parent
     (root / "mkdocs.yml").write_text(mkdocs_content)
@@ -548,7 +486,6 @@ from {module_name} import {obj_name}
 
 ---
 """
-
             api_content += obj_api.format(module_name=module_name, obj_name=obj_name, docstring=docstring)
 
     (docs_dir / "api.md").write_text(api_content)
@@ -567,7 +504,7 @@ def create_pyproject_toml(
 ) -> str:
     try:
         pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
-    except tomlkit.exceptions.ParseError:
+    except ParseError:
         pyproject = tomlkit.document()
 
     # Build system
