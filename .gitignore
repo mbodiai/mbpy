@@ -10,3 +10,7 @@ venv/
 
 .mbodi*
 .env
+grep-ast/
+experimental/
+docs/
+datamodel-code-generator

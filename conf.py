@@ -2,8 +2,9 @@
 # Configuration file for the Sphinx documentation builder.
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, Path('..'))
 project = 'mbpy'
 copyright = '2024, mbodiai'
 author = 'mbodiai'

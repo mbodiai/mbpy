@@ -1,2 +1,2 @@
-python mbpy/file_assistant.py
-python /Users/sebastianperalta/simply/corp/projects/mbpy/agent_interaction.py
+mbodi --auto-test --yes --lint="python -m flake8 --select F --ignore E501"\
+    --test-cmd="pytest tests/test_type_utils.py"

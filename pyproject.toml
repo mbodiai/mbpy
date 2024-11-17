@@ -1,126 +1,143 @@
 [project]
-name = "mbpy"
-version = "2.0.15"
-description = ""
-readme = "README.md"
-requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
 dependencies = [
-    'aiofiles',
-    'aiofiles>=24.1.0',
-    'diskcache>=5.6.3',
-    'grep-ast==0.2.0',
-    'more-itertools>=10.5.0',
+    'more-itertools',
     'mrender',
     'networkx>=3.4.2',
+    'notion-client>=2.2.1',
+    'numpy',
     'pexpect>=4.9.0; sys_platform != "win32"',
+    'pydantic>=2.9',
     'python-dotenv>=1.0.1',
-    'requests>=2.26.0',
-    'rich-click>=1.8.3',
-    'tomlkit>=0.12.0',
-    'toolz>=1.0.0',
-    'uvloop>=0.21.0',
+    'tomlkit',
 ]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3 :: Only",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
+description = ""
+name = "mbpy"
+readme = "README.md"
+requires-python = ">=3.11"
+version = "0.0.1"
 
 [project.scripts]
-mbpy = "mbpy.cli:main"
+mb = "mbpy.cli:cli"
 mbpip = "mbpy.cli:cli"
+mbpy = "mbpy.cli:main"
 mpip = "mbpy.cli:cli"
 mrun = "mbpy.commands:cli"
-mb = "mbpy.cli:cli"
 [project.optional-dependencies]
-sync = [
-    "notion-client>=2.2.1",
+extras = [
+  'uvloop>=0.21.0',
+  'aiofiles==24.1.0',
+  'diskcache>=5.6.3',
+  'lxml',
+  'more-itertools>=10.5.0',
+  'requests>=2.26.0',
+  'rich-click>=1.8.3',
+  'tomlkit>=0.12.0',
 ]
 mkdocs = [
-    "mkdocs>=1.6.1",
+  "mkdocs>=1.6.1",
+  'mkdocs-material>=9.5.42',
+  'mkdocs>=1.6.1',
+  'mkdocstrings>=0.24.3',
 ]
 sphinx = [
-    "sphinx>=6.2.1",
+  "sphinx>=6.2.1",
+  'sphinx-autodoc2',
+  'furo',
+  "sphinx-tippy>=0.4.3",
+  "sphinx>=6.2.1",
+  "sphinx-autodoc2>=0.5.0",
 ]
-docs = [
-    'mkdocs-material>=9.5.42',
-    'mkdocs>=1.6.1',
-    'mkdocstrings>=0.24.3',
-    "fastui>=0.7.0",
-    "sphinx-tippy>=0.4.3",
-    "myst-parser>=0.15.1",
-    "rst-to-myst[sphinx]>=0.4.0",
-    "markdown-it-py>=2.2.0",
-    "rst-to-myst>=0.4.0",
-    "recommonmark>=0.7.1",
-    "sphinx>=6.2.1",
-    "sphinx-autodoc2>=0.5.0",
-]
-all = [
-    "aiohttp>=3.10.10",
-]
-dev = []
-extra = [
-    "gradio-client>=1.4.2",
-    "gymnasium>=1.0.0",
-    "jsonref>=1.1.0",
-]
-ai = [
-    "openai>=1.53.0",
-]
+sync = ["notion-client>=2.2.1", "slack_sdk>=3.33.3"]
 
+ai = [
+  "openai>=1.53.0",
+]
+all = ["slack_sdk>=3.33.3"]
+myst = [
+  "myst-parser>=0.15.1",
+  "rst-to-myst[sphinx]>=0.4.0",
+  "markdown-it-py>=2.2.0",
+  "rst-to-myst>=0.4.0",
+  "recommonmark>=0.7.1",
+]
 
 [[project.authors]]
 name = "mbodiai"
 [build-system]
-requires = ["hatchling"]
 build-backend = "hatchling.build"
+requires = ["hatchling", "hatch-build-scripts"]
 
 [tool.uv]
 dev-dependencies = [
-    "embdata",
-    "ipython>=8.29.0",
-    "mbpy",
-    "mypy>=1.11.2",
-    "openai>=1.52.0",
-    "pytest-cov>=5.0.0",
-    "pytest>=8.3.3",
-    "sympy>=1.13.1",
-    "twine>=5.1.1",
+  "ipython>=8.29.0",
+  "mbpy",
+  "minspect",
+  "mypy>=1.11.2",
+  "openai>=1.52.0",
+  "pytest-cov>=5.0.0",
+  "pytest>=8.3.3",
+  "sympy>=1.13.1",
+  "twine>=5.1.1",
 ]
 
 [tool.uv.sources]
-embdata = { path = "../embdata", editable = true }
-mrender = { path = "../mrender", editable = true }
-mbodi = { path = "../v1" }
-mbodied = { path = "../embodied-agents", editable = true }
+embdata = {workspace = true}
+mbodi = {workspace = true}
+mbodied = {workspace = true}
+minspect = {workspace = true}
+mrender = {workspace = true}
 
-
-# [tool.uv.sources]
-# mbodi = {path = "../v1"}
-# mrender = { path = "../mrender", editable = true }
-
-[tool.uv.workspace]
-members = ["../mrender", "../embdata", "../v1", "../embodied-agents"]
+# [tool.uv.workspace]
+# members = ["../embdata", "../mrender", "../mbodi", "../mbodied"]
 
 [tool.hatch.envs.default]
 dependencies = ["pytest", "pytest-cov"]
+
 [tool.ruff]
+fixable = ["ALL"]
+ignore = [
+  "D105",
+  "PGH004",
+  "D100",
+  "D101",
+  "D104",
+  "D106",
+  "ANN101",
+  "ANN102",
+  "ANN003",
+  "ANN204",
+  "UP009",
+  "B026",
+  "ANN001",
+  "ANN401",
+  "ANN202",
+  "D107",
+  "D102",
+  "D103",
+  "E731",
+  "UP006",
+  "UP035",
+  "ANN002",
+  "E741"
+]
 line-length = 120
 select = ["A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN", "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"]
-ignore = ["D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102", "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202", "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"]
-fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.format]
 docstring-code-format = true
-quote-style = "double"
 indent-style = "space"
-skip-magic-trailing-comma = false
 line-ending = "auto"
+quote-style = "double"
+skip-magic-trailing-comma = false
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -131,5 +148,10 @@ convention = "google"
 
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing"
-testpaths = ["tests"]
 markers = ["network: marks tests that require network access (deselect with '-m \"not network\"')"]
+testpaths = ["tests"]
+
+[tool.hatchling.build.hooks.build-scripts.scripts]
+artifacts = ["~/.local/bin/mbpy"]
+commands = ["chmod +x build.sh && ./build.sh"]
+out_dir = "out"
