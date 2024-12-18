@@ -8,7 +8,6 @@ from inspect import ismodule
 from json import JSONDecodeError
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Iterator
-from typing_extensions import Literal
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
@@ -19,9 +18,10 @@ from pip._internal.models.direct_url import (
 from pip._internal.utils.egg_link import egg_link_path_from_sys_path  # noqa: PLC2701
 from pip._vendor.packaging.version import Version
 from pydantic import PrivateAttr, computed_field  # noqa: PLC2701
+from typing_extensions import Literal
 
 from mbpy import DataModel
-from mbpy.utils.collections import cached_property
+from mbpy.utils.collect import cached_property
 
 if TYPE_CHECKING:
     from importlib.metadata import Distribution
@@ -52,7 +52,7 @@ class PipBaseDistributionAdapter(DataModel):
     _editable_project_location: str | None = PrivateAttr(None)
     
 
-    DIRECT_URL_METADATA_NAME = "direct_url.json"
+    DIRECT_URL_METADATA_NAME: ClassVar = "direct_url.json"
 
     def __init__(self, dist: Distribution) -> None:
         self._dist = dist

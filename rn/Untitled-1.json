@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dependency Table Schema",
+  "type": "object",
+  "properties": {
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/dependency"
+      }
+    },
+    "optional_dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/dependency"
+        }
+      }
+    }
+  },
+  "required": ["dependencies"],
+  "additionalProperties": false,
+  
+  "definitions": {
+    "dependency": {
+      "oneOf": [
+        { "$ref": "#/definitions/simple_dependency" },
+        { "$ref": "#/definitions/extras_dependency" },
+        { "$ref": "#/definitions/direct_reference_dependency" }
+      ]
+    },
+    
+    "simple_dependency": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+((==|!=|<=|>=|<|>|~=|===)[A-Za-z0-9_.-]+)?(; .+)?$",
+      "description": "A basic dependency with optional version specifier and environment marker."
+    },
+    
+    "extras_dependency": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+\\[([A-Za-z0-9_.-]+(,[A-Za-z0-9_.-]+)*)\\]((==|!=|<=|>=|<|>|~=|===)[A-Za-z0-9_.-]+)?(; .+)?$",
+      "description": "A dependency with extras, optional version specifier, and environment marker."
+    },
+    
+    "direct_reference_dependency": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+(@ ((git\\+https?|git|file)://[^@\\s]+)(@[^#\\s]+)?(#subdirectory=[A-Za-z0-9_/.-]+)?(; .+)?)$",
+      "description": "A dependency specified via direct reference including VCS, local files, or remote URLs with optional revision and subdirectory."
+    }
+  },
+  
+  "patternProperties": {},
+  "additionalProperties": false
+}

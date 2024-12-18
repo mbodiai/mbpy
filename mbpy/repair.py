@@ -3,15 +3,14 @@ import importlib
 import sys
 from itertools import chain
 from pathlib import Path
+from typing import TypeVar
 
-import rich_click as click
 from more_itertools import flatten, ilen, unique
 from rich.console import Console
-from typing_extensions import TypeVar
 
 from mbpy.commands import run
 from mbpy.graph import build_dependency_graph
-from mbpy.utils.collections import cat, equals, filterfalse, nonzero, takewhile
+from mbpy.utils.collect import cat, equals, filterfalse, nonzero, takewhile
 
 console = Console()
 
@@ -19,8 +18,8 @@ T = TypeVar("T")
 
 
 def main(
-    path_or_module: str| Path = ".", dry_run: bool = False
-):
+    path_or_module: str| Path = ".", dry_run: bool = False,
+) -> None:
     # Build dependency graph and adjacency list
     path = Path(str(path_or_module))
     if not path.exists():
@@ -49,10 +48,10 @@ def main(
             if (walk_broken_options(imp,dry_run)):
                 console.print(f"{', '.join(file_paths)} are no longer broken by {imp}.", style="light_sea_green")
                 remaining_broken.update(
-                    nonzero({k: v - 1 for k, v in remaining_broken.items() if k in file_paths} or {imp: 0})
+                    nonzero({k: v - 1 for k, v in remaining_broken.items() if k in file_paths} or {imp: 0}),
                 )
 
-def walk_broken_options(imp, dry_run):
+def walk_broken_options(imp, dry_run) -> bool:
         modname = imp.split(".")[0] if len(imp.split(".")) > 1 else imp
         console.print(f"\nModule: {modname}")
         from mbpy.mpip import PackageInfo, find_and_sort

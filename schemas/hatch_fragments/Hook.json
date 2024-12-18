@@ -1,0 +1,54 @@
+{
+  "title": "Build hook",
+  "type": "object",
+  "properties": {
+    "dependencies": {
+      "title": "Dependencies",
+      "description": "Additional dependencies installed in the build environment",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#dependencies_1"
+        }
+      },
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "require-runtime-dependencies": {
+      "title": "Require runtime dependencies",
+      "description": "Whether to install the project\u2019s runtime dependencies",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#dependencies_1"
+        }
+      },
+      "type": "boolean",
+      "default": false
+    },
+    "require-runtime-features": {
+      "title": "Required runtime features",
+      "description": "A list of the project\u2019s runtime features to install",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#dependencies_1"
+        }
+      },
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "enable-by-default": {
+      "title": "Conditional execution",
+      "description": "Whether to enable current hook (disable to control activation using environment variables)",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#conditional-execution"
+        }
+      },
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

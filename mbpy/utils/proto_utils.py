@@ -14,19 +14,16 @@
 
 from __future__ import annotations
 
-import abc
 import collections
 import collections.abc
 import os
 import sys
-from collections import defaultdict, deque, namedtuple
 from collections.abc import (
     Awaitable,
     Callable,
     Container,
     Iterable,
     Iterator,
-    Mapping,
     MutableMapping,
     MutableSequence,
     Sequence,
@@ -38,7 +35,6 @@ from typing import (
     Any,
     AnyStr,
     ClassVar,
-    Generator,
     Generic,
     List,
     LiteralString,
@@ -73,7 +69,7 @@ OneDimensional = Annotated[Literal["dict", "np", "pt", "list", "sample"], "Numpy
 logged_recurse = False
 
 if TYPE_CHECKING:
-    from _operator import _K, _P, _R,_SupportsComparison, _SupportsInversion
+    from _operator import _K, _P, _R, _SupportsComparison, _SupportsInversion
     from dataclasses import Field
     lists = Any
     dicts = Any
@@ -161,7 +157,7 @@ class SupportsDunderGE(Protocol[_T_contra]):
 
 
 class SupportsAllComparisons(
-    SupportsDunderLT[Any], SupportsDunderGT[Any], SupportsDunderLE[Any], SupportsDunderGE[Any], Protocol
+    SupportsDunderLT[Any], SupportsDunderGT[Any], SupportsDunderLE[Any], SupportsDunderGE[Any], Protocol,
 ): ...
 
 
@@ -226,18 +222,21 @@ class SupportsItems(Protocol[_KT_co, _VT_co]):
 
 
 # stable
-class SupportsKeysAndGetItem(Protocol[_KT, _VT]):
-    def keys(self) -> Iterable[_KT]: ...
-    def __getitem__(self, key: _KT, /) -> _VT: ...
-    def update(self, other: dict[_KT, _VT], /) -> None: ...
-    def get(self, key: _KT, default: _VT, /) -> _VT: ...
+class SupportsKeysAndGetItem(Protocol[_KT_co, _VT_co]):
+    def keys(self: SupportsKeysAndGetItem[_KT, _VT], /) -> AbstractSet[_KT]: ...
+    def __getitem__(self: SupportsKeysAndGetItem[_KT, _VT], key: _KT, /) -> _VT: ...
+    def update(self: SupportsKeysAndGetItem[_KT, _VT], other: dict[_KT, _VT], /) -> None: ...
+    def get(self: SupportsKeysAndGetItem[_KT, _VT], key: _KT, default: _VT, /) -> _VT: ...
 
-class SupportsKeysItems(SupportsKeysAndGetItem[str, _VT], Protocol):
+
+class SupportsKeysItems(SupportsKeysAndGetItem[str, _VT_co], Protocol):
 # This protocol is currently under discussion. Use SupportsContainsAndGetItem
 # instead, if you require the __contains__ method.
-    def items(self)->_ItemsView[str,_VT]:...
-    def values(self)->_ValuesView[_VT]:...
+    def items(self)->_ItemsView[str,_VT_co]:...
+    def values(self)->_ValuesView[_VT_co]:...
     def __iter__(self)->_KeysView[str]:...
+    def __contains__(self, x: Any, /) -> bool: ...
+    def __getitem__(self, key: str, /) -> _VT_co: ...
 # See https://github.com/python/typeshed/issues/11822.
 class SupportsGetItem(Protocol[_KT_contra, _VT_co]):
     def __contains__(self, x: Any, /) -> bool: ...
@@ -433,13 +432,7 @@ ExcInfo: TypeAlias = tuple[type[BaseException], BaseException, TracebackType]
 OptExcInfo: TypeAlias = ExcInfo | tuple[None, None, None]
 
 # stable
-if sys.version_info >= (3, 10):
-    from types import NoneType as NoneType # noqa
-else:
-    # Used by type checkers for checks involving None (does not exist at runtime)
-    @final
-    class NoneType:
-        def __bool__(self) -> Literal[False]: ...
+from types import NoneType as NoneType
 
 
 # This is an internal CPython type that is like, but subtly different from, a NamedTuple
@@ -492,12 +485,6 @@ ConvertibleToFloat: TypeAlias = str | ReadableBuffer | SupportsFloat | SupportsI
 
 # A few classes updated from Foo(str, Enum) to Foo(StrEnum). This is a convenience so these
 # can be accurate on all python versions without getting too wordy
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    from enum import Enum
-
-    class StrEnum(str, Enum): ...
 
 
 class _SupportsInversion(Protocol[_T_co]):
@@ -610,8 +597,7 @@ def isub(a: Any, b: Any, /) -> Any: ...
 def itruediv(a: Any, b: Any, /) -> Any: ...
 def ixor(a: Any, b: Any, /) -> Any: ...
 
-if sys.version_info >= (3, 11):
-    def call(obj: Callable[_P, _R], /, *args: _P.args, **kwargs: _P.kwargs) -> _R: ...
+def call(obj: Callable[_P, _R], /, *args: _P.args, **kwargs: _P.kwargs) -> _R: ...
 
 def _compare_digest(a: AnyStr, b: AnyStr, /) -> bool: ...
 
@@ -700,26 +686,106 @@ class ItemsView(View, _ItemsView,Generic[_KT_co, _VT_co]):
     def __str__(self) -> str:
         return f"sample_items({list(self.data)})"[: self.MAX_REPR_LENGTH]
 
+from typing import Tuple, TypeVarTuple
+
+Ts = TypeVarTuple("Ts")
+Us = TypeVarTuple("Us")
+T = TypeVar("T")
+U = TypeVar("U")
+T_co = TypeVar("T_co", covariant=True)
+U_contra = TypeVar("U_contra", contravariant=True)
+U_co = TypeVar("U_co", covariant=True)
+class ShapeHolder(Protocol[*Ts]):...
+    # types: Tuple[*Ts]
+
+    # @property
+    # def first(self):
+    #     return self.types[0]
+    
+    # @property
+    # def last(self):
+    #     return self.types[-1]
+    
+
+class ShapeDTypeHolder(Protocol[*Ts, U_co]):
+    _shape: Tuple[*Ts]
+    _dtype: U_co
+    
+    @property
+    def dtype(self):
+        return self._dtype
+    @property
+    def shape(self):
+        return self._shape
+_PositiveInteger: TypeAlias = Literal[
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+]
+_NegativeInteger: TypeAlias = Literal[
+    -1,
+    -2,
+    -3,
+    -4,
+    -5,
+    -6,
+    -7,
+    -8,
+    -9,
+    -10,
+    -11,
+    -12,
+    -13,
+    -14,
+    -15,
+    -16,
+    -17,
+    -18,
+    -19,
+    -20,
+]
+_LiteralInteger: TypeAlias = _PositiveInteger | _NegativeInteger | Literal[0]  # noqa: Y026  # TODO: Use TypeAlias once mypy bugs are fixed
+    
+        
+    
+
+@runtime_checkable
+class IndexLike(Protocol):
+    def __index__(self) -> int: ...
+@runtime_checkable
+class CoordsLike(Protocol[*Ts]):
+    def __getitem__(self, key: int | slice | str) -> Any: ...
+    def __iter__(self):...
+
 
 
 @runtime_checkable
-class CoordLike(Protocol[AnyStr, _VT_co]):
-    def __iter__(self) -> Iterator[_VT_co]: ...
-
-    def __len__(self) -> int: ...
-
-    def __getitem__(self, key: int) -> Any: ...
-
-    def __getattribute__(self, name):
-        return super().__getattribute__(name)
-
-
-
-@runtime_checkable
-class CollectionLike(Protocol):
+class ArrayLike(Protocol):
+    """Arrays, tensors, numeric lists. Not strings, dicts, or sets."""
     def __iter__(self) -> Iterator[Any]: ...
-
     def __len__(self) -> int: ...
-
-    def __getitem__(self, key: int) -> list: ...
-
+    def __getitem__(self, key: int | slice) -> Any: ... 
+    def index(self, value: Any) -> int: ... 
+    def count(self, value: Any) -> int: ... 

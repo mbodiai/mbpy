@@ -72,18 +72,19 @@ def remove_if_exist(file):
     if os.path.exists(file):
         os.remove(file)
 
-
+from minspect.inspecting import inspect_library
+from embdata.sample import Sample
 def insert():
     from time import time
 
-    with open("./tests/mock_data.txt", encoding="utf-8-sig") as f:
-        FAKE_TEXT = f.read()
+    # with open("./tests/mock_data.txt", encoding="utf-8-sig") as f:
+    #     FAKE_TEXT = f.read()
 
-    remove_if_exist(f"{WORKING_DIR}/vdb_entities.json")
-    remove_if_exist(f"{WORKING_DIR}/kv_store_full_docs.json")
-    remove_if_exist(f"{WORKING_DIR}/kv_store_text_chunks.json")
-    remove_if_exist(f"{WORKING_DIR}/kv_store_community_reports.json")
-    remove_if_exist(f"{WORKING_DIR}/graph_chunk_entity_relation.graphml")
+    # remove_if_exist(f"{WORKING_DIR}/vdb_entities.json")
+    # remove_if_exist(f"{WORKING_DIR}/kv_store_full_docs.json")
+    # remove_if_exist(f"{WORKING_DIR}/kv_store_text_chunks.json")
+    # remove_if_exist(f"{WORKING_DIR}/kv_store_community_reports.json")
+    # remove_if_exist(f"{WORKING_DIR}/graph_chunk_entity_relation.graphml")
     rag = GraphRAG(
         working_dir=WORKING_DIR,
         enable_llm_cache=True,
@@ -97,7 +98,8 @@ def insert():
         entity_extraction_func=extract_entities_dspy
     )
     start = time()
-    rag.insert(FAKE_TEXT)
+
+    rag.insert(Sample(**inspect_library("embdata",options={"depth":2})).model_dump_json())
     print("indexing time:", time() - start)
 
 

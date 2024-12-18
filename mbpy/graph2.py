@@ -19,7 +19,6 @@ from typing import (
     Iterator,
     List,
     Mapping,
-    Optional,
     Self,
     Set,
     Tuple,
@@ -40,7 +39,7 @@ from typing_extensions import (
 )
 
 from mbpy.pkg import DistPackage, InvalidRequirementError, ReqPackage
-from mbpy.utils.collections import cat
+from mbpy.utils.collect import cat
 
 if TYPE_CHECKING:
     from importlib.metadata import Distribution
@@ -54,8 +53,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+        logging.StreamHandler(sys.stdout),
+    ],
 )
 
 # Initialize Rich Console
@@ -438,7 +437,7 @@ def extract_node_info(
     include_docs: bool = False,
     include_signatures: bool = False,
     include_code: bool = False,
-) -> Optional[ContentT]:
+) -> ContentT | None:
     """Extracts imports, function definitions, class definitions, docstrings, and signatures from a Python file."""
     try:
         with file_path.open('r', encoding='utf-8') as f:
@@ -598,7 +597,7 @@ def build_dependency_graph(
                     'classes': node_info.get('classes', {}),
                 },
                 broken_imports={},
-                module_nodes={}
+                module_nodes={},
             )
 
             # Include optional fields if they exist
@@ -638,7 +637,7 @@ def build_dependency_graph(
                         imports=[],
                         contents={},
                         broken_imports={},
-                        module_nodes={}
+                        module_nodes={},
                     )
                     module_nodes[imp] = placeholder_node
                     idx[imp] = placeholder_node
@@ -687,7 +686,7 @@ def display_stats(stats: GraphStats, exclude: Set[str] = None) -> None:
 
             # Extract column headers from the first item's dictionary
             _, first_dict = value[0]
-            for column in first_dict.keys():
+            for column in first_dict:
                 table.add_column(column.replace("_", " ").capitalize())
             table.add_column("Node")
 
@@ -695,7 +694,7 @@ def display_stats(stats: GraphStats, exclude: Set[str] = None) -> None:
             for node, metrics in value[:10]:  # Display top 10 entries
                 row = [
                     f"{metrics[col]:.2f}" if isinstance(metrics[col], float) else str(metrics[col])
-                    for col in first_dict.keys()
+                    for col in first_dict
                 ]
                 row.append(node)
                 table.add_row(*row)
@@ -776,7 +775,7 @@ def get_stats(
         node: {
             "effective_size": effective_sizes.get(node, 0.0),
             "neighbors": len(adjacency_list.get(node, [])) + len(reverse_adjacency_list.get(node, [])),
-            "pagerank": pg.get(node, 0.0)
+            "pagerank": pg.get(node, 0.0),
         }
         for node in adjacency_list
     }
@@ -798,7 +797,7 @@ def who_imports(
     path: Path | str,
     *,
     site_packages: bool,
-    show: bool = False
+    show: bool = False,
 ) -> Set[str]:
     """Finds and optionally displays modules that import the given module."""
     path = Path(str(path))
@@ -821,12 +820,12 @@ def validate_params(func, *args, **kwargs):
     sig = signature(func)
     params = sig.parameters
     args = list(args)
-    for key in kwargs.keys():
+    for key in kwargs:
         if key not in params:
             raise TypeError(f"Unexpected keyword argument '{key}'")
     return args
 
-def display_dependency_tree(node: ModuleNode, level=0, include_docs=False, include_signatures=False, include_code=False):
+def display_dependency_tree(node: ModuleNode, level=0, include_docs=False, include_signatures=False, include_code=False) -> None:
     """Recursively displays the dependency tree."""
     indent = '  ' * level
     console.print(f"{indent}[bold light_goldenrod2]{node.name}[/bold light_goldenrod2]:")
@@ -843,13 +842,18 @@ def display_dependency_tree(node: ModuleNode, level=0, include_docs=False, inclu
             if include_docs and func_info.get('docs'):
                 console.print(f"{indent}      Docstring: {func_info['docs']}")
             if include_code and func_info.get('code'):
-                console.print(f"{indent}      ""Code:\n"+f"{indent}      {func_info['code'].replace('\n', "\n"+f"{indent}      ")}")
+                console.print(indent +    "Code:\n"+ indent     +  func_info['code'].replace('\n','\n' + indent))
         for class_name, class_info in node.contents.get('classes', {}).items():
             console.print(f"{indent}    Class: {class_name}")
             if include_docs and class_info.get('docs'):
                 console.print(f"{indent}      Docstring: {class_info['docs']}")
             if include_code and class_info.get('code'):
-                console.print(f"{indent}      Code:\n{indent}      {class_info['code'].replace('\n', f'\n{indent}      ')}")
+                console.print(
+                    indent
+                    + "Code:\n"
+                    + indent
+                    + func_info["code"].replace("\n", "\n" + indent),
+                )
             for method_name, method_info in class_info.get('methods', {}).items():
                 console.print(f"{indent}      Method: {method_name}")
                 if include_signatures and 'signature' in method_info:
@@ -859,9 +863,16 @@ def display_dependency_tree(node: ModuleNode, level=0, include_docs=False, inclu
                 if include_docs and method_info.get('docs'):
                     console.print(f"{indent}        Docstring: {method_info['docs']}")
                 if include_code and method_info.get('code'):
-                    console.print(f"{indent}        Code:\n{indent}        {method_info['code'].replace('\n', f'\n{indent}        ')}")
+                    console.print(
+                        indent
+                        + "Code:\n"
+                        + indent
+                        + func_info["code"].replace("\n", "\n" + indent),
+                    )
     if include_code and node.contents.get('code'):
-        console.print(f"{indent}  Code:\n{indent}  {node.contents['code'].replace('\n', f'\n{indent}  ')}")
+        console.print(
+            indent + "Code:\n" + indent + func_info["code"].replace("\n", "\n" + indent),
+        )
     for child_node in node.children.values():
         display_dependency_tree(
             child_node,
@@ -940,7 +951,7 @@ def cli(
     stats: bool,
     site_packages: bool,
     show_broken: bool,
-):
+) -> None:
     """Build and analyze a Python module dependency graph.
 
     PATH is the directory or file to analyze. Defaults to the current directory.

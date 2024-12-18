@@ -1,0 +1,40 @@
+{
+  "title": "PublishIndex",
+  "description": "Publishing index configuration",
+  "type": "object",
+  "properties": {
+    "disable": {
+      "title": "Confirmation",
+      "description": "Ask for confirmation when publishing to index",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/publish/#confirmation"
+        }
+      },
+      "type": "boolean",
+      "default": false
+    },
+    "repos": {
+      "title": "Repositories",
+      "description": "Define named repositories to publish to",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/publish/#repository"
+        }
+      },
+      "type": "object",
+      "properties": {
+        "main": false,
+        "test": false
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,1 +1,3 @@
-slack_sdk>=3.33.3
+
+mbodied @ git+https://github.com/mbodiai/embodied-agents@8715f674f16715f251f11538c183de44cf65b336>=('mbodied @ git+https://github.com/mbodiai/embodied-agents@8715f674f16715f251f11538c183de44cf65b336', '')
+python-dateutil

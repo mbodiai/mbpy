@@ -4,11 +4,11 @@ import sys
 import warnings
 from contextlib import contextmanager, suppress
 from types import ModuleType
-from typing import Callable, Type, TypeVar, cast, overload
+from typing import Callable, TypeVar, cast, overload
 
-from typing_extensions import TYPE_CHECKING, Any, Literal, TypeAlias, Union
+from typing_extensions import TYPE_CHECKING, Any, Literal, TypeAlias
 
-from mbpy.utils.collections import wraps
+from mbpy.utils.collect import wraps
 
 if TYPE_CHECKING:
     import plotext
@@ -198,7 +198,7 @@ class _LazyModule(ModuleType):
                 # object was put into sys.modules.
                 if original_name in sys.modules and id(self) != id(sys.modules[original_name]):
                     raise ValueError(
-                        f"module object for {original_name!r} " "substituted in sys.modules during a lazy " "load"
+                        f"module object for {original_name!r} " "substituted in sys.modules during a lazy " "load",
                     )
                 # Update after loading since that's what would happen in an eager
                 # loading situation.
@@ -254,7 +254,7 @@ def import_plt(backend: Literal["plotext"] | PlotTextT) -> PlotTextT: ...
 @overload
 def import_plt(backend: Literal["matplotlib"] | MatplotlibT) -> MatplotlibT: ...
 
-def import_plt(backend: PlotBackend | Literal["plotext"] | MatplotlibT | PlotTextT) -> Union[PlotTextT, MatplotlibT]: # type: ignore [no-untyped-def]
+def import_plt(backend: PlotBackend | Literal["plotext"] | MatplotlibT | PlotTextT) -> PlotTextT | MatplotlibT: # type: ignore [no-untyped-def]
     try:
         global plt
         if isinstance(backend, Literal["plotext"]):
@@ -282,6 +282,8 @@ def reload(module: str):
 
 
 T = TypeVar("T")
+
+
 def smart_import(name: str, mode: Literal["lazy", "eager", "reload", "type_safe_lazy"] = "eager"):
     """Import a module and return the resolved object. Supports . and : delimeters for classes and functions."""
     import sys
@@ -291,7 +293,7 @@ def smart_import(name: str, mode: Literal["lazy", "eager", "reload", "type_safe_
 
     name = name.replace(":", ".")
     try:
-        resolved_obj, _ = resolve(name)  or (None, None)
+        resolved_obj, _ = resolve(name) or (None, None)
         # If object is resolved and not in reload mode
         if resolved_obj and mode != "reload":
             return resolved_obj
@@ -302,7 +304,7 @@ def smart_import(name: str, mode: Literal["lazy", "eager", "reload", "type_safe_
 
         if mode == "lazy":
             # Lazy import functionality
-            import_lazy = LazyModule(name)
+            import_lazy = _LazyModule
 
             return import_lazy(name)
 
@@ -400,7 +402,6 @@ def bootstrap_third_party(modname: str, location: str) -> ModuleType:
         qualified_name = f"{location}.{modname.split('.')[-1]}"
 
         # Debugging: print information about module and parent
-        print(f"Loading module {modname} into {qualified_name}")
 
         # Attach the module to the parent
         setattr(new_parent, modname.split(".")[-1], mod)
@@ -416,7 +417,6 @@ def bootstrap_third_party(modname: str, location: str) -> ModuleType:
         #         bootstrap_third_party(k, qualified_name)
 
         return mod
-    except Exception as e:
+    except Exception:
         # Debugging: Catch any errors and print the module causing issues
-        print(f"Error loading module {modname} into {location}: {str(e)}")
         raise

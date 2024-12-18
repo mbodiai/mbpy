@@ -1,0 +1,15 @@
+{
+  "title": "Publish",
+  "description": "Publish configuration",
+  "x-taplo": {
+    "links": {
+      "key": "https://hatch.pypa.io/latest/publish/"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "index": {
+      "$ref": "#/definitions/PublishIndex"
+    }
+  }
+}

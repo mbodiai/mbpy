@@ -1,0 +1,32 @@
+{
+  "title": "Metadata",
+  "description": "Metadata for the project",
+  "x-taplo": {
+    "links": {
+      "key": "https://hatch.pypa.io/latest/config/metadata/#metadata-options"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "allow-direct-references": {
+      "title": "Allow-Direct-References",
+      "description": "Whether to allow direct references",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/metadata/#allowing-direct-references"
+        }
+      },
+      "type": "boolean"
+    },
+    "allow-ambiguous-features": {
+      "title": "Allow-Ambiguous-Features",
+      "description": "Whether to allow ambiguous features",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/metadata/#allowing-ambiguous-features"
+        }
+      },
+      "type": "boolean"
+    }
+  }
+}

@@ -24,12 +24,10 @@ def parse_schema(name: str, schema: Dict[str, Any], models: Dict[str, Dict[str, 
     properties = schema.get("properties", {})
     required = schema.get("required", [])
     fields = {}
-    print(f"Parsing model: {model_name}")
     for prop, details in properties.items():
         field_name = prop
         field_required = prop in required
         field_type, imports = get_field_type(prop, details, models, processed, root_schema)
-        print(f"  Field: {field_name}, Type: {field_type}, Required: {field_required}")
         fields[field_name] = {"type": field_type, "required": field_required, "imports": imports}
     models[model_name] = fields
 
@@ -42,7 +40,6 @@ def get_field_type(prop: str, details: Dict[str, Any], models: Dict[str, Dict[st
         type_name = camel_case(ref_name)
         imports.add(type_name)
         parse_schema(ref_name, ref_schema, models, processed, root_schema)
-        print(f"  Handling $ref: {prop} -> {type_name}")
         return type_name, imports
 
     json_type = details.get("type", "Any")
@@ -52,14 +49,12 @@ def get_field_type(prop: str, details: Dict[str, Any], models: Dict[str, Dict[st
         item_type, item_imports = get_field_type(prop, items, models, processed, root_schema)
         imports.update(item_imports)
         imports.add("List")
-        print(f"  Handling array: {prop} -> List[{item_type}]")
         return f"List[{item_type}]", imports
 
     if json_type == "object":
         type_name = camel_case(prop)
         parse_schema(prop, details, models, processed, root_schema)
         imports.add(type_name)
-        print(f"  Handling object: {prop} -> {type_name}")
         return type_name, imports
 
     type_mapping = {
@@ -71,7 +66,6 @@ def get_field_type(prop: str, details: Dict[str, Any], models: Dict[str, Dict[st
         "any": "Any",
     }
     python_type = type_mapping.get(json_type, "Any")
-    print(f"  Mapping type: {prop} -> {python_type}")
     return python_type, imports
 
 def generate_model_code(models: Dict[str, Dict[str, Any]]) -> str:
@@ -100,29 +94,25 @@ def generate_model_code(models: Dict[str, Dict[str, Any]]) -> str:
         lines.append("")
     return "\n".join(lines)
 
-def main():
+def main() -> None:
     schema_path = Path("mbpy/store/schema/hatch.json")
     output_path = Path("generated_models.py")
 
     if not schema_path.exists():
-        print(f"Schema file {schema_path} does not exist.")
         return
 
     try:
         schema_text = schema_path.read_text()
-    except Exception as e:
-        print(f"Error reading schema file: {e}")
+    except Exception:
         traceback.print_exc()
         return
 
     try:
         schema = json.loads(schema_text)
-    except json.JSONDecodeError as decode_error:
-        print(f"JSONDecodeError: {decode_error}")
+    except json.JSONDecodeError:
         traceback.print_exc()
         return
-    except Exception as ex:
-        print(f"Unexpected error: {ex}")
+    except Exception:
         traceback.print_exc()
         return
 
@@ -130,29 +120,25 @@ def main():
     processed = set()
 
     try:
-        for prop, details in schema.get("properties", {}).items():
+        for _prop, details in schema.get("properties", {}).items():
             if "$ref" in details:
                 ref = details["$ref"]
                 ref_schema = resolve_ref(ref, schema)
                 ref_name = ref.split("/")[-1]
                 parse_schema(ref_name, ref_schema, models, processed, schema)
-    except Exception as e:
-        print(f"Error parsing schema: {e}")
+    except Exception:
         traceback.print_exc()
 
     try:
         model_code = generate_model_code(models)
-    except Exception as e:
-        print(f"Error generating model code: {e}")
+    except Exception:
         traceback.print_exc()
         return
 
     try:
         with output_path.open("w") as f:
             f.write(model_code)
-        print(f"Models successfully generated in {output_path}")
-    except Exception as e:
-        print(f"Error writing to output file: {e}")
+    except Exception:
         traceback.print_exc()
 
 if __name__ == "__main__":

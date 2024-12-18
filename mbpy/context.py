@@ -6,17 +6,13 @@ import logging
 import os
 import sys
 import traceback
-import traceback as tb
 import typing
 from contextlib import AbstractContextManager
 from inspect import currentframe, getmodule
-from io import StringIO
 from pathlib import Path
 from pydoc import (
     HTMLDoc,
     allmethods,
-    apropos,
-    classify_class_attrs,
     describe,
     locate,
     safeimport,
@@ -24,22 +20,19 @@ from pydoc import (
     splitdoc,
     synopsis,
 )
-from pydoc_data import topics
-from site import getuserbase
-from traceback import TracebackException
 
 # context.py
 from types import FrameType, ModuleType, SimpleNamespace, TracebackType
-from typing import Callable, Iterable, List, Optional, Self, Tuple, Type, TypeAlias, TypeVar, Union, cast
-from typing_extensions import Final
+from typing import Any, Callable, Iterable, Tuple, Type, TypeVar, cast
 
 from mrender import Markdown
 from rich.console import Console
 from rich.traceback import Traceback
+from typing_extensions import Final
 
 from mbpy.utils import import_utils
 from mbpy.utils._typing import caller
-from mbpy.utils.collections import compose
+from mbpy.utils.collect import reduce
 
 T = TypeVar("T")
 
@@ -71,9 +64,9 @@ def get_window(frames: Iterable[Tuple[FrameType, str, int]], num_lines=5):
 
 class ExceptionHolder(Exception):
     def __init__(self, step: int = 0):
-        self.exc: Optional[BaseException] = None
-        self.tb: Optional[TracebackType] = None  # Store traceback
-    def set_exception(self, exc: Optional[BaseException], tb: Optional[TracebackType] = None):
+        self.exc: BaseException | None = None
+        self.tb: TracebackType | None = None  # Store traceback
+    def set_exception(self, exc: BaseException | None, tb: TracebackType | None = None) -> None:
         self.exc = exc
         self.tb = tb
         object.__setattr__(self, "__traceback__", tb)
@@ -85,7 +78,7 @@ class ExceptionHolder(Exception):
         self.__class__.__name__ = exc.__class__.__name__
 
     def __getattr__(self, attr):
-        if self.exc and not attr in ("__dict__", "__class__"):
+        if self.exc and attr not in ("__dict__", "__class__"):
             return getattr(self.exc, attr)
         raise AttributeError(f"'ExceptionHolder' object has no attribute '{attr}'")
 
@@ -121,12 +114,13 @@ class FakeException(BaseException):
 
 class suppress(AbstractContextManager):
     """Context manager to suppress specified exceptions and capture them.
+    
     ```
     Usage:
         with suppress(Exception) as ex:
             some_problematic_code()
         if ex:
-           handle_problematic_code(ex)
+           handle_problematic_code(ex).
     
         with supress.logignore(Exception) as ex:
             some_problematic_code()
@@ -150,7 +144,7 @@ class suppress(AbstractContextManager):
     def __init__(
         self,
         *exceptions: Type[BaseException],
-        dontignore: Optional[Type[BaseException]] = None,
+        dontignore: Type[BaseException] | None = None,
         log: bool = False,
         windowsize: int = 0,
         step: int = 0,
@@ -170,7 +164,7 @@ class suppress(AbstractContextManager):
         self.dontignore = dontignore or FakeException
         self.windowsize = windowsize
         self._step = step
-        self.callbacks = []
+        self.callbacks: list[Callable | Callable[[Exception],Any]]
         self.filters = []
         
     def __enter__(self) -> ExceptionHolder | Iterable[str]:
@@ -184,7 +178,7 @@ class suppress(AbstractContextManager):
     def __await__(self):
         return self
     def __exit__(
-        self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], tb: Optional[TracebackType]
+        self, exc_type: Type[BaseException] | None, exc_value: BaseException | None, tb: TracebackType | None,
     ) -> bool:
         if exc_type and issubclass(exc_type, self._exceptions) and not issubclass(exc_type, self.dontignore):
             self.holder.set_exception(exc_value, tb)  # Store both exception and traceback
@@ -196,12 +190,12 @@ class suppress(AbstractContextManager):
                     logging.exception(exc_value)
                 
                 logging.warning("The above exception was suppressed.")
-            if self.callbacks:
-                compose(type(self).then(func) for func in self.callbacks)(exc_value)
+            if getattr(self,"callbacks",None):
+                reduce(lambda acc, fn: fn(acc), self.callbacks, exc_value)
             return True  # Suppress the exception
         return False  # Do not suppress other exceptions
 
-    def add_filter(self, filter: Callable[...,bool]):
+    def add_filter(self, filter: Callable[...,bool]) -> None:
         self.filters.append(filter)
     @classmethod
     def logignore(cls, *exceptions: Type[BaseException]):
@@ -239,18 +233,45 @@ console = Console()
 
 
 def test_pydoc_methods() -> None:
+    import mrender
 
-
+    import mbpy
+    import mbpy.utils
     console.print(
-        f"allmethods: {allmethods(Markdown)}\n"
-        f"apropos: {apropos('Markdown')}\n"
-        f"classify_class_attrs: {classify_class_attrs(Markdown)}\n"
-        f"synopsis: {synopsis(Markdown.__file__)}\n"
-        f"source_synopsis: {source_synopsis(StringIO(Path(Markdown.__file__).read_text()))}\n"
-        f"splitdoc: {splitdoc(Markdown.__doc__)}\n"
-        f"safeimport: {safeimport('mrender')}\n"
-        f"describe: {describe(Markdown)}\n"
-        f"locate: {locate('mrender')}\n"
+        f"allmethods: {allmethods(Markdown)}\n",
+    )
+    # YES BELOW GOOD!
+    # console.print(
+    #     f"apropos: {apropos('Markdown')}\n"
+    # )
+    console.print(
+        "classify_class_attrs:",
+    )
+    # pprint(classify_class_attrs(Markdown))
+    console.print(
+        f"synopsis: {synopsis(mrender.__file__)}\n",
+    )
+    console.print(
+        f"synopsis: {synopsis(mbpy.__file__)}\n",
+    )
+    console.print(
+        f"synopsis: {synopsis(mbpy.utils.__file__)}\n",
+    )
+    console.print(
+        f"source_synopsis: {source_synopsis(Path(mrender.__file__).open())}\n",
+    )
+    console.print(
+        f"splitdoc: {splitdoc(Markdown.__doc__)}\n",
+    )
+    console.print(
+        f"safeimport: {safeimport('mrender')}\n",
+    )
+    console.print(
+        f"describe: {describe(Markdown)}\n",
+    )
+    console.print(
+        f"locate: {locate('mrender')}\n",
+        
     )
     Path("html").write_text(HTMLDoc().docmodule(Markdown))
 
@@ -272,7 +293,6 @@ def isthirdparty(obj):
 
 
 
-
 def getcurrentmodule():
     return getmodule(currentframe()) or SimpleNamespace({"__file__": "Unknown"})
 
@@ -285,8 +305,7 @@ def string(iterable):
     return "".join(iterable)
 
 
-import sys
-BaseT: Final = cast(type,import_utils.smart_import("pydantic.BaseModel") or dict)
+BaseT: Final = cast(type,import_utils.smart_import("pydantic.BaseModel", "type_safe_lazy") or dict)
 
 class RequestModel(BaseT):
     args: list
@@ -294,15 +313,16 @@ class RequestModel(BaseT):
 
 def third_party_packages():
     if getattr(getcurrentmodule(), "__name__", None) == "__main__":
-        pkg = getparentmodule().__package__
+        getparentmodule().__package__
     return [v for k, v in sys.modules.items() if isthirdparty(v)]
 
 
-def main():
+def main() -> None:
     console = Console()
+    test_pydoc_methods()
     with suppress.step() as ex:
 
-        r = RequestModel.model_json_schema(mode=32)
+        RequestModel.model_json_schema(mode=32)
     if ex:
         for line in ex:
             console.print(line)

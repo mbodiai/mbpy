@@ -1,19 +1,19 @@
 
-import ast
+import asyncio
 import logging
 import re
 from contextlib import chdir
-from inspect import cleandoc, getdoc as inspectdoc
-from pydoc import getdoc, locate, splitdoc, synopsis
-from typing import Any, Dict, Optional
+from inspect import cleandoc
+from inspect import getdoc as inspect_getdoc
+from pydoc import getdoc as pydoc_getdoc
+from pydoc import locate, splitdoc, synopsis
+from typing import Any, Dict, Tuple
+
 from typing_extensions import Final
-from rich._inspect import Inspect
 
 from mbpy.commands import run
-from mbpy.utils.collections import PathLike
+from mbpy.utils.collect import PathLike
 from mbpy.utils.static import SPHINX_API, SPHINX_CONF, SPHINX_INDEX, SPHINX_MAKEFILE
-from inspect import getdoc as inspect_getdoc
-from pydoc import getdoc as pydoc_getdoc, locate, splitdoc, synopsis
 
 visit: set = set()
 
@@ -29,7 +29,8 @@ def escape_control_codes(
     text: str,
     _translate_table: Dict[int, str] = CONTROL_ESCAPE,
 ) -> str:
-    """Replace control codes with their "escaped" equivalent in the given text.
+    r"""Replace control codes with their "escaped" equivalent in the given text.
+    
     (e.g. "\b" becomes "\\b")
 
     Args:
@@ -40,40 +41,7 @@ def escape_control_codes(
     """
     return text.translate(_translate_table)     
 
-def get_formatted_doc(object_,verbose=False):
-        """Extract the docstring of an object, process it and returns it.
-        The processing consists in cleaning up the doctring's indentation,
-        taking only its 1st paragraph if `self.help` is not True,
-        and escape its control codes.
 
-        Args:
-            object_ (Any): the object to get the docstring from.
-
-        Returns:
-            Optional[str]: the processed docstring, or None if no docstring was found.
-        """  # noqa: D205
-        docs = getdoc(object_)
-        if docs is None:
-            return None
-        docs = cleandoc(docs).strip()
-        if not verbose:
-            docs, *fulldoc = first_paragraph(docs)
-        return escape_control_codes(docs)
-
-import logging
-import re
-from contextlib import chdir
-from inspect import cleandoc
-from inspect import getdoc as inspect_getdoc
-from pydoc import getdoc as pydoc_getdoc
-from pydoc import locate, splitdoc, synopsis
-from typing import Any, Dict, Optional, Tuple
-
-from typing_extensions import Final
-
-from mbpy.commands import run
-from mbpy.utils.collections import PathLike
-from mbpy.utils.static import SPHINX_API, SPHINX_CONF, SPHINX_INDEX, SPHINX_MAKEFILE
 
 visit: set = set()
 
@@ -83,31 +51,8 @@ def first_paragraph(doc: str) -> Tuple[str, str, str]:
     return doc.partition("\n\n") 
 
 
-CONTROL_ESCAPE: Final = {
-    7: "\\a",
-    8: "\\b",
-    11: "\\v",
-    12: "\\f",
-    13: "\\r",
-}
 
-
-def escape_control_codes(
-    text: str,
-    _translate_table: Dict[int, str] = CONTROL_ESCAPE,
-) -> str:
-    r"""Replace control codes with their "escaped" equivalent in the given text. (e.g., "\b" becomes "\\b").
-
-    Args:
-        text (str): A string possibly containing control codes.
-
-    Returns:
-        str: String with control codes replaced with their escaped version.
-    """
-    return text.translate(_translate_table)
-
-
-def get_formatted_doc(obj: Any, verbose: bool = False):
+async def get_formatted_doc(obj: Any, verbose: bool = False) -> None | str:
     """Extract the docstring of an object, process it, and return it.
     
     The processing consists of cleaning up the docstring's indentation,
@@ -163,7 +108,7 @@ async def brief_summary(obj: object) -> Tuple[str, str]:
 
     if not doc:
         # Fallback to get_formatted_doc with verbose=True
-        formatted_doc = get_formatted_doc(obj, verbose=True)
+        formatted_doc = await get_formatted_doc(obj, verbose=True)
         if formatted_doc:
             doc = formatted_doc
 
@@ -186,8 +131,8 @@ async def brief_summary(obj: object) -> Tuple[str, str]:
     return summary, remaining
 
 async def setup_sphinx_docs(
-    *, docs_dir: PathLike, project_name: str, author: str, description: str, source_dir: PathLike
-):
+    *, docs_dir: PathLike, project_name: str, author: str, description: str, source_dir: PathLike,
+) -> None:
     """Set up Sphinx documentation."""
     docs_path = PathLike(docs_dir).resolve()
     source_path = PathLike(source_dir)
@@ -208,7 +153,7 @@ async def setup_sphinx_docs(
     # Add subdirectories to the TOC
 
     conf_content = SPHINX_CONF.format(
-        project_name=project_name, author=author, path=source_dir
+        project_name=project_name, author=author, path=source_dir,
     )
     (docs_path / "conf.py").write_text(conf_content)
     logging.info(f"Generated {docs_path / 'conf.py'}")
@@ -230,7 +175,7 @@ async def setup_sphinx_docs(
         run("make html")
 
 
-async def generate_sphinx_docs(project_dir: PathLike, docs_dir: PathLike):
+async def generate_sphinx_docs(project_dir: PathLike, docs_dir: PathLike) -> None:
     """Generate Sphinx-compatible `.rst` files for all directories and Python modules.
 
     Args:
@@ -281,11 +226,11 @@ async def generate_sphinx_docs(project_dir: PathLike, docs_dir: PathLike):
             if not package_file.exists():
                 package_file.touch()
             if package_file.read_text().strip() == "":
-                package_file.write_text(f"""{one_liner(package_name, openai=True)}
+                package_file.write_text(f"""{await one_liner(package_name, openai=True)}
                                             
-{summary(package_name)}
+{await summary(package_name)}
 
-{outline(package_name)}""")
+{await outline(package_name)}""")
             await generate_sphinx_docs(project_dir=file, docs_dir=docs_dir)
 
         elif file.is_file() and file.suffix == ".py":
@@ -296,7 +241,7 @@ async def generate_sphinx_docs(project_dir: PathLike, docs_dir: PathLike):
                 f.write("=" * len(f"{module_name.capitalize()} Module") + "\n\n")
                 f.write(".. code-block:: python\n\n")
                 f.write(
-                    f"    from {rel_path.replace('/', '.')}.{module_name} import *\n\n"
+                    f"    from {rel_path.replace('/', '.')}.{module_name} import *\n\n",
                 )
                 f.write(f"    {one_liner(module_name)}\n\n")
                 f.write(f"    {summary(module_name)}\n\n")
@@ -306,22 +251,22 @@ async def generate_sphinx_docs(project_dir: PathLike, docs_dir: PathLike):
                 f.write(f"   {module_name}\n")
 
 
-def one_liner(package_name: str, openai: bool = False):
+async def one_liner(package_name: str, openai: bool = False):
     """Generate a one-liner description for the package."""
-    return get_formatted_doc()
+    return await get_formatted_doc(locate(package_name), verbose=False)
 
 
-def summary(package_name: str):
+async def summary(package_name: str):
     """Generate a summary for the package."""
-    return f"Generate a summary for the {package_name} package."
+    return await one_liner(package_name)
 
 
-def outline(package_name: str):
+async def outline(package_name: str):
     """Generate an outline for the package."""
-    return f"Generate an outline for the {package_name} package."
+    return await one_liner(package_name)
 
 
-def clean_code(code: str) -> str:
+async def clean_code(code: str) -> str:
     """Cleans the test code by removing pytest imports, fixtures, mocks, and assert statements."""
     code = re.sub(r"^import pytest.*\n?", "", code, flags=re.MULTILINE)
     code = re.sub(r"^from pytest.*\n?", "", code, flags=re.MULTILINE)
@@ -346,7 +291,7 @@ def clean_code(code: str) -> str:
     return code.strip()
 
 
-def generate_recipe_docs(test_dir: PathLike, output_dir: PathLike):
+async def generate_recipe_docs(test_dir: PathLike, output_dir: PathLike) -> None:
     """Generate Sphinx-compatible `.rst` files for each test module, converting them into recipes.
 
     Args:
@@ -382,7 +327,7 @@ def generate_recipe_docs(test_dir: PathLike, output_dir: PathLike):
                 # Read and clean the test file
                 with test_file.open("r") as tf:
                     code = tf.read()
-                    cleaned_code = clean_code(code)
+                    cleaned_code = await clean_code(code)
 
                     # Add cleaned code to the recipe file with proper indentation
                     for line in cleaned_code.splitlines():
@@ -390,9 +335,8 @@ def generate_recipe_docs(test_dir: PathLike, output_dir: PathLike):
 
 
 if __name__ == "__main__":
-    test_dir = PathLike("tests")
+    test_dir = PathLike("../../tests")
     output_dir = PathLike("docs")
 
-    generate_recipe_docs(test_dir, output_dir)
+    asyncio.run(generate_recipe_docs(test_dir, output_dir))
 
-    print("Recipes documentation generated successfully.")

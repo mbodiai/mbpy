@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional, Union
+from typing import List
 
 from pydantic import BaseModel, Extra, Field
 
@@ -32,14 +32,14 @@ class AllowUntypedGlobals(BaseModel):
 
 
 class AlwaysFalse(BaseModel):
-    __root__: Union[str, List[str]] = Field(
+    __root__: str | List[str] = Field(
         ...,
         description='Specifies a list of variables that mypy will treat as compile-time constants that are always false.',
     )
 
 
 class AlwaysTrue(BaseModel):
-    __root__: Union[str, List[str]] = Field(
+    __root__: str | List[str] = Field(
         ...,
         description='Specifies a list of variables that mypy will treat as compile-time constants that are always true.',
     )
@@ -99,8 +99,8 @@ class CustomTypingModule(BaseModel):
 
 
 class DisableErrorCode(BaseModel):
-    __root__: Union[str, List[str]] = Field(
-        ..., description='Allows disabling one or multiple error codes globally.'
+    __root__: str | List[str] = Field(
+        ..., description='Allows disabling one or multiple error codes globally.',
     )
 
 
@@ -120,7 +120,7 @@ class DisallowAnyExplicit(BaseModel):
 
 class DisallowAnyExpr(BaseModel):
     __root__: bool = Field(
-        ..., description='Disallows all expressions in the module that have type `Any`.'
+        ..., description='Disallows all expressions in the module that have type `Any`.',
     )
 
 
@@ -147,7 +147,7 @@ class DisallowIncompleteDefs(BaseModel):
 
 class DisallowSubclassingAny(BaseModel):
     __root__: bool = Field(
-        ..., description='Disallows subclassing a value of type `Any`.'
+        ..., description='Disallows subclassing a value of type `Any`.',
     )
 
 
@@ -173,14 +173,14 @@ class DisallowUntypedDefs(BaseModel):
 
 
 class EnableErrorCode(BaseModel):
-    __root__: Union[str, List[str]] = Field(
-        ..., description='Allows enabling one or multiple error codes globally.'
+    __root__: str | List[str] = Field(
+        ..., description='Allows enabling one or multiple error codes globally.',
     )
 
 
 class ErrorSummary(BaseModel):
     __root__: bool = Field(
-        ..., description='Shows a short summary line after error messages.'
+        ..., description='Shows a short summary line after error messages.',
     )
 
 
@@ -305,8 +305,8 @@ class Pdb(BaseModel):
 
 
 class Plugins(BaseModel):
-    __root__: Union[str, List[str]] = Field(
-        ..., description='A comma-separated list of mypy plugins.'
+    __root__: str | List[str] = Field(
+        ..., description='A comma-separated list of mypy plugins.',
     )
 
 
@@ -338,7 +338,7 @@ class ShowColumnNumbers(BaseModel):
 
 class ShowErrorContext(BaseModel):
     __root__: bool = Field(
-        ..., description='Prefixes each error with the relevant context.'
+        ..., description='Prefixes each error with the relevant context.',
     )
 
 
@@ -348,7 +348,7 @@ class ShowTraceback(BaseModel):
 
 class SkipCacheMtimeChecks(BaseModel):
     __root__: bool = Field(
-        ..., description='Skip cache internal consistency checks based on mtime.'
+        ..., description='Skip cache internal consistency checks based on mtime.',
     )
 
 
@@ -361,7 +361,7 @@ class SkipVersionCheck(BaseModel):
 
 class SqliteCache(BaseModel):
     __root__: bool = Field(
-        ..., description='Use an SQLite database to store the cache.'
+        ..., description='Use an SQLite database to store the cache.',
     )
 
 
@@ -394,7 +394,7 @@ class StrictOptional(BaseModel):
 
 
 class UntypedCallsExclude(BaseModel):
-    __root__: Union[str, List[str]] = Field(
+    __root__: str | List[str] = Field(
         ...,
         description='Selectively excludes functions and methods defined in specific packages, modules, and classes from action of `disallow_untyped_calls`. This also applies to all submodules of packages (i.e. everything inside a given prefix). Note, this option does not support per-file configuration, the exclusions list is defined globally for all your code.',
     )
@@ -444,13 +444,13 @@ class WarnUnusedConfigs(BaseModel):
 
 class WarnUnusedIgnores(BaseModel):
     __root__: bool = Field(
-        ..., description='Warns about unneeded `# type: ignore` comments.'
+        ..., description='Warns about unneeded `# type: ignore` comments.',
     )
 
 
 class XmlReport(BaseModel):
     __root__: str = Field(
-        ..., description='Causes mypy to generate an XML type checking coverage report.'
+        ..., description='Causes mypy to generate an XML type checking coverage report.',
     )
 
 
@@ -458,405 +458,405 @@ class Override(BaseModel):
     class Config:
         extra = Extra.forbid
 
-    module: Union[str, List[str]]
-    ignore_missing_imports: Optional[IgnoreMissingImports] = None
-    follow_imports: Optional[FollowImports] = 'normal'
-    follow_imports_for_stubs: Optional[FollowImportsForStubs] = None
-    no_site_packages: Optional[NoSitePackages] = None
-    always_true: Optional[AlwaysTrue] = None
-    always_false: Optional[AlwaysFalse] = None
-    disallow_any_unimported: Optional[DisallowAnyUnimported] = None
-    disallow_any_expr: Optional[DisallowAnyExpr] = None
-    disallow_any_decorated: Optional[DisallowAnyDecorated] = None
-    disallow_any_explicit: Optional[DisallowAnyExplicit] = None
-    disallow_any_generics: Optional[DisallowAnyGenerics] = None
-    disallow_subclassing_any: Optional[DisallowSubclassingAny] = None
-    disallow_untyped_calls: Optional[DisallowUntypedCalls] = None
-    untyped_calls_exclude: Optional[UntypedCallsExclude] = None
-    disallow_untyped_defs: Optional[DisallowUntypedDefs] = None
-    disallow_incomplete_defs: Optional[DisallowIncompleteDefs] = None
-    check_untyped_defs: Optional[CheckUntypedDefs] = None
-    disallow_untyped_decorators: Optional[DisallowUntypedDecorators] = None
-    implicit_optional: Optional[ImplicitOptional] = None
-    no_implicit_optional: Optional[NoImplicitOptional] = None
-    no_implicit_reexport: Optional[NoImplicitReexport] = None
-    strict_optional: Optional[StrictOptional] = None
-    warn_unused_ignores: Optional[WarnUnusedIgnores] = None
-    warn_no_return: Optional[WarnNoReturn] = None
-    warn_return_any: Optional[WarnReturnAny] = None
-    warn_unreachable: Optional[WarnUnreachable] = None
-    ignore_errors: Optional[IgnoreErrors] = None
-    allow_untyped_globals: Optional[AllowUntypedGlobals] = None
-    allow_redefinition: Optional[AllowRedefinition] = None
-    local_partial_types: Optional[LocalPartialTypes] = None
-    disable_error_code: Optional[DisableErrorCode] = None
-    enable_error_code: Optional[EnableErrorCode] = None
-    implicit_reexport: Optional[ImplicitReexport] = None
-    strict_concatenate: Optional[StrictConcatenate] = None
-    strict_equality: Optional[StrictEquality] = None
-    strict: Optional[Strict] = None
-    show_error_context: Optional[ShowErrorContext] = None
-    show_column_numbers: Optional[ShowColumnNumbers] = None
-    hide_error_codes: Optional[HideErrorCodes] = None
-    pretty: Optional[Pretty] = None
-    color_output: Optional[ColorOutput] = None
-    error_summary: Optional[ErrorSummary] = None
-    show_absolute_path: Optional[ShowAbsolutePath] = None
-    force_uppercase_builtins: Optional[ForceUppercaseBuiltins] = None
-    force_union_syntax: Optional[ForceUnionSyntax] = None
-    incremental: Optional[Incremental] = None
-    cache_dir: Optional[CacheDir] = None
-    sqlite_cache: Optional[SqliteCache] = None
-    cache_fine_grained: Optional[CacheFineGrained] = None
-    skip_version_check: Optional[SkipVersionCheck] = None
-    skip_cache_mtime_checks: Optional[SkipCacheMtimeChecks] = None
-    plugins: Optional[Plugins] = None
-    pdb: Optional[Pdb] = None
-    show_traceback: Optional[ShowTraceback] = None
-    raise_exceptions: Optional[RaiseExceptions] = None
-    custom_typing_module: Optional[CustomTypingModule] = None
-    custom_typeshed_dir: Optional[CustomTypeshedDir] = None
-    warn_incomplete_stub: Optional[WarnIncompleteStub] = None
-    any_exprs_report: Optional[AnyExprsReport] = None
-    cobertura_xml_report: Optional[CoberturaXmlReport] = None
-    linecount_report: Optional[LinecountReport] = None
-    linecoverage_report: Optional[LinecoverageReport] = None
-    lineprecision_report: Optional[LineprecisionReport] = None
-    xml_report: Optional[XmlReport] = None
-    junit_xml: Optional[JunitXml] = None
-    scripts_are_modules: Optional[ScriptsAreModules] = None
-    warn_unused_configs: Optional[WarnUnusedConfigs] = None
-    verbosity: Optional[Verbosity] = None
+    module: str | List[str]
+    ignore_missing_imports: IgnoreMissingImports | None = None
+    follow_imports: FollowImports | None = 'normal'
+    follow_imports_for_stubs: FollowImportsForStubs | None = None
+    no_site_packages: NoSitePackages | None = None
+    always_true: AlwaysTrue | None = None
+    always_false: AlwaysFalse | None = None
+    disallow_any_unimported: DisallowAnyUnimported | None = None
+    disallow_any_expr: DisallowAnyExpr | None = None
+    disallow_any_decorated: DisallowAnyDecorated | None = None
+    disallow_any_explicit: DisallowAnyExplicit | None = None
+    disallow_any_generics: DisallowAnyGenerics | None = None
+    disallow_subclassing_any: DisallowSubclassingAny | None = None
+    disallow_untyped_calls: DisallowUntypedCalls | None = None
+    untyped_calls_exclude: UntypedCallsExclude | None = None
+    disallow_untyped_defs: DisallowUntypedDefs | None = None
+    disallow_incomplete_defs: DisallowIncompleteDefs | None = None
+    check_untyped_defs: CheckUntypedDefs | None = None
+    disallow_untyped_decorators: DisallowUntypedDecorators | None = None
+    implicit_optional: ImplicitOptional | None = None
+    no_implicit_optional: NoImplicitOptional | None = None
+    no_implicit_reexport: NoImplicitReexport | None = None
+    strict_optional: StrictOptional | None = None
+    warn_unused_ignores: WarnUnusedIgnores | None = None
+    warn_no_return: WarnNoReturn | None = None
+    warn_return_any: WarnReturnAny | None = None
+    warn_unreachable: WarnUnreachable | None = None
+    ignore_errors: IgnoreErrors | None = None
+    allow_untyped_globals: AllowUntypedGlobals | None = None
+    allow_redefinition: AllowRedefinition | None = None
+    local_partial_types: LocalPartialTypes | None = None
+    disable_error_code: DisableErrorCode | None = None
+    enable_error_code: EnableErrorCode | None = None
+    implicit_reexport: ImplicitReexport | None = None
+    strict_concatenate: StrictConcatenate | None = None
+    strict_equality: StrictEquality | None = None
+    strict: Strict | None = None
+    show_error_context: ShowErrorContext | None = None
+    show_column_numbers: ShowColumnNumbers | None = None
+    hide_error_codes: HideErrorCodes | None = None
+    pretty: Pretty | None = None
+    color_output: ColorOutput | None = None
+    error_summary: ErrorSummary | None = None
+    show_absolute_path: ShowAbsolutePath | None = None
+    force_uppercase_builtins: ForceUppercaseBuiltins | None = None
+    force_union_syntax: ForceUnionSyntax | None = None
+    incremental: Incremental | None = None
+    cache_dir: CacheDir | None = None
+    sqlite_cache: SqliteCache | None = None
+    cache_fine_grained: CacheFineGrained | None = None
+    skip_version_check: SkipVersionCheck | None = None
+    skip_cache_mtime_checks: SkipCacheMtimeChecks | None = None
+    plugins: Plugins | None = None
+    pdb: Pdb | None = None
+    show_traceback: ShowTraceback | None = None
+    raise_exceptions: RaiseExceptions | None = None
+    custom_typing_module: CustomTypingModule | None = None
+    custom_typeshed_dir: CustomTypeshedDir | None = None
+    warn_incomplete_stub: WarnIncompleteStub | None = None
+    any_exprs_report: AnyExprsReport | None = None
+    cobertura_xml_report: CoberturaXmlReport | None = None
+    linecount_report: LinecountReport | None = None
+    linecoverage_report: LinecoverageReport | None = None
+    lineprecision_report: LineprecisionReport | None = None
+    xml_report: XmlReport | None = None
+    junit_xml: JunitXml | None = None
+    scripts_are_modules: ScriptsAreModules | None = None
+    warn_unused_configs: WarnUnusedConfigs | None = None
+    verbosity: Verbosity | None = None
 
 
 class Model(BaseModel):
     class Config:
         extra = Extra.forbid
 
-    mypy_path: Optional[Union[str, List[str]]] = Field(
+    mypy_path: str | List[str] | None = Field(
         None,
         description="Specifies the paths to use, after trying the paths from `MYPYPATH` environment variable. Useful if you'd like to keep stubs in your repo, along with the config file. Multiple paths are always separated with a `:` or `,` regardless of the platform. User home directory and environment variables will be expanded.",
     )
-    files: Optional[Union[str, List[str]]] = Field(
+    files: str | List[str] | None = Field(
         None,
         description='A comma-separated list of paths which should be checked by mypy if none are given on the command line. Supports recursive file globbing using `glob`, where `*` (e.g. `*.py`) matches files in the current directory and `**/` (e.g. `**/*.py`) matches files in any directories below the current one. User home directory and environment variables will be expanded.',
     )
-    modules: Optional[Union[str, List[str]]] = Field(
+    modules: str | List[str] | None = Field(
         None,
         description='A comma-separated list of packages which should be checked by mypy if none are given on the command line. Mypy WILL NOT recursively type check any submodules of the provided module.',
     )
-    packages: Optional[Union[str, List[str]]] = Field(
+    packages: str | List[str] | None = Field(
         None,
         description='A comma-separated list of packages which should be checked by mypy if none are given on the command line. Mypy WILL recursively type check any submodules of the provided package. This flag is identical to `modules` apart from this behavior.',
     )
-    exclude: Optional[Union[str, List[str]]] = Field(
+    exclude: str | List[str] | None = Field(
         None,
         description='A regular expression that matches file names, directory names and paths which mypy should ignore while recursively discovering files to check. Use forward slashes (`/`) as directory separators on all platforms.',
     )
-    namespace_packages: Optional[bool] = Field(
+    namespace_packages: bool | None = Field(
         True,
         description='Enables PEP 420 style namespace packages. See the corresponding flag `--no-namespace-packages` (https://mypy.readthedocs.io/en/stable/command_line.html#cmdoption-mypy-no-namespace-packages) for more information.',
     )
-    explicit_package_bases: Optional[bool] = Field(
+    explicit_package_bases: bool | None = Field(
         False,
         description='This flag tells mypy that top-level packages will be based in either the current directory, or a member of the `MYPYPATH` environment variable or `mypy_path` config option. This option is only useful in the absence of `__init__.py`. See Mapping file paths to modules (https://mypy.readthedocs.io/en/stable/running_mypy.html#mapping-paths-to-modules) for details.',
     )
-    ignore_missing_imports: Optional[bool] = Field(
+    ignore_missing_imports: bool | None = Field(
         False,
         description='Suppresses error messages about imports that cannot be resolved.',
     )
-    follow_imports: Optional[FollowImports] = Field(
+    follow_imports: FollowImports | None = Field(
         'normal',
         description='Directs what to do with imports when the imported module is found as a `.py` file and not part of the files, modules and packages provided on the command line.',
     )
-    follow_imports_for_stubs: Optional[bool] = Field(
+    follow_imports_for_stubs: bool | None = Field(
         False,
         description='Determines whether to respect the `follow_imports` setting even for stub (`.pyi`) files.',
     )
-    python_executable: Optional[str] = Field(
+    python_executable: str | None = Field(
         None,
         description='Specifies the path to the Python executable to inspect to collect a list of available PEP 561 packages (https://mypy.readthedocs.io/en/stable/installed_packages.html#installed-packages). User home directory and environment variables will be expanded. Defaults to the executable used to run mypy.',
     )
-    no_site_packages: Optional[bool] = Field(
+    no_site_packages: bool | None = Field(
         False,
         description='Disables using type information in installed packages (see PEP 561). This will also disable searching for a usable Python executable. This acts the same as :option:`--no-site-packages <mypy --no-site-packages>` command line flag.',
     )
-    no_silence_site_packages: Optional[bool] = Field(
+    no_silence_site_packages: bool | None = Field(
         False,
         description='Enables reporting error messages generated within installed packages (see PEP 561 for more details on distributing type information). Those error messages are suppressed by default, since you are usually not able to control errors in 3rd party code.',
     )
-    python_version: Optional[str] = Field(
+    python_version: str | None = Field(
         None,
         description='Specifies the Python version used to parse and check the target program. The string should be in the format `MAJOR.MINOR` (for example, `2.7`). The default is the version of the Python interpreter used to run mypy.',
     )
-    platform: Optional[str] = Field(
+    platform: str | None = Field(
         None,
         description="Specifies the OS platform for the target program, for example `darwin` or `win32` (meaning OS X or Windows, respectively). The default is the current platform as revealed by Python's `sys.platform` variable.",
     )
-    always_true: Optional[Union[str, List[str]]] = Field(
+    always_true: str | List[str] | None = Field(
         None,
         description='Specifies a list of variables that mypy will treat as compile-time constants that are always true.',
     )
-    always_false: Optional[Union[str, List[str]]] = Field(
+    always_false: str | List[str] | None = Field(
         None,
         description='Specifies a list of variables that mypy will treat as compile-time constants that are always false.',
     )
-    disallow_any_unimported: Optional[bool] = Field(
+    disallow_any_unimported: bool | None = Field(
         False,
         description='Disallows usage of types that come from unfollowed imports (anything imported from an unfollowed import is automatically given a type of `Any`).',
     )
-    disallow_any_expr: Optional[bool] = Field(
+    disallow_any_expr: bool | None = Field(
         False,
         description='Disallows all expressions in the module that have type `Any`.',
     )
-    disallow_any_decorated: Optional[bool] = Field(
+    disallow_any_decorated: bool | None = Field(
         False,
         description='Disallows functions that have `Any` in their signature after decorator transformation.',
     )
-    disallow_any_explicit: Optional[bool] = Field(
+    disallow_any_explicit: bool | None = Field(
         False,
         description='Disallows explicit `Any` in type positions such as type annotations and generic type parameters.',
     )
-    disallow_any_generics: Optional[bool] = Field(
+    disallow_any_generics: bool | None = Field(
         False,
         description='Disallows usage of generic types that do not specify explicit type parameters.',
     )
-    disallow_subclassing_any: Optional[bool] = Field(
-        False, description='Disallows subclassing a value of type `Any`.'
+    disallow_subclassing_any: bool | None = Field(
+        False, description='Disallows subclassing a value of type `Any`.',
     )
-    disallow_untyped_calls: Optional[bool] = Field(
+    disallow_untyped_calls: bool | None = Field(
         False,
         description='Disallows calling functions without type annotations from functions with type annotations. Note that when used in per-module options, it enables/disables this check INSIDE the module(s) specified, not for functions that come from that module(s).',
     )
-    untyped_calls_exclude: Optional[Union[str, List[str]]] = Field(
+    untyped_calls_exclude: str | List[str] | None = Field(
         None,
         description='Selectively excludes functions and methods defined in specific packages, modules, and classes from action of `disallow_untyped_calls`. This also applies to all submodules of packages (i.e. everything inside a given prefix). Note, this option does not support per-file configuration, the exclusions list is defined globally for all your code.',
     )
-    disallow_untyped_defs: Optional[bool] = Field(
+    disallow_untyped_defs: bool | None = Field(
         False,
         description='Disallows defining functions without type annotations or with incomplete type annotations (a superset of `disallow_incomplete_defs`).',
     )
-    disallow_incomplete_defs: Optional[bool] = Field(
+    disallow_incomplete_defs: bool | None = Field(
         False,
         description='Disallows defining functions with incomplete type annotations, while still allowing entirely unannotated definitions.',
     )
-    check_untyped_defs: Optional[bool] = Field(
+    check_untyped_defs: bool | None = Field(
         False,
         description='Type-checks the interior of functions without type annotations.',
     )
-    disallow_untyped_decorators: Optional[bool] = Field(
+    disallow_untyped_decorators: bool | None = Field(
         False,
         description='Reports an error whenever a function with type annotations is decorated with a decorator without annotations.',
     )
-    implicit_optional: Optional[bool] = Field(
+    implicit_optional: bool | None = Field(
         False,
         description='Causes mypy to treat arguments with a `None` default value as having an implicit `typing.Optional` type.',
     )
-    no_implicit_optional: Optional[bool] = Field(
-        True, description='Inverse of implicit_optional.'
+    no_implicit_optional: bool | None = Field(
+        True, description='Inverse of implicit_optional.',
     )
-    no_implicit_reexport: Optional[bool] = Field(
+    no_implicit_reexport: bool | None = Field(
         False,
         description='By default, imported values to a module are treated as exported and mypy allows other modules to import them. This flag changes the behavior to not re-export unless the item is imported using from-as or is included in `__all__`. Note this is always treated as enabled for stub files.',
     )
-    strict_optional: Optional[bool] = Field(
+    strict_optional: bool | None = Field(
         True,
         description='Enables or disables strict `Optional` checks. If `False`, mypy treats `None` as compatible with every type.',
     )
-    warn_redundant_casts: Optional[bool] = Field(
-        False, description='Warns about casting an expression to its inferred type.'
+    warn_redundant_casts: bool | None = Field(
+        False, description='Warns about casting an expression to its inferred type.',
     )
-    warn_unused_ignores: Optional[bool] = Field(
-        False, description='Warns about unneeded `# type: ignore` comments.'
+    warn_unused_ignores: bool | None = Field(
+        False, description='Warns about unneeded `# type: ignore` comments.',
     )
-    warn_no_return: Optional[bool] = Field(
+    warn_no_return: bool | None = Field(
         True,
         description='Shows errors for missing return statements on some execution paths.',
     )
-    warn_return_any: Optional[bool] = Field(
+    warn_return_any: bool | None = Field(
         False,
         description='Shows a warning when returning a value with type `Any` from a function declared with a non-`Any` return type.',
     )
-    warn_unreachable: Optional[bool] = Field(
+    warn_unreachable: bool | None = Field(
         False,
         description='Shows a warning when encountering any code inferred to be unreachable or redundant after performing type analysis.',
     )
-    ignore_errors: Optional[bool] = Field(
-        False, description='Ignores all non-fatal errors.'
+    ignore_errors: bool | None = Field(
+        False, description='Ignores all non-fatal errors.',
     )
-    allow_untyped_globals: Optional[bool] = Field(
+    allow_untyped_globals: bool | None = Field(
         False,
         description='Causes mypy to suppress errors caused by not being able to fully infer the types of global and class variables.',
     )
-    allow_redefinition: Optional[bool] = Field(
+    allow_redefinition: bool | None = Field(
         False,
         description='Allows variables to be redefined with an arbitrary type, as long as the redefinition is in the same block and nesting level as the original definition.',
     )
-    local_partial_types: Optional[bool] = Field(
+    local_partial_types: bool | None = Field(
         False,
         description='Disallows inferring variable type for `None` from two assignments in different scopes. This is always implicitly enabled when using the mypy daemon (https://mypy.readthedocs.io/en/stable/mypy_daemon.html).',
     )
-    disable_error_code: Optional[Union[str, List[str]]] = Field(
-        None, description='Allows disabling one or multiple error codes globally.'
+    disable_error_code: str | List[str] | None = Field(
+        None, description='Allows disabling one or multiple error codes globally.',
     )
-    enable_error_code: Optional[Union[str, List[str]]] = Field(
-        None, description='Allows enabling one or multiple error codes globally.'
+    enable_error_code: str | List[str] | None = Field(
+        None, description='Allows enabling one or multiple error codes globally.',
     )
-    implicit_reexport: Optional[bool] = Field(
+    implicit_reexport: bool | None = Field(
         True,
         description='By default, imported values to a module are treated as exported and mypy allows other modules to import them. When false, mypy will not re-export unless the item is imported using from-as or is included in `__all__`. Note that mypy treats stub files as if this is always disabled.',
     )
-    strict_concatenate: Optional[bool] = Field(
+    strict_concatenate: bool | None = Field(
         False,
         description='Make arguments prepended via `Concatenate` be truly positional-only.',
     )
-    extra_checks: Optional[bool] = Field(
+    extra_checks: bool | None = Field(
         False,
         description='Enable additional checks that are technically correct but impractical.',
     )
-    strict_equality: Optional[bool] = Field(
+    strict_equality: bool | None = Field(
         False,
         description='Prohibit equality checks, identity checks, and container checks between non-overlapping types.',
     )
-    strict: Optional[bool] = Field(
+    strict: bool | None = Field(
         False,
         description='Enable all optional error checking flags. You can see the list of flags enabled by strict mode in the full `mypy --help` output. The exact list of flags enabled by `strict` may change over time.',
     )
-    show_error_context: Optional[bool] = Field(
-        False, description='Prefixes each error with the relevant context.'
+    show_error_context: bool | None = Field(
+        False, description='Prefixes each error with the relevant context.',
     )
-    show_column_numbers: Optional[bool] = Field(
-        False, description='Shows column numbers in error messages.'
+    show_column_numbers: bool | None = Field(
+        False, description='Shows column numbers in error messages.',
     )
-    hide_error_codes: Optional[bool] = Field(
+    hide_error_codes: bool | None = Field(
         False,
         description='Hides error codes (https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes) in error messages.',
     )
-    pretty: Optional[bool] = Field(
+    pretty: bool | None = Field(
         False,
         description='Use visually nicer output in error messages: use soft word wrap, show source code snippets, and show error location markers.',
     )
-    color_output: Optional[bool] = Field(
-        True, description='Shows error messages with color enabled.'
+    color_output: bool | None = Field(
+        True, description='Shows error messages with color enabled.',
     )
-    error_summary: Optional[bool] = Field(
-        True, description='Shows a short summary line after error messages.'
+    error_summary: bool | None = Field(
+        True, description='Shows a short summary line after error messages.',
     )
-    show_absolute_path: Optional[bool] = Field(
-        False, description='Show absolute paths to files.'
+    show_absolute_path: bool | None = Field(
+        False, description='Show absolute paths to files.',
     )
-    force_uppercase_builtins: Optional[bool] = Field(
+    force_uppercase_builtins: bool | None = Field(
         False,
         description='Always use `List` instead of `list` in error messages, even on Python 3.9+.',
     )
-    force_union_syntax: Optional[bool] = Field(
+    force_union_syntax: bool | None = Field(
         False,
         description='Always use `Union[]` and `Optional[]` for union types in error messages (instead of the `|` operator), even on Python 3.10+.',
     )
-    incremental: Optional[bool] = Field(
+    incremental: bool | None = Field(
         True,
         description='Enables incremental mode (https://mypy.readthedocs.io/en/stable/command_line.html#incremental).',
     )
-    cache_dir: Optional[str] = Field(
+    cache_dir: str | None = Field(
         '.mypy_cache',
         description='Specifies the location where mypy stores incremental cache info. User home directory and environment variables will be expanded. This setting will be overridden by the `MYPY_CACHE_DIR` environment variable.',
     )
-    sqlite_cache: Optional[bool] = Field(
-        False, description='Use an SQLite database to store the cache.'
+    sqlite_cache: bool | None = Field(
+        False, description='Use an SQLite database to store the cache.',
     )
-    cache_fine_grained: Optional[bool] = Field(
+    cache_fine_grained: bool | None = Field(
         False,
         description='Include fine-grained dependency information in the cache for the mypy daemon (https://mypy.readthedocs.io/en/stable/mypy_daemon.html).',
     )
-    skip_version_check: Optional[bool] = Field(
+    skip_version_check: bool | None = Field(
         False,
         description='Makes mypy use incremental cache data even if it was generated by a different version of mypy. (By default, mypy will perform a version check and regenerate the cache if it was written by older versions of mypy.)',
     )
-    skip_cache_mtime_checks: Optional[bool] = Field(
-        False, description='Skip cache internal consistency checks based on mtime.'
+    skip_cache_mtime_checks: bool | None = Field(
+        False, description='Skip cache internal consistency checks based on mtime.',
     )
-    plugins: Optional[Union[str, List[str]]] = Field(
-        None, description='A comma-separated list of mypy plugins.'
+    plugins: str | List[str] | None = Field(
+        None, description='A comma-separated list of mypy plugins.',
     )
-    pdb: Optional[bool] = Field(
+    pdb: bool | None = Field(
         False,
         description='Invokes `pdb` (https://docs.python.org/3/library/pdb.html) on fatal error.',
     )
-    show_traceback: Optional[bool] = Field(
-        False, description='Shows traceback on fatal error.'
+    show_traceback: bool | None = Field(
+        False, description='Shows traceback on fatal error.',
     )
-    raise_exceptions: Optional[bool] = Field(
-        False, description='Raise exception on fatal error.'
+    raise_exceptions: bool | None = Field(
+        False, description='Raise exception on fatal error.',
     )
-    custom_typing_module: Optional[str] = Field(
+    custom_typing_module: str | None = Field(
         None,
         description='Specifies a custom module to use as a substitute for the `typing` module.',
     )
-    custom_typeshed_dir: Optional[str] = Field(
+    custom_typeshed_dir: str | None = Field(
         None,
         description='This specifies the directory where mypy looks for standard library typeshed stubs, instead of the typeshed that ships with mypy. This is primarily intended to make it easier to test typeshed changes before submitting them upstream, but also allows you to use a forked version of typeshed.',
     )
-    warn_incomplete_stub: Optional[bool] = Field(
+    warn_incomplete_stub: bool | None = Field(
         False,
         description='Warns about missing type annotations in typeshed. This is only relevant in combination with `disallow_untyped_defs` or `disallow_incomplete_defs`.',
     )
-    any_exprs_report: Optional[str] = Field(
+    any_exprs_report: str | None = Field(
         None,
         description='Causes mypy to generate a text file report documenting how many expressions of type `Any` are present within your codebase.',
     )
-    cobertura_xml_report: Optional[str] = Field(
+    cobertura_xml_report: str | None = Field(
         None,
         description='Causes mypy to generate a Cobertura XML type checking coverage report.',
     )
-    linecount_report: Optional[str] = Field(
+    linecount_report: str | None = Field(
         None,
         description='Causes mypy to generate a text file report documenting the functions and lines that are typed and untyped within your codebase.',
     )
-    linecoverage_report: Optional[str] = Field(
+    linecoverage_report: str | None = Field(
         None,
         description="Causes mypy to generate a JSON file that maps each source file's absolute filename to a list of line numbers that belong to typed functions in that file.",
     )
-    lineprecision_report: Optional[str] = Field(
+    lineprecision_report: str | None = Field(
         None,
         description='Causes mypy to generate a flat text file report with per-module statistics of how many lines are typechecked etc.',
     )
-    xml_report: Optional[str] = Field(
+    xml_report: str | None = Field(
         None,
         description='Causes mypy to generate an XML type checking coverage report.',
     )
-    junit_xml: Optional[str] = Field(
+    junit_xml: str | None = Field(
         None,
         description='Causes mypy to generate a JUnit XML test result document with type checking results. This can make it easier to integrate mypy with continuous integration (CI) tools.',
     )
-    scripts_are_modules: Optional[bool] = Field(
+    scripts_are_modules: bool | None = Field(
         False,
         description='Makes script `x` become module `x` instead of `__main__`. This is useful when checking multiple scripts in a single run.',
     )
-    warn_unused_configs: Optional[bool] = Field(
+    warn_unused_configs: bool | None = Field(
         False,
         description='Warns about per-module sections in the config file that do not match any files processed when invoking mypy. (This requires turning off incremental mode using `incremental = False`.)',
     )
-    verbosity: Optional[int] = Field(
+    verbosity: int | None = Field(
         0,
         description='Controls how much debug output will be generated. Higher numbers are more verbose.',
     )
-    show_error_codes: Optional[bool] = Field(
+    show_error_codes: bool | None = Field(
         True,
         description='DEPRECATED and UNDOCUMENTED: Now defaults to true, use `hide_error_codes` if you need to disable error codes instead.',
     )
-    show_error_code_links: Optional[bool] = Field(
-        False, description='UNDOCUMENTED: show links for error codes.'
+    show_error_code_links: bool | None = Field(
+        False, description='UNDOCUMENTED: show links for error codes.',
     )
-    disable_bytearray_promotion: Optional[bool] = Field(
+    disable_bytearray_promotion: bool | None = Field(
         False,
         description='UNDOCUMENTED. Disables automatic promotion of `bytearray` to `bytes` type. Is set to `true` in strict mode.',
     )
-    disable_memoryview_promotion: Optional[bool] = Field(
+    disable_memoryview_promotion: bool | None = Field(
         False,
         description='UNDOCUMENTED. Disables automatic promotion of `memoryview` to `bytes` type. Is set to `true` in strict mode.',
     )
-    enable_incomplete_feature: Optional[Union[str, List[str]]] = Field(
+    enable_incomplete_feature: str | List[str] | None = Field(
         None,
         description='Enable a preview of incomplete features that are not yet enabled by default by the current version of mypy. Note that it is not guaranteed that all features will be ultimately enabled by default.',
     )
-    overrides: Optional[List[Override]] = None
+    overrides: List[Override] | None = None

@@ -26,11 +26,9 @@ def get_slack_channel_from_name(name: str):
         channels = response["channels"]
         for channel in channels:
             if channel["name"] == name:
-                print(channel["id"])
                 return channel["id"]
         return None
 
-    print(f"Error: {response['error']}")
     return None
 
 
@@ -99,7 +97,7 @@ def get_paper_text(pdf_url: str) -> str:
     return text
 
 
-def driver():
+def driver() -> None:
     client = arxivlib.Client()
 
     search_query = "deepmind OR reinforcement learning OR computer vision OR machine learning OR artificial intelligence OR robotics"
@@ -112,15 +110,13 @@ def driver():
         url = r.links[0].href
         paper_text = get_paper_text(url.replace("abs", "pdf"))
         url = r.links[0].href.replace("abs", "html")
-        affiliations = get_possible_university_affiliations(url)
+        get_possible_university_affiliations(url)
         if "cs" not in r.primary_category:
             continue
         if not is_within_last_24_hours(str(r.published)):
             continue
 
         cnt += 1
-        print(cnt)
-        print(paper_text)
         system_prompt = """You are receiving a computer science arxiv paper summary and its content. You are returning a python array with 3 entries, wrapped in [ ].
         1. Distill the summary into concise 1-2 lines.
         2. Return the author emails and their university affiliations from the paper content in a ; separated list. You can find this in the beginning before ABSTRACT.
@@ -142,10 +138,9 @@ def driver():
 
         blocks.append(
             create_slack_block(
-                f"*{r.title}*\n_{published}_\n{extracted_data[0]}\n*Keywords: {extracted_data[2]}*\nAffiliations: {extracted_data[1]}\n{stanford_included}\n{slack_link}"
-            )
+                f"*{r.title}*\n_{published}_\n{extracted_data[0]}\n*Keywords: {extracted_data[2]}*\nAffiliations: {extracted_data[1]}\n{stanford_included}\n{slack_link}",
+            ),
         )
-    print(blocks)
     # slack_client.chat_postMessage(channel="papers", text="incoming", blocks=blocks)
 
 

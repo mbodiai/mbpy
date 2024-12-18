@@ -9,7 +9,6 @@ import itertools
 import operator
 import os
 import platform
-from random import random
 import re
 import shutil
 import stat
@@ -21,6 +20,7 @@ import types
 import urllib.request
 from collections.abc import Container, Hashable, Iterable, Mapping
 from pathlib import Path
+from random import random
 from time import sleep, time
 from typing import (
     TYPE_CHECKING,
@@ -37,13 +37,13 @@ from typing import (
     overload,
 )
 
-
 from typing_extensions import Final
 
-from mbpy.utils.collections import compose
+from mbpy.utils.collect import compose
+
 
 class _PeekableReader:
-    """lightweight stream wrapper that implements peek()"""
+    """lightweight stream wrapper that implements peek()."""
 
     def __init__(self, stream):
         self.stream = stream
@@ -75,7 +75,7 @@ class _PeekableReader:
 
 
 def _make_peekable(stream):
-    """return stream as an object with a peek() method"""
+    """Return stream as an object with a peek() method."""
     import io
 
     if hasattr(stream, "peek"):
@@ -297,9 +297,9 @@ def temp_dir(remover=shutil.rmtree):
 
 robust_temp_dir = functools.partial(temp_dir, remover=robust_remover())
 
-
+# from pydantic import AnyUrl
 @contextlib.contextmanager
-def repo_context(url, branch: str | None = None, quiet: bool = True, dest_ctx=robust_temp_dir):
+def repo_context(repo: str, branch: str | None = None, quiet: bool = True, dest_ctx=robust_temp_dir):
     """Check out the repo indicated by url.
 
     If dest_ctx is supplied, it should be a context manager
@@ -311,9 +311,14 @@ def repo_context(url, branch: str | None = None, quiet: bool = True, dest_ctx=ro
     >>> "README.rst" in listing
     True
     """
-    exe = "git" if "git" in url else "hg"
+    exe = "git" 
+    if repo.startswith("git+"):
+        exe = "git"
+        repo = repo[4:]
+    if not repo.startswith("https://"):
+        repo = f"https://github.com/{repo}"
     with dest_ctx() as repo_dir:
-        cmd = [exe, "clone", url, repo_dir]
+        cmd = [exe, "clone",repo , repo_dir]
         cmd.extend(["--branch", branch] * bool(branch))
         stream = subprocess.DEVNULL if quiet else None
         subprocess.check_call(cmd, stdout=stream, stderr=stream)
@@ -383,7 +388,7 @@ def method_cache(method, cache_wrapper=METHOD_CACHE_INIT):
     Caution - do not subsequently wrap the method with another decorator, such
     as ``@property``, which changes the semantics of the function.
 
-    See also
+    See Also:
     http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/
     for another implementation and additional justification.
     """
@@ -834,7 +839,7 @@ class MapInputsToRanges(Dict[_RangeMapKT, _VT]):
         ),
     ) -> Self:
         return cls(
-            source, sort_params=dict(reverse=True), key_match_comparator=operator.gt
+            source, sort_params={"reverse": True}, key_match_comparator=operator.gt,
         )
 
     def __getitem__(self, item: _RangeMapKT) -> _VT:
@@ -855,7 +860,7 @@ class MapInputsToRanges(Dict[_RangeMapKT, _VT]):
             SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
         ),
     ) -> Self:
-        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.lt)
+        return cls(source, sort_params={"reverse": True}, key_match_comparator=operator.lt)
     
     @classmethod
     def LessThanOrEqualTo(
@@ -864,7 +869,7 @@ class MapInputsToRanges(Dict[_RangeMapKT, _VT]):
             SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
         ),
     ) -> Self:
-        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.le)
+        return cls(source, sort_params={"reverse": True}, key_match_comparator=operator.le)
     
     @classmethod
     def GreaterThan(
@@ -873,7 +878,7 @@ class MapInputsToRanges(Dict[_RangeMapKT, _VT]):
             SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
         ),
     ) -> Self:
-        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.gt)
+        return cls(source, sort_params={"reverse": True}, key_match_comparator=operator.gt)
     @classmethod
     def GreaterThanOrEqualTo(
         cls,
@@ -881,7 +886,7 @@ class MapInputsToRanges(Dict[_RangeMapKT, _VT]):
             SupportsKeysAndGetItem[_RangeMapKT, _VT] | Iterable[tuple[_RangeMapKT, _VT]]
         ),
     ) -> Self:
-        return cls(source, sort_params=dict(reverse=True), key_match_comparator=operator.ge)
+        return cls(source, sort_params={"reverse": True}, key_match_comparator=operator.ge)
     
     @classmethod
     def By(
@@ -907,7 +912,7 @@ class MapInputsToRanges(Dict[_RangeMapKT, _VT]):
             return default
 
     def _find_first_match_(
-        self, keys: Iterable[_RangeMapKT], item: _RangeMapKT
+        self, keys: Iterable[_RangeMapKT], item: _RangeMapKT,
     ) -> _RangeMapKT:
         is_match = functools.partial(self.match, item)
         matches = filter(is_match, keys)
@@ -1002,8 +1007,7 @@ class KeyTransformingDict(dict):
         return super().pop(key, *args, **kwargs)
 
     def matching_key_for(self, key):
-        """
-        Given a key, return the actual key stored in self that matches.
+        """Given a key, return the actual key stored in self that matches.
         Raise KeyError if the key isn't found.
         """
         try:
@@ -1087,7 +1091,7 @@ class FoldedCaseKeyedDict(KeyTransformingDict):
     """  # noqa: D205
 
     @staticmethod
-    def transform_key(key):
+    def transform_key(key) -> None:
         text.FoldedCase(key)
 
 
@@ -1468,7 +1472,7 @@ class FrozenDict(collections.abc.Mapping, collections.abc.Hashable):
         return self.__data.__eq__(other)
 
     def copy(self):
-        "Return a shallow copy of self"
+        """Return a shallow copy of self."""
         return copy.copy(self)
 
 
@@ -1706,7 +1710,7 @@ class WeightedLookup(MapInputsToRanges):
 
         # allocate keys by weight
         indexes = map(Accumulator(), raw.values())
-        super().__init__(zip(indexes, raw.keys()), key_match_comparator=operator.lt)
+        super().__init__(zip(indexes, raw.keys(), strict=False), key_match_comparator=operator.lt)
 
     def random(self):
         lower, upper = self.bounds()
@@ -1726,10 +1730,10 @@ def caller(depth=1, default='__main__'):
 
 
 PositiveInteger: TypeAlias = Literal[
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
 ]
 NegativeInteger: TypeAlias = Literal[
-    -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20
+    -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20,
 ]
 Countable: TypeAlias = PositiveInteger | NegativeInteger | Literal[0]  # noqa: Y026  # TODO: Use TypeAlias once mypy bugs are fixed
 

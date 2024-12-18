@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "anyOf": [
+    {
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": true
+      }
+    },
+    {
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": true
+      }
+    }
+  ],
+  "properties": {
+    "name": {
+      "title": "Author name",
+      "type": "string"
+    },
+    "email": {
+      "title": "Author email",
+      "type": "string",
+      "format": "email"
+    }
+  }
+}

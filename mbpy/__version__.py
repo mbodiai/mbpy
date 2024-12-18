@@ -2,8 +2,8 @@
 # don't change, don't track in version control
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from typing import Tuple, Union
-    VERSION_TUPLE = Tuple[Union[int, str], ...]
+    from typing import Tuple
+    VERSION_TUPLE = Tuple[int | str, ...]
 else:
     VERSION_TUPLE = object
 

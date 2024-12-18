@@ -1,0 +1,335 @@
+ Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [unreleased]
+
+### 🚀 Features
+
+- Add profile decorator function in mbpy/profile.py
+- Add auto-documentation functionality for mbpy
+- Adopt the auto-documentation functionality for mpip
+- Add Sphinx documentation setup to `mpip create`
+- Add sphinx-autodoc-typehints dependency
+- Add support for MkDocs documentation
+- Add optional doc_type parameter to create_project function
+- Implement automatic documentation generation from docstrings
+- Implement create_project function with improved directory structure and pyproject.toml creation
+- Add tests for new project creation features
+- Add MkDocs configuration and initial documentation
+- Add optional dependencies for Sphinx and MkDocs documentation
+- Add test for MkDocs server functionality
+- Add pytest.mark.network and exclude network tests by default
+- Add pytest plugin configuration to exclude network tests by default
+- Add requests dependency and update test scripts in pyproject.toml
+- Implement Sphinx documentation setup
+- Implement Sphinx documentation setup
+- Add docstring check to MkDocs serve test
+- Add test for mpip create and mkdocs serve
+- Create a bash script to set up the embodied-data project
+- Add documentation setup with index.md file
+- Add command to serve documentation
+- Add 'lager' dependency to pyproject.toml
+- Add new directory 'src' to project creation
+- Add new test cases for create_project function
+- Add test cases for requirements handling
+- Add docstrings parameter to create_project function
+- Ensure all directories are created in the project
+- Add test for create_pyproject_toml with existing directory
+- Add empty search.py file
+- Add project creation and documentation servability tests
+- Add support for creating projects with existing content
+- Add MkDocs server start functionality
+- Ensure __about__.py file is created in project root
+- Add test for creating project with custom Python version and without CLI
+- Add functionality to update requirements.txt when modifying pyproject.toml
+- Add more detailed checks to test_create_project
+- Add missing imports to tests/test_create.py
+- Add logging to modify_pyproject_toml function
+- Add comprehensive test for upgrading dependencies from requirements.txt
+- Add test for pyproject.toml formatting
+- Add test case to check requirements.txt installation format
+- Add new line for dependencies and preserve Ruff configurations
+- Ensure classifiers are on newlines and add test
+- Add comprehensive Ruff configuration to pyproject.toml
+- Add support for creating projects
+- Add support for creating projects
+- Add support for Notion table row appending
+- Add Typer-based CLI with interactive mode and progress bar
+- Add HierarchicalLanguageAgent for directory summary generation
+- Enhance logging and verify caching in summary generation process
+- Refactor HierarchicalLanguageAgent to support custom summarization methods
+- Refactor leaf summary generation to use AST parsing for Python files
+- Implement default summarization method using AST for Python files
+- Implement efficient summary traversal and add agent interaction script
+- Add agent_interaction module for handling agent interactions
+- Create agent_interaction.py to implement prover and checker agents
+
+### 🐛 Bug Fixes
+
+- Update test for install_command with None requirements
+- Update test for install_command with None requirements
+- Add logging to test files
+- Fix indentation error in `setup_mkdocs` function
+- Fix indentation error in `setup_mkdocs` function
+- Add setup_mkdocs function to create.py
+- Merge duplicate setup_mkdocs function
+- Add missing setup_sphinx_docs function and update create_project to use correct project_root variable
+- Resolve issues in create_project function
+- Update create_project function
+- Update create_project function
+- Call create_pyproject_toml correctly in create_project
+- Remove unnecessary print statements from test_create_project
+- Update create_project function and test_create_project test
+- Update create_project function to handle existing pyproject.toml and project directories
+- Import extract_docstrings from mbpy.create
+- Import `ast` module in `mbpy.create`
+- Update test_extract_docstrings to match actual output
+- Update mkdocs configuration to use default theme
+- Add retry mechanism and logging to MkDocs server test
+- Use a random available port for the MkDocs server test
+- Improve MkDocs server test
+- Import setup_documentation function from mbpy.create
+- Use actual `create_project` function in test
+- Wrap the main test logic in a try-except-finally block
+- Improve error handling in test_mpip_create_and_mkdocs_serve
+- Update test to consider -2 and -15 as successful return codes
+- Handle existing project directory in create_project function
+- Update test_create_project to match actual mkdir call count
+- Ensure all mkdir calls use parents=True
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Serve MkDocs documentation and provide instructions to stop the server
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Update create_project function to reduce unnecessary directory creation
+- Reduce directory creation in create_project function
+- Reduce directory creation in create_project function
+- Replace undefined 'workflows' variable with full path using 'project_root'
+- Update test_create_project to expect 9 mkdir calls
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Update create_project function to use exist_ok=True and parents=True for all mkdir calls
+- Ensure all directory creation calls use exist_ok=True and parents=True
+- Ensure correct number of mkdir calls in create_project function
+- Increase mkdir calls to 13 in create_project function
+- Ensure all mkdir calls use exist_ok=True and parents=True
+- Reduce mkdir calls in create_project function
+- Ensure consistent use of exist_ok and parents parameters in create_project
+- Ensure consistent use of exist_ok=True and parents=True in create_project function
+- Ensure all mkdir and touch calls use exist_ok=True and parents=True
+- Flip order of mkdir parameters in create_project function
+- Ensure consistent order of mkdir parameters
+- Remove redundant write to index.md in create_project function
+- Resolve TypeError in create_project function
+- Update test_create.py to match changes in create_project function
+- Update expected mkdir call count in test_create_project
+- Update test_create_project to match current implementation
+- Handle case where requirements file is None or does not exist
+- Handle missing requirements file
+- Add prompts to overwrite existing project directory and pyproject.toml file
+- Remove check for existing pyproject.toml in parent directory
+- Remove unnecessary root directory retrieval in create_project function
+- Set project root directory to current working directory
+- Update path handling in create_project function
+- Update create_project function to use absolute path for project root
+- Use os.getcwd() instead of Path.cwd() to set project root directory
+- Update create_project function to use Path object for project root directory
+- Update create_project function in mbpy/create.py
+- Add missing mock for getcwd in test_create_project_with_documentation
+- Update tests to match current implementation
+- Update tests to expect empty dictionary instead of None
+- Extract docstrings only if not provided
+- Update create_project function signature
+- Add docstrings parameter to setup_documentation function call
+- Update README.md to provide clearer project description and usage instructions
+- Use tmp_path for project creation
+- Update create_project function to use provided project_root
+- Avoid user input when pyproject.toml already exists
+- Ensure necessary directories are created before writing files in create_project
+- Update test to expect 17 mkdir calls in create_project
+- Remove redundant directory creation in create_project
+- Update test_create_project to match changes in create_project function
+- Ensure all necessary directories are created before creating .gitkeep files
+- Ensure parent directories exist before creating .gitkeep files
+- Update test expectations to match create_project function
+- Update test expectations for create_project function
+- Update expected number of mkdir calls in test_create.py
+- Update test assertion for directory creation count
+- Use autospec for mocking Path methods in test_mpip_create_and_mkdocs_serve
+- Update create_project to include overwrite parameter when calling create_pyproject_toml
+- Update create_project function to correctly create __about__.py file
+- Create __about__.py file in correct location
+- Update create_project function to create project in current directory
+- Update create_project function in mbpy/create.py
+- Update create_project function to handle existing directories and create backups
+- Preserve existing dependencies when creating pyproject.toml
+- Preserve existing dependencies in pyproject.toml
+- Preserve existing dependencies in pyproject.toml
+- Preserve existing dependencies in pyproject.toml
+- Preserve existing dependencies when creating a new pyproject.toml file
+- Add missing return statement in create_project function
+- Update create_project function and associated tests
+- Update create_project function in mbpy/create.py and modify tests in tests/test_create.py
+- Update create_project function and tests
+- Update create_project function to return project path and call setup_documentation with correct path
+- Update create_project function and tests
+- Update setup_documentation call with correct path
+- Update the path passed to setup_documentation in create_project
+- Update create_project function to return correct project path
+- Return correct project path from create_project function
+- Correct `src_path` usage in `create_project` function
+- Correct the return value of the `create_project` function
+- Replace undefined variable with correct variable in create_project function
+- Return project_root directly
+- Return correct project path from create_project function
+- Return project_root instead of src_path in create_project function
+- Return correct project path from create_project function
+- Return project_path from create_project function
+- Update create_project function and test to handle existing pyproject.toml content
+- Update test to use mock_open
+- Improve requirements file handling in install_command
+- Update create_pyproject_toml function to handle project root correctly
+- Update install_command function in mbpy/cli.py
+- Update create_pyproject_toml function to return a string representation of the TOML document
+- Restore project_root definition in create_project
+- Add print statements to validate assumptions in create_project function
+- Implement create_project function and create_pyproject_toml function
+- Add dependencies to pyproject.toml
+- Preserve existing content and sections in pyproject.toml
+- Add dependencies to pyproject.toml correctly
+- Update create_pyproject_toml function to preserve existing description and authors
+- Update create_project function to correctly handle project creation
+- Update create_project function and tests
+- Update create_project function and tests
+- Update tests/test_create.py to fix undefined name 'mock_touch'
+- Update test_create_project in tests/test_create.py
+- Update create_project function to use Path object for project root directory
+- Update create_project function in mbpy/create.py
+- Update create_project function to use DEFAULT_PYTHON constant
+- Ensure __about__.py is created in create_project function
+- Update SEARCH block to match existing code in tests/test_pyproject_toml.py
+- Update tests to match actual behavior
+- Ensure project name is always set in pyproject.toml
+- Update create_project and create_pyproject_toml functions
+- Ensure project name is set in pyproject.toml
+- Update pyproject.toml with comprehensive configuration
+- Preserve existing dependencies when adding new ones in create_pyproject_toml
+- Update create_pyproject_toml function to preserve existing content
+- Preserve existing pyproject.toml content when creating a new project
+- Update test to match actual behavior of create_project function
+- Adjust test expectations for create_project with MkDocs
+- Ensure project directory structure is created before running MkDocs server
+- Install packages from requirements.txt when no packages are provided
+- Add missing indentation in mbpy/cli.py and tests/test_pyproject_toml.py
+- Update test_create_pyproject_toml_existing_directory function
+- Terminate triple-quoted string literal in test_pyproject_toml.py
+- Remove mocking and use subprocess with temporary directory in test_create_pyproject_toml_existing_directory
+- Add test for install -r requirements.txt argument cases
+- Remove mocking and use actual subprocess calls with a temporary directory for testing
+- Update dependencies in pyproject.toml
+- Fix unclosed array in pyproject.toml
+- Update tests to use subprocess and temporary directories
+- Update tests to handle pyproject.toml file creation
+- Remove patches and update tests in test_pyproject_toml.py
+- Improve formatting of dependencies in pyproject.toml
+- Improve formatting of dependencies in pyproject.toml
+- Update the `format_dependency` and `process_dependencies` functions to handle dependency formatting correctly
+- Update dependency formatting in pyproject.toml
+- Escape quotes in dependency formatting
+- Escape quotes in `format_dependency` function
+- Improve error handling and type hints in mbpy/mpip.py
+- Add missing imports to mbpy/mpip.py
+- Replace mocked tests with subprocess calls and temporary directories
+- Use temporary directory in test_modify_dependencies
+- Update modify_dependencies function to read and write pyproject.toml
+- Replace patches with subprocess calls in test files
+- Remove duplicate test_create_project_with_mkdocs function
+- Remove duplicate imports in tests/test_create.py
+- Update test_modify_dependencies to use a real package
+- Update test to use a valid package for installation
+- Update modify_dependencies and modify_pyproject_toml functions
+- Update modify_dependencies function to handle pyproject.toml file path correctly
+- Replace mocked tests with real subprocess calls using temporary directories
+- Update test_create_project_without_cli test
+- Update test_create.py to resolve undefined name errors
+- Update assertions in test_add_dependencies_to_pyproject
+- Create __init__.py files in project and source directories
+- Update create_project function to create __init__.py files
+- Update create_project function to return correct project path
+- Update create_project function to handle invalid existing pyproject.toml content
+- Update test_pyproject_toml_formatting to use pytest instead of numpy
+- Add test case to ensure dependencies are on separate lines in requirements.txt
+- Update requirements handling test to handle existing packages
+- Ensure dependencies are written on separate lines in pyproject.toml
+- Update test_requirements_install_format to handle already satisfied packages
+- Improve test_requirements_install_format test
+- Remove debug and print statements in mbpy
+- Remove debug and print statements from mbpy files
+- Remove duplicate assertion in tests/test_pyproject_toml.py
+- Update CLI implementation and test to ensure expected command is run
+- Update pyproject.toml when installing from requirements file
+- Update install_command function to install packages and update pyproject.toml and requirements.txt
+- Use current working directory as project root
+- Update create_project function and tests to handle project root directory correctly
+- Update create_project function and tests
+- Correct the test_create_project_existing_project test
+- Ensure existing dependencies are included in the new pyproject.toml
+- Update test_create_project_with_local_deps to handle multi-line dependencies
+- Update create_project function to generate correct MkDocs documentation
+- Improve test_mpip_create_and_mkdocs_serve
+- Remove duplicate finally block and redundant print statements in tests/test_create.py
+- Remove unused imports from test_create.py
+- Update create_project function to ensure pyproject.toml and other files are created correctly
+- Add import statement for json module in tests/test_create.py
+- Update project structure verification in test_create.py
+- Update create_project function to correctly create mkdocs.yml file
+- Update mkdocs.yml file path and project version
+- Move mkdocs.yml file creation to project root
+- Modify dependencies in pyproject.toml
+- Update SEARCH/REPLACE blocks to match current file contents
+- Handle exceptions in extract_docstrings function
+- Address issues identified by ruff check
+- Remove redefinition of `format_dependency` and unused `modify_dependencies` function
+- Address undefined name issues in mbpy/create.py
+- Fix logging issues and parameter name in create_project function
+- Remove await from synchronous _load_child_agent call in directory hash creation
+- Await child agent loading in directory hash creation method
+- Await child agent loading and handle module reading errors gracefully
+- Handle AttributeError for NamespaceLoader in module reading function
+- Improve error handling for module imports in HierarchicalLanguageAgent
+- Improve error handling for module imports in _generate_leaf_summary method
+- Improve error handling for module loading in HierarchicalLanguageAgent
+- Correct indentation in _generate_leaf_summary method for module_info assignment
+- Improve error handling in _generate_leaf_summary for module loading
+- Improve error handling for module loading in HierarchicalLanguageAgent
+- Import ast module to resolve NameError in file_assistant.py
+
+### 🚜 Refactor
+
+- Remove unnecessary RequestException catch
+- Replace mocking with subprocess and temp dir
+- Remove unused pydoc import to avoid NamespaceLoader error
+
+### 📚 Documentation
+
+- Update README.md to reflect correct package name and command
+- Add documentation section to README
+- Add instructions for building and viewing documentation
+- Add initial documentation for mbpy project
+- Add verbose logging to test_mpip_create_and_mkdocs_serve
+
+### 🧪 Testing
+
+- Add test case for install command with None requirements
+- Add unit tests for HierarchicalLanguageAgent methods
+- Fix test setup by creating temporary directory for file operations
+- Add test for agent interaction between generator and checker agents
+
+### ⚙️ Miscellaneous Tasks
+
+- Add detailed logging for module loader type and attributes
+- Update test.sh to use full path for agent_interaction.py script
+
+<!-- generated by git-cliff -->

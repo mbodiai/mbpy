@@ -1,23 +1,20 @@
 import ast
 import inspect
-import traceback
 from functools import partial
 from importlib import import_module
 from itertools import filterfalse
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Generator, Literal, Type, TypeVar, Union, overload
+from typing import Any, Callable, Generator, Literal, Type, TypeVar
 
 import tomlkit
-from click import types as t
 from rich.console import Console
 from rich.prompt import Confirm
-from rich.table import Table
 from tomlkit.exceptions import ParseError
 
 from mbpy import context
 from mbpy.graph import TreeNode as Node
-from mbpy.utils.collections import PathLike
+from mbpy.utils.collect import PathType
 from mbpy.utils.makesphinx import setup_sphinx_docs
 
 DEFAULT_PYTHON = "3.11"
@@ -180,15 +177,15 @@ managers = {
 }
 
 
-def mmkdir(path: str | Path):
+async def mmkdir(path: str | Path) -> None:
     if not Path(str(path)).exists():
         Path(path).mkdir(parents=True, exist_ok=True)
         (Path(path) / ".gitkeep").touch()
 
 
-def maybetouch(
-    path: str | Path, content: str | None = None, existing_content: Literal["merge", "replace", "forbid", "leave"] = "merge"
-):
+async def maybetouch(
+    path: str | Path, content: str | None = None, existing_content: Literal["merge", "replace", "forbid", "leave"] = "merge",
+) -> None:
     """Create a file if it doesn't exist, optionally with content.
     
     Args:
@@ -216,7 +213,6 @@ def maybetouch(
 T = TypeVar("T")
 
 def walk_bfs(node: T, max_depth=0, depth=0) -> Generator[T, None, None]:
-    queue = [node]
     walk_children_to_depth = partial(walk, max_depth=max_depth, depth=depth+1)
     if max_depth > 0 and depth > max_depth:
         return
@@ -232,14 +228,14 @@ def walk_bfs(node: T, max_depth=0, depth=0) -> Generator[T, None, None]:
         yield from  map(walk_children_to_depth(map(makenode, node.items())))
     if isinstance(node, ModuleType | Type):
         yield from map(walk_children_to_depth, node.__dict__.items())
-    with context.suppress(Exception) as e :
+    with context.suppress(Exception):
         if isinstance(node, str)  and (mods := ast.parse(node)):
             yield from  map(walk_children_to_depth, mods)
-    with context.suppress(Exception) as e:
+    with context.suppress(Exception):
         makenode = partial(Node, parent=node,name= node.__name__)
         if mod := import_module(node):
             yield from map(walk_children_to_depth, map(makenode, mod.__dict__.items()))
-    with context.suppress(Exception) as e:
+    with context.suppress(Exception):
         if etree := TreeNode(node):
             yield from map(walk_children_to_depth, etree.children)
     return False
@@ -249,7 +245,7 @@ def walk(node: T, ignore_pred: str | Callable[[T], bool] = IGNORE_FILES, max_dep
 
             
 
-def create_project(
+async def create_project(
     project_name: str,
     author: str,
     description: str = "",
@@ -268,13 +264,13 @@ def create_project(
     # Create project structure
     src_dir = project_path / project_name
     src_dir.mkdir(parents=True, exist_ok=True)
-    maybetouch(src_dir / "__init__.py", INIT_PY)
-    maybetouch(
+    await maybetouch(src_dir / "__init__.py", INIT_PY)
+    await maybetouch(
         src_dir / "__about__.py",
         f"__version__ = '0.0.1'\n__author__ = '{author}'\n__description__ = '{description}'",
         "replace",
     )
-    maybetouch(project_path / "README.md", f"# {project_name}\n\n{description}", "leave")
+    await maybetouch(project_path / "README.md", f"# {project_name}\n\n{description}", "leave")
     # Create pyproject.toml
     pyproject_path = project_path / "pyproject.toml"
     existing_content = None
@@ -282,7 +278,7 @@ def create_project(
         with pyproject_path.open() as f:
             existing_content = f.read()
 
-    pyproject_content = create_pyproject_toml(
+    pyproject_content = await create_pyproject_toml(
         project_name,
         author,
         description,
@@ -294,7 +290,7 @@ def create_project(
     pyproject_path.write_text(pyproject_content)
 
     # Setup documentation
-    setup_documentation(project_name=project_name, author=author, description=description, autodoc=autodoc, project_root=project_root)
+    await setup_documentation(project_name=project_name, author=author, description=description, autodoc=autodoc, project_root=project_root)
 
     if prompt:
         with context.suppress(Exception) as e:
@@ -365,13 +361,13 @@ def find_pyproject(pu: Path = None, pd: Path = None,search_window=5) -> Path | N
     return None
 
 
-def setup_documentation(
+async def setup_documentation(
     project_name: str,
     author: str,
     description: str,
     autodoc: str = "sphinx",
-    project_root: PathLike | None = None,
-    search_window: int = 5
+    project_root: PathType | None = None,
+    search_window: int = 5,
 ) -> None:
     """Set up documentation for a project."""
     if project_root is None:
@@ -491,7 +487,7 @@ from {module_name} import {obj_name}
     (docs_dir / "api.md").write_text(api_content)
 
 
-def create_pyproject_toml(
+async def create_pyproject_toml(
     project_name,
     author,
     desc="",
@@ -502,6 +498,10 @@ def create_pyproject_toml(
     existing_content=None,
     manager="hatch",
 ) -> str:
+    """Create a pyproject.toml file."""
+    if Path("pyproject.toml").exists() and not Confirm.ask("pyproject.toml already exists. Do you want to modify it?"):
+        console.print("Exiting...", style="bold blue")
+        return None
     try:
         pyproject = tomlkit.parse(existing_content) if existing_content else tomlkit.document()
     except ParseError:
@@ -529,7 +529,7 @@ def create_pyproject_toml(
             "Programming Language :: Python :: 3 :: Only",
             "License :: OSI Approved :: MIT License",
             "Operating System :: OS Independent",
-        ]
+        ],
     )
     project["classifiers"] = classifiers
 
@@ -637,17 +637,17 @@ def create_pyproject_toml(
         "ini_options": {
             "addopts": "-m 'not network'",
             "markers": "network: marks tests that make network calls (deselect with '-m \"not network\"')",
-        }
+        },
     }
     if manager in ("hatch", "uv"):
         tool.setdefault("hatchling", tomlkit.table()).setdefault("build", tomlkit.table()).setdefault(
-            "hooks", tomlkit.table()
+            "hooks", tomlkit.table(),
         ).setdefault("build-scripts", tomlkit.table()).setdefault("scripts", tomlkit.table()).update(
             {
                 "out_dir": "out",
                 "commands": ["chmod +x build.sh && ./build.sh"],
                 "artifacts": [f"~/.local/bin/{project_name}"],
-            }
+            },
         )
 
     # Add additional Ruff configurations from the current pyproject.toml
@@ -666,7 +666,7 @@ def create_pyproject_toml(
             "markers": [
                 "network: marks tests that require network access (deselect with '-m \"not network\"')",
             ],
-        }
+        },
     }
 
     return tomlkit.dumps(pyproject)

@@ -1,0 +1,32 @@
+{
+  "title": "Version",
+  "description": "Version configuration",
+  "x-taplo": {
+    "links": {
+      "key": "https://hatch.pypa.io/latest/version/#configuration"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "path": {
+      "title": "Path",
+      "description": "A relative path to a file containing the project version",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/version/#configuration"
+        }
+      },
+      "type": "string"
+    },
+    "pattern": {
+      "title": "Pattern",
+      "description": "A regex pattern to extract the version",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/version/#configuration"
+        }
+      },
+      "type": "string"
+    }
+  }
+}

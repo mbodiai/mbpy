@@ -1,0 +1,29 @@
+{
+  "title": "Overrides",
+  "description": "Overrides depending on things like platform, matrix variables, or environment variables",
+  "x-taplo": {
+    "links": {
+      "key": "https://hatch.pypa.io/latest/config/environment/advanced/#option-overrides"
+    }
+  },
+  "type": "object",
+  "patternProperties": {
+    "env|matrix|name": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Override"
+      }
+    }
+  },
+  "properties": {
+    "platform": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/definitions/Platform"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/Override"
+      }
+    }
+  }
+}

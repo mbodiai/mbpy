@@ -1,4 +1,3 @@
-import sys
 
 from tomlkit import dump, load
 

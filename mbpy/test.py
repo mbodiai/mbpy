@@ -1,11 +1,11 @@
-from typing import Any, get_type_hints, Dict, Tuple, Type
-from inspect import Signature, Parameter
+from inspect import Parameter, Signature
+from typing import Dict, get_type_hints
 
 
 class TypedDataClassMeta(type):
-    def __new__(metacls, name, bases, namespace):
+    def __new__(cls, name, bases, namespace):
         # Create the class as usual
-        cls = super().__new__(metacls, name, bases, namespace)
+        cls = super().__new__(cls, name, bases, namespace)
 
         # Skip base class
         if name == "TypedDataClass":
@@ -25,7 +25,7 @@ class TypedDataClassMeta(type):
                     Parameter.POSITIONAL_OR_KEYWORD,
                     default=default,
                     annotation=field_type,
-                )
+                ),
             )
 
         # Create the signature
@@ -62,7 +62,7 @@ class GraphicSettings(TypedDataClass):
 
 # Example usage with positional arguments
 settings_positional = GraphicSettings(
-    "Custom Node", 150, "blue", "s", "star", {"x": 10, "y": 20}
+    "Custom Node", 150, "blue", "s", "star", {"x": 10, "y": 20},
 )
 
 # Example usage with keyword arguments
@@ -75,5 +75,3 @@ settings_keyword = GraphicSettings(
     pos={"x": 10, "y": 20},
 )
 
-print(settings_positional)
-print(settings_keyword)

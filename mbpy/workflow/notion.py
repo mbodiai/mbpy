@@ -10,7 +10,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
-def append_notion_table_row(new_data: dict, page_content: list|None = None, debug: bool = False):
+def append_notion_table_row(new_data: dict, page_content: list|None = None, debug: bool = False) -> None:
     """Appends a new row to a Notion table using the Notion SDK. Supports fields like `title`, `select`, `multi_select`, `checkbox`, and `rich_text`. Optionally adds page content if provided.
 
     Args:

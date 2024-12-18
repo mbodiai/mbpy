@@ -1,13 +1,14 @@
 [project]
 classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3 :: Only",
-  "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
 ]
 dependencies = [
+    'minspect',
     'more-itertools',
     'mrender',
     'networkx>=3.4.2',
@@ -15,7 +16,9 @@ dependencies = [
     'numpy',
     'pexpect>=4.9.0; sys_platform != "win32"',
     'pydantic>=2.9',
+    'python-dateutil',
     'python-dotenv>=1.0.1',
+    'requests>=2.32.3',
     'tomlkit',
 ]
 description = ""
@@ -30,6 +33,7 @@ mbpip = "mbpy.cli:cli"
 mbpy = "mbpy.cli:main"
 mpip = "mbpy.cli:cli"
 mrun = "mbpy.commands:cli"
+
 [project.optional-dependencies]
 extras = [
   'uvloop>=0.21.0',
@@ -78,7 +82,6 @@ requires = ["hatchling", "hatch-build-scripts"]
 [tool.uv]
 dev-dependencies = [
   "ipython>=8.29.0",
-  "mbpy",
   "minspect",
   "mypy>=1.11.2",
   "openai>=1.52.0",
@@ -91,7 +94,7 @@ dev-dependencies = [
 [tool.uv.sources]
 embdata = {workspace = true}
 mbodi = {workspace = true}
-mbodied = {workspace = true}
+# mbodied = {workspace = true}
 minspect = {workspace = true}
 mrender = {workspace = true}
 
@@ -100,34 +103,9 @@ mrender = {workspace = true}
 
 [tool.hatch.envs.default]
 dependencies = ["pytest", "pytest-cov"]
-
 [tool.ruff]
 fixable = ["ALL"]
-ignore = [
-  "D105",
-  "PGH004",
-  "D100",
-  "D101",
-  "D104",
-  "D106",
-  "ANN101",
-  "ANN102",
-  "ANN003",
-  "ANN204",
-  "UP009",
-  "B026",
-  "ANN001",
-  "ANN401",
-  "ANN202",
-  "D107",
-  "D102",
-  "D103",
-  "E731",
-  "UP006",
-  "UP035",
-  "ANN002",
-  "E741"
-]
+ignore = ["D105", "PGH004", "D100", "D101", "D104", "D106", "ANN101", "ANN102", "ANN003", "ANN204", "UP009", "B026", "ANN001", "ANN401", "ANN202", "D107", "D102", "D103", "E731", "UP006", "UP035", "ANN002"]
 line-length = 120
 select = ["A", "COM812", "C4", "D", "E", "F", "UP", "B", "SIM", "N", "ANN", "ASYNC", "S", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PD", "I", "PLW"]
 unfixable = []
@@ -148,10 +126,10 @@ convention = "google"
 
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing"
-markers = ["network: marks tests that require network access (deselect with '-m \"not network\"')"]
 testpaths = ["tests"]
+markers = ["network: marks tests that require network access (deselect with '-m \"not network\"')"]
 
 [tool.hatchling.build.hooks.build-scripts.scripts]
-artifacts = ["~/.local/bin/mbpy"]
+artifacts = ["~/.local/bin/mbtest"]
 commands = ["chmod +x build.sh && ./build.sh"]
 out_dir = "out"
