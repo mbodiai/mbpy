@@ -1,10 +1,7 @@
 import asyncio
-import subprocess
 from datetime import datetime, timedelta
 import ast
-from typing import Dict, List
-from rich.console import Console
-from rich.markdown import Markdown
+from typing import TYPE_CHECKING, Dict, List
 import collections
 import os
 import rich_click as click
@@ -13,8 +10,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Set
 from mbpy.import_utils import smart_import
-console = Console(record=True)
-
+from mbpy.cli import base_args
 # Simple cache for repository root
 _repo_root = None
 
@@ -57,12 +53,19 @@ async def get_repo_root() -> str:
         _repo_root = result.strip()
     return _repo_root
 
-async def arun(cmd_args: List[str], cwd: str = None, debug: bool = False) -> str:
+async def arun(cmd_args: List[str], cwd: str = None, debug: bool = False,console=None) -> str:
     """Run a command asynchronously and return its output."""
+
+    if not TYPE_CHECKING:
+        SPINNER = smart_import("mbpy.helpers._display.SPINNER")
+        console = console or smart_import("mbpy.helpers._display.getconsole")()
+    else:
+        from mbpy.helpers._display import SPINNER
+        from mbpy.helpers._display import getconsole
+        console = getconsole()
+        
     if not await is_git_repo(cwd):
         raise ValueError("Not a git repository")
-    SPINNER = smart_import("mbpy.helpers._display.SPINNER")
-        
     try:
         if debug:
             console.print(f"[dim]$ {' '.join(cmd_args)}[/dim]")
@@ -363,6 +366,7 @@ async def get_commit_history(
             min_lines: Minimum number of changed lines to include
             file_patterns: List of file patterns to analyze (e.g. ['*.py'])
         """
+        console = smart_import("mbpy.helpers._display.getconsole")()
         console.print("\n[blue]Git Repository Info[/blue]")
         console.print(f"[dim]Working directory:[/dim] {os.getcwd()}")
         from mbpy.log import debug
@@ -675,6 +679,7 @@ async def generate_changelog(
 
 async def undo_last_commit() -> bool:
     """Undo the last commit but keep the changes staged."""
+    console = smart_import("mbpy.helpers._display.getconsole")()
     try:
         # Get the last commit hash first
         last_hash = await arun(['git', 'rev-parse', 'HEAD'])
@@ -720,6 +725,7 @@ async def check_diverging_changes(branch: str = None) -> tuple[bool, str]:
     except Exception as e:
         if "does not have any commits yet" in str(e):
             return False, ""
+        console = smart_import("mbpy.helpers._display.getconsole")()
         console.print(f"[red]Error checking diverging changes: {str(e)}[/red]")
         return False, ""
 
@@ -746,6 +752,7 @@ async def git_pull(branch: str = None) -> bool:
     except Exception as e:
         if "does not have any commits yet" in str(e):
             return True
+        console = smart_import("mbpy.helpers._display.getconsole")()
         console.print(f"[red]Failed to pull changes: {str(e)}[/red]")
         return False
 
@@ -764,18 +771,14 @@ async def git_pull(branch: str = None) -> bool:
               type=click.Choice([g.value for g in Granularity], case_sensitive=False),
               default=Granularity.MODULE.value,
               help='Level of detail for change messages')
+@base_args()
 async def main(change_log: bool,
     days: int, branch: str, output: str, show_code: bool, 
                overwrite: bool, dry_run: bool, max_changes: int,
                undo: bool, push: bool, granularity: str):
-    """Git operations including changelog generation and pushing changes.
-    
-    Usage:
-      mb git            # Generate changelog only
-      mb git -p        # Generate changelog and push changes
-      mb git --undo    # Undo last commit
-    """
-    from mbpy.log import debug
+    """Git operations including changelog generation and pushing changes."""
+    console = smart_import("mbpy.helpers._display.getconsole")()
+    Markdown = smart_import("rich.markdown.Markdown")
     try:
         # Validate working directory
         if not os.path.exists(os.getcwd()):
@@ -829,6 +832,8 @@ async def main(change_log: bool,
                             return
 
                 # Then attempt to push
+                out = await arun(['git', 'add', '.'])
+                out = await arun(['git', 'commit', '-m', f"'{await generate_changelog(-1)}'"])
                 push_cmd = ['git', 'push']
                 if branch:
                     push_cmd.extend(['origin', branch])

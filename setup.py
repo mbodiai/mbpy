@@ -14,7 +14,7 @@ try:
             pyproject = toml.load(pyproject_path)
             return pyproject.get("project", {}).get("name", os.path.basename(os.path.dirname(__file__))) 
         else:
-            return Path(__file__).parent.name  # Use directory name as package name
+            return Path(__file__).parent.name 
 
     def find_pyx_modules():
         """Dynamically find all .pyx files in the discovered packages."""
@@ -33,14 +33,14 @@ try:
         return extensions
 
     extensions = cythonize(
-        find_pyx_modules(),  # Removed hardcoded "mbpy/pkg"
+        find_pyx_modules(), 
         language_level=3,
     )
 
     setup(
-        name=get_package_name(),  # Replaced hardcoded name with dynamic retrieval
+        name=get_package_name(),
         version="0.1.0",
-        packages=find_packages(),  # Automatically find packages
+        packages=find_packages(),
         ext_modules=extensions,
     )
 except ImportError:

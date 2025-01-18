@@ -1,5 +1,4 @@
 import logging
-from time import sleep
 from typing import TYPE_CHECKING, ParamSpec, TypedDict, TypeVar, get_origin
 
 from Cython.Plex.Regexps import Any
@@ -211,7 +210,7 @@ def SPINNER():
                     sleep(0.1)
                     self._live.update(self._spinner)
                 self.spinning = False
-            self._live.console.print("")
+            # self._live.console.print("")
 
         async def astart(self) -> None:
             await asyncio.to_thread(self.start)

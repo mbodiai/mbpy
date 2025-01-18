@@ -4,7 +4,7 @@ import logging
 from functools import lru_cache, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Iterable, Literal, TypeVar, cast,overload
-from mbpy.cli import cli,base_args
+from mbpy.cli import cli,base_args,process_tasks
 import rich_click as click
 
 from mbpy.import_utils import smart_import
@@ -76,9 +76,6 @@ async def install_command(
 
 
 
-def uv_error(line) -> bool:
-    line = str(line)
-    return line.lower().strip().startswith("error") or "failed" in line.lower() or "error" in line.lower() or "fatal" in line.lower() or "ERROR" in line
 
 
 async def install_pip(
@@ -150,7 +147,7 @@ async def install_pip(
                    install(t,p) for t, p in zip(ts, packages)
                 ]
             ):
-                if uv_error(t):
+                if has_failure(t):
                     progress.console.print(f"Error: {t}", style="bold red")
                 progress.update(t, completed=1)
                 yield t
@@ -162,7 +159,7 @@ async def install_pip(
 
 @cli.command("time", no_args_is_help=True)
 @click.argument("command", nargs=-1)
-@base_args  
+@base_args()
 async def time_command(command):
     """Execute a shell command asynchronously and print its execution time."""
     shlex = smart_import('shlex')
@@ -330,7 +327,7 @@ async def _uninstall_command(packages, env, group, *, debug=False) -> None:
 
 @cli.command("show", no_args_is_help=False)
 @click.argument("package", type=str,default=None,required=False)
-@base_args
+@base_args()
 async def show_command(env=None, package=None,**kwargs):
     """Show the dependencies from the pyproject.toml file.
 
@@ -345,6 +342,8 @@ async def show_command(env=None, package=None,**kwargs):
 
 async def _show_command(package: str | None = None, *, env=None, debug: bool = False) -> None:
     """Show the dependencies from the pyproject.toml file."""
+    from rich.console import Console
+    Console().print("Showing dependencies from pyproject.toml...")
     if TYPE_CHECKING:
         import sys
         import traceback
@@ -374,6 +373,7 @@ async def _show_command(package: str | None = None, *, env=None, debug: bool = F
         afind_toml_file = smart_import('mbpy.pkg.toml.afind_toml_file')
         arun_command = smart_import('mbpy.cmd.arun_command')
         SPINNER = smart_import('mbpy.helpers._display.SPINNER')()
+        json = smart_import('json')
     if sys.flags.debug or debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
     if env:
@@ -386,15 +386,29 @@ async def _show_command(package: str | None = None, *, env=None, debug: bool = F
             return
         except Exception:
             traceback.print_exc()
+
     toml_path = await afind_toml_file()
     try:
-
         content = Path(toml_path).read_text()
         pyproject = tomlkit.parse(content)
 
-        async for a in arun_command(f"{get_executable(env)} -m pip list", show=True):
-            pass
+        # Create a prettier table for installed packages
+        installed_table = Table(title=Text("Installed Packages", style="bold green"))
+        installed_table.add_column("Package", style="cyan")
+        installed_table.add_column("Version", style="magenta")
 
+        # Capture pip list output and parse it
+        pip_output = []
+        async for line in arun_command(f"{get_executable(env)} -m pip list --format=json", show=False):
+            pip_output.append(line)
+        
+        installed_packages = json.loads("".join(pip_output))
+        for pkg in installed_packages:
+            installed_table.add_row(pkg["name"], pkg["version"])
+
+        # Show installed packages
+        console.print(installed_table)
+        console.print()  # Add spacing between tables
 
         # Determine if we are using Hatch or defaulting to project dependencies
         if env is not None and "tool" in pyproject and "hatch" in pyproject.get("tool", {}):
@@ -403,16 +417,27 @@ async def _show_command(package: str | None = None, *, env=None, debug: bool = F
             )
         else:
             dependencies = pyproject.get("project", {}).get("dependencies", [])
-
         if dependencies:
-            table = Table(title=Text("Dependencies for project:", style="bold cyan"))
-            table.add_column("Package", style="cyan")
+            required_table = Table(title=Text("Required Dependencies", style="bold cyan"))
+            required_table.add_column("Package", style="bold cyan")
+            required_table.add_column("Version", style="magenta")
+            required_table.add_column("Status", style="bold green")
+            required_table.add_column("Location", style="bold blue")
+            
+            # Check if required packages are installed
+            installed_names = {pkg["name"].lower() for pkg in installed_packages}
             for dep in dependencies:
-                table.add_row(dep)
-            SPINNER.stop()
-            console.print(table)
+                pkg_name = dep.split("[")[0].split(">=")[0].split("==")[0].split("<")[0].split(">")[0].split("@")[0].strip()
+                version = dep.split("==")[-1].split(">=")[-1].split("<=")[-1].split("<")[-1].split(">")[-1].split(",")[-1].split("]")[0] if "@" not in dep else ""
+                location = dep.split("@")[-1].strip() if "@" in dep else ""
+                status = "✓ Installed" if pkg_name.lower() in installed_names else "✗ Missing"
+                status_style = "bold green" if "Installed" in status else "bold red"
+                required_table.add_row(pkg_name, version, Text(status, style=status_style),location)
+            
+            console.print(required_table)
         else:
             console.print("No dependencies found.", style="bold yellow")
+
     except FileNotFoundError:
         console.print("No pyproject.toml file found.", style="bold red")
     except Exception as e:
@@ -816,7 +841,8 @@ async def undo_command() -> None:
     help="PyPI or GitHub authentication token. Defaults to PYPI_TOKEN or GIT_TOKEN environment variable.",
 )
 @click.option("--gh-release", is_flag=True, help="Create a GitHub release")
-async def publish_command(bump=False, build=False, package_manager="github", auth=None, gh_release=False) -> None:
+@click.option("-A","--args", help="Additional arguments to pass to the package manager")
+async def publish_command(bump=False, build=False, package_manager="github", auth=None, gh_release=False,args=None) -> None:
     r"""Publish a package to PyPI or GitHub.
 
     Note: Git features require the GitHub CLI to be installed. See https://cli.github.com/ for more information.
@@ -861,7 +887,7 @@ async def publish_command(bump=False, build=False, package_manager="github", aut
         out = ""
         if build:
             await arun("rm -rf dist")
-            out = await arun(" ".join([package_manager, "build"]),show=True)
+            out = await _build_command()
         if package_manager == "github":
             out = interact(["gh", "pr", "create", "--fill"], show=True)
             outs = ""
@@ -882,7 +908,7 @@ async def publish_command(bump=False, build=False, package_manager="github", aut
         else:
             console.print("Invalid package manager specified.", style="bold red")
 
-        if "error" in out[-1].lower():
+        if "error" in out.lower():
             console.print("Error occurred while publishing package.", style="bold red")
         else:
             console.print(
@@ -898,11 +924,10 @@ async def publish_command(bump=False, build=False, package_manager="github", aut
         if "error" in out[-1].lower():
             console.print("Error occurred while creating release.", style="bold red")
         else:
-            console.print(f"Release created successfully for version {version}.", style="bold light_goldenrod2")
+            console.print(f"Release created successfully for version {(version or 'current')}.", style="bold light_goldenrod2")
 
     except Exception:
-        import traceback
-        traceback.print_exc()
+        console.print("Error occurred while publishing package.", style="bold red")
 
 @cli.command("help", no_args_is_help=True)
 @click.argument("command", default=None, required=False)
@@ -917,34 +942,69 @@ async def help_command(command) -> None:
     from pyclbr import readmodule_ex
     console.print(readmodule_ex("mbpy"))
 
-@cli.command("add", no_args_is_help=True)
-@click.argument("packages", nargs=-1)
-@click.option("--dev", is_flag=True, help="Add as a development dependency")
-@click.option("-e", "--editable", is_flag=True, help="Add as an optional dependency")
-@click.option("--env", default=None, help="Specify the Hatch, Conda, or mbnix environment to use")
-@click.option("-g", "--group", default=None, help="Specify the dependency group to use")
-@click.option("-U", "--upgrade", is_flag=True, help="Upgrade the package(s)")
-@click.option("-r","--requirements", type=click.Path(exists=True), help="Requirements file to install packages from")
-@click.option("-b", "--broken", type=click.Choice(["skip", "ask", "repair"]), default="skip", help="Behavior for broken packages")
-@click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
-async def add_uvcommand(packages, dev, editable, env, group, upgrade, requirements, broken, debug):
-    try:
-        # Validate packages
-        packages = [p for p in packages if p and isinstance(p, str)]
+def has_failure(line: str) -> bool:
+    line = str(line)
+    return line.lower().strip().startswith("error") or "failed" in line.lower() or "error" in line.lower() or "fatal" in line.lower() or "ERROR" in line
+
+async def check_install_prompt(program: str, unix: str|None=None, windows: str|None=None,linux: str|None=None,mac: str|None=None) -> bool:
+    """Check if a program is installed and prompt to install it if not."""
+    if TYPE_CHECKING:
+        from rich.prompt import Prompt
+        from mbpy.cmd import arun
+        import os
+    else:
+        Prompt = smart_import('rich.prompt.Prompt')
+        arun = smart_import('mbpy.cmd.arun')
+        os = smart_import('os')
+    if not await arun(f"which {program}"):
+        y = Prompt.ask(f"{program} is not installed. Install now?", choices=["y", "n"], default="y")
+        if y != "y":
+            return False
+        if os.name == "posix":
+            out = await arun(unix)
+        elif os.name == "nt":
+            out = await arun(windows)
+        elif os.name == "linux":
+            out = await arun(linux)
+        elif os.name == "mac":
+            out = await arun(mac)
+        if has_failure(out):
+            return False
+    return True
+
+# @cli.command("add", no_args_is_help=True)
+# @base_args
+# @click.argument("packages", nargs=-1)
+# @click.option("--dev", is_flag=True, help="Add as a development dependency")
+# @click.option("-e", "--editable", is_flag=True, help="Add as an optional dependency")
+# @click.option("-g", "--group", default=None, help="Specify the dependency group to use")
+# @click.option("-U", "--upgrade", is_flag=True, help="Upgrade the package(s)")
+# @click.option("-r","--requirements", type=click.Path(exists=True), help="Requirements file to install packages from")
+# @click.option("-p","--package-manager", type=click.Choice(["pip", "uv"]), default="pip", help="Package manager to use")
+# @click.option("-b", "--broken", type=click.Choice(["skip", "ask", "repair"]), default="skip", help="Behavior for broken packages")
+# async def add_uvcommand(packages, dev, editable, group, upgrade, requirements, package_manager, broken) -> None:
+#     if package_manager == "uv":
+#         out = await check_install_prompt("uv", unix="curl -LsSf https://astral.sh/uv/install.sh | sh", windows='powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"')
+#         if not out:
+#             console = smart_import('mbpy.helpers._display.getconsole')()
+#             console.print("[bold blue] Falling back to pip...[/bold blue]")
+#         else:
+#             return 
+#     try:
             
-        await _install_command(
-            packages=packages,
-            requirements_file=requirements,
-            upgrade=upgrade,
-            editable=editable,
-            env=env, 
-            group=group,
-            debug=debug,
-            broken=broken,
-        )
-    except Exception as e:
-        console = smart_import('mbpy.helpers._display.getconsole')()
-        console.print(f"[red]Error installing packages: {str(e)}[/red]")
+#         await _install_command(
+#             packages=packages,
+#             requirements_file=requirements,
+#             upgrade=upgrade,
+#             editable=editable,
+#             env=env, 
+#             group=group,
+#             debug=debug,
+#             broken=broken,
+#         )
+#     except Exception as e:
+#         console = smart_import('mbpy.helpers._display.getconsole')()
+#         console.print(f"[red]Error installing packages: {str(e)}[/red]")
 
 
 @cli.command("remove", no_args_is_help=True)
@@ -977,17 +1037,16 @@ async def run_cli_command(command: str,auto:bool=False,debug:bool=False) -> None
     except Exception:
         traceback.print_exc()
 
-@cli.command("clean")
-@click.option("-a", "--all", is_flag=True, help="Clean all files")
-@base_args
-async def _clean_command(env: str | None = None, debug: bool = False, all: bool = False) -> None:
+async def _clean_command(env: str | None = None, debug: bool = False, all: bool = False, logs=False) -> None:
     """Removes build artifacts and optionally, generated c,cpp,so files."""
     console = smart_import('mbpy.helpers._display.getconsole')()
     arun  = smart_import('mbpy.cmd.arun')
-    files = smart_import('importlib.resources').files
+    files = smart_import('importlib.resources.files')
+    logs = "'**/*.log'" if logs else ""
     try:
         clean_script = files('mbpy') / 'scripts' / 'clean.sh'
-        await arun(f"bash {clean_script} {env or ''} {'--all' if all else ''}", show=True)
+        await arun(f"bash {clean_script} {env or ''} {'--all' if all else ''} {logs}", show=True)
+
     except Exception:
         if debug:
             traceback.print_exc()
@@ -1282,20 +1341,11 @@ async def remove_command(packages, dev, env, group, debug) -> None:
 
 @cli.command("clean")
 @click.option("-a", "--all", is_flag=True, help="Clean all files")
+@click.option("-l", "--logs", is_flag=True, help="Clean log files")
 @base_args
-async def _clean_command(env: str | None = None, debug: bool = False, all: bool = False) -> None:
-    """Removes build artifacts and optionally, generated c,cpp,so files."""
-    console = smart_import('mbpy.helpers._display.getconsole')()
-    arun  = smart_import('mbpy.cmd.arun')
-    files = smart_import('importlib.resources').files
-    try:
-        clean_script = files('mbpy') / 'scripts' / 'clean.sh'
-        await arun(f"bash {clean_script} {env or ''} {'--all' if all else ''}", show=True)
-    except Exception:
-        if debug:
-            traceback.print_exc()
-        else:
-            console.print("Error: Failed to clean project.", style="bold red")
+async def clean_command(env: str | None = None, debug: bool = False, all: bool = False, logs=False) -> None:
+    """Removes build artifacts and optionally, logs and generated c,cpp,so files."""
+    return await _clean_command(env, debug, all, logs)
 
 async def configure_cython(pyproject, project_name, path, out):
     """Configure Cython build settings in pyproject.toml"""
@@ -1344,10 +1394,15 @@ async def configure_cython(pyproject, project_name, path, out):
     await arun(f"cythonize -i -k -M {str(out)}/**/*.pyx", show=True)
     await arun("hatch build", show=True)
 
+
 @cli.command("build", no_args_is_help=True)
 @click.argument("path", default=".",required=False)
-async def build_command(path: Path = ".") -> None:
+@base_args(env=False)
+async def build_command(path: Path = ".",env=None) -> None:
     """Cythonize and build a package."""
+    return await _build_command(path)
+
+async def _build_command(path: Path = ".",env=None) -> None:
     arun = smart_import('mbpy.cmd.arun')
     add_auto_cpdef_to_package = smart_import('mbpy.pkg.directive.add_auto_cpdef_to_package')
     from pathlib import Path
@@ -1370,7 +1425,7 @@ async def build_command(path: Path = ".") -> None:
             get_executable = smart_import('mbpy.helpers._env.get_executable')
         else:
             pass
-        if "hatch-cython" not in await arun(get_executable() + " -m pip list", show=False):
+        if "hatch-cython" not in await arun(get_executable(env) + " -m pip list", show=False):
             y = Prompt.ask("Package 'hatch-cython' not found. Install it now and configure?", choices=["y", "n"], default="y")
             if y == "y":
                 d = Dependency("hatch-cython")
@@ -1462,12 +1517,6 @@ async def repair_command(path, dry_run) -> None:
         traceback.print_exc()
 
 
-@cli.command("rebuild", no_args_is_help=True)
-@click.argument("args", nargs=-1)
-async def rebuild_command(args) -> None:
-    """Rebuild Cython files."""
-    arun = smart_import('mbpy.cmd.arun')
-    await arun(f"uv rebuild {' '.join(args)}")
 
 # @cli.command("recover")
 # @click.argument("branch", required=False)

@@ -78,6 +78,7 @@ class uname_result:
     def version(self) -> str: ...
     @property
     def machine(self) -> str: ...
+
 @dataclass
 class SystemSettings:
     ccompiler: str
@@ -126,6 +127,7 @@ class CDependency:
     source_paths: list[str] | None = field(default=None)
     abi_version: int | None = field(default=None)
     c_standard: int | None = field(default=None)
+    cxx_standard: int | None = field(default=None)
     shared_libs: list[str] | None = field(default=None)
     git: bool = False
 
@@ -210,14 +212,15 @@ class CDependency:
 
 @dataclass
 class Project:
+
     system: SystemSettings = field(default_factory=SystemSettings.detect)
     c: list[CDependency] | None = field(default_factory=list)
     python: "list[Dependency] | None" = field(default_factory=list)
 
-    def get_cflags(self) -> str:
+    def getcflags(self) -> str:
         return f"{self.system.cppflags} {self.system.arch}"
 
-    def get_env(self) -> dict[str, str]:
+    def getenv(self) -> dict[str, str]:
         return asdict(self.system)
     
     @classmethod
@@ -236,7 +239,7 @@ class Project:
             python = []
         return cls(c=c, python=python)
     @classmethod
-    def from_toml(cls, toml_path: "PathType" = "pyproject.toml") -> "Project":
+    def fromtoml(cls, toml_path: "PathType" = "pyproject.toml") -> "Project":
         if TYPE_CHECKING:
             from mbpy.pkg.toml import get_toml_config
         else:
@@ -295,7 +298,7 @@ def _version_check(
 
     return True
 
-@dataclass 
+@dataclass
 class Condition:
     """Class for parsing and evaluating dependency conditions.
     
@@ -305,7 +308,7 @@ class Condition:
         env_vars: Environment variable requirements
     """
     if_values: list[str] = field(default_factory=list)
-    platforms: list[str] = field(default_factory=list) 
+    platforms: list[str] = field(default_factory=list)
     env_vars: dict[str, str] = field(default_factory=dict)
 
     @classmethod
@@ -322,7 +325,7 @@ class Condition:
         platforms: List[str] = []
         env_vars: Dict[str, str] = {}
 
-        parts: List[str] = [p.strip() for p in condition_str.split(";") if p.strip()]
+        parts = [p.strip() for p in condition_str.split(";") if p.strip()]
         for part in parts:
             if part.startswith("if "):
                 if_values = [v.strip() for v in part[3:].split(",")]
@@ -366,7 +369,7 @@ def isgit(source: "PathType") -> bool:
 
 
 def iseditable(source: str) -> bool:
-    source = source if isinstance(source, str) else source.source
+    source = source if isinstance(source, str) else source.install_cmd
     return source.startswith("-e") or "/" in source or "-e" in source
 
 @cache
@@ -378,7 +381,7 @@ def isatformat(source: "str| Dependency") -> bool:
     """Check if string is in package @ location format."""
     if not TYPE_CHECKING:
         re = smart_import("re")
-    source = source if isinstance(source, str) else source.source
+    source = source if isinstance(source, str) else source.install_cmd
     if isinstance(source, (str, bytes)):
         return re.match(r"^[a-zA-Z0-9_\-]+ @ [a-zA-Z0-9_\-:/\.]+$", source) is not None
     return False
@@ -441,6 +444,63 @@ def org_and_repo(source: str) -> tuple[str, str]:
     if len(src) != 2:
         raise ValueError(f"Invalid source format: {src}")
     return src[0], src[1]
+# @cache
+# def extract_name_and_source_from_git(source: str) -> tuple[str, str]:
+#     """Modified to consistently return name, org, source"""
+#     org,name  = org_and_repo(source)
+#     return name, get_vcs(source)
+
+
+# @cache
+# def extract_name_and_source_from_at(source: str) -> "tuple[str, str]":
+#     """Extracts the name and source from a string in the format 'name @ source'."""
+#     # Don't process paths containing potentially dangerous commands
+#     if any(cmd in source.lower() for cmd in ['rm ', 'rmdir', 'del ']):
+#         logging.warning(f"Potentially dangerous command detected in path: {source}")
+#         msg = f"Potentially dangerous command detected in path: {source}"
+#         raise ValueError(msg)
+        
+#     match = re.match(r"^([a-zA-Z0-9_\-]+) @ ([a-zA-Z0-9_\-:/\.]+)$", source)
+#     if match:
+#         path = match.group(2)
+#         # Validate it's a real path/URL
+#         if path.startswith(('http://', 'https://', 'git://', 'file://')):
+#             return match.group(1), path
+#         if Path(path).exists():
+#             return match.group(1), path
+#     return source, source
+
+# @cache
+# def extract_name_and_source(source: str) -> "tuple[str, str]":
+#     """Extracts the name and source from a package string.
+
+#     Args:
+#         source (str): The input string in one of the following formats:
+#             - '-e <source>'
+#             - 'git+<source>'
+#             - 'name @ source'
+
+#     Returns:
+#         Optional[Tuple[str, str]]: A tuple containing the name and source if the pattern matches, otherwise None.
+#     """
+#     dangerous_commands = ['rm ', 'rmdir', 'del ', ';', '&&', '||']
+#     cmd_lower = source.lower()
+    
+#     # Check for dangerous commands using word boundaries
+#     if any(
+#         cmd in cmd_lower.split() or  # Check for whole words
+#         f" {cmd} " in f" {cmd_lower} "  # Check with spaces
+#         for cmd in dangerous_commands
+#     ):
+#         raise ValueError("Potentially dangerous command detected")
+
+#     if iseditable(source):
+#         return extract_name_source_from_editable(source)
+#     if isgit(source):
+#         return extract_name_and_source_from_git(source)
+#     if isatformat(source):
+#         return extract_name_and_source_from_at(source)
+#     return source, source
 
 
 
@@ -457,7 +517,6 @@ def validate_editable(command: "PathType", name: str | None = None, requirements
     if "file:/" not in command and "@" not in command:
         return f"{name} @ file://{Path(command).resolve()}"
     return command
-
 class RepoNotFoundError(Exception):
     """Raised when a repository is not found."""
     ...
@@ -552,6 +611,36 @@ class Task(TypedDict, ParentT):
     result: T | None
 
 
+class AsyncTreeNode(TypedDict, Generic[T]):
+    name: str
+    value: T
+    children: "dict[str, AsyncTreeNode[T]] | None"
+    context: Context | None
+
+def with_async_init(async_init: "Callable") -> "Callable":
+    def decorator(func: "Callable") -> "Callable":
+        if func is None:
+            raise ValueError(f"Function is None: {func}")
+        async def wrapper(self, *args, **kwargs):
+            cond: asyncio.Condition = self._async_init_condition
+            if self._async_init_done:
+                return await func(self, *args, **kwargs)
+            if not cond.locked() or await cond.acquire():
+                    async with cond:
+                        out = await async_init(self)
+
+                        self._async_init_done = True
+                        cond.notify_all()
+            
+            if await self.done():
+                out = await func(self, *args, **kwargs)
+                return out
+            else:
+                raise RuntimeError(f"Failed to initialize {self} with {async_init}")
+        return wrapper
+    return decorator
+
+
 SOURCE_KEYS = ["install_cmd","source","pip_install_cmd","project_install_cmd"]
 
 
@@ -559,7 +648,6 @@ SOURCE_KEYS = ["install_cmd","source","pip_install_cmd","project_install_cmd"]
 class Dependency:
     """Handles dependency operations to ensure consistent formatting."""
     import asyncio
-    source: str 
     install_cmd: str
     version_str: str = ""
     extras: list[str] | str = ""
@@ -569,18 +657,64 @@ class Dependency:
     pypi_info: PyPackageInfo = field(default_factory=lambda: PyPackageInfo())
     editable: bool = False
     upgrade: bool = False
-    _base: str | None = field(repr=False,init=False,default=None)
+    source: str | None = None
     dependencies: "list[Dependency]" = field(default_factory=list)
-    task_groups: "dict[str, TaskGroup | dict[str, TaskGroup]]" = field(default_factory=dict)
-    _async_init_done: bool = False
-    _tasks: "dict[str, Iterable[asyncio.Task] | asyncio.Task]" = field(default_factory=dict, init=False, repr=False)
-    _async_init_condition: "asyncio.Condition" = field(default_factory=asyncio.Condition,repr=False,init=False)
     group: str | None = None
     git: bool = False
     at: bool = False
     env: str | None = None
     author: str | None = None
 
+    _base: str | None = field(repr=False,init=False,default=None)
+    _groups: "dict[str, TaskGroup | dict[str, TaskGroup]]" = field(default_factory=dict, init=False, repr=False)
+    _async_init_done: bool = field(default=False, init=False, repr=False)
+    _to_string: str | None = field(default=None, init=False, repr=False)
+    _tasks: "dict[str, Iterable[asyncio.Task] | asyncio.Task]" = field(default_factory=dict, init=False, repr=False)
+    _async_init_condition: "asyncio.Condition" = field(default_factory=asyncio.Condition,repr=False,init=False)
+    _requirements_name: str | None = field(default=None, init=False, repr=False)
+
+    def __getstate__(self):
+        """Return state for pickling."""
+        state = self.__dict__.copy()
+        # Remove unpicklable entries
+        state.pop('_groups', None)
+        state.pop('dependencies', None)
+        state.pop('_async_init_done', None)
+        state.pop('pypi_info', None)
+        return state
+
+    def __setstate__(self, state):
+        """Set state when unpickling."""
+        self.__dict__.update(state)
+        # Reinitialize unpicklable attributes
+        self._groups = {}
+        self.dependencies = []
+        self._async_init_done = False
+        self.pypi_info = PyPackageInfo()
+
+    def __deepcopy__(self, memo):
+        """Support deep copying."""
+        copy = smart_import("copy")
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k not in ('_groups', 'dependencies', '_async_init_done', 'pypi_info'):
+                setattr(result, k, copy.deepcopy(v, memo))
+        # Reinitialize special attributes
+        result._groups = {}
+        result.dependencies = []
+        result._async_init_done = False
+        result.pypi_info = PyPackageInfo()
+        return result
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Dependency):
+            return False
+        return self.base == value.base and self.version == value.version
+
+    def __hash__(self) -> int:
+        return hash((self.install_cmd, self.version))
 
     @property
     async def requirements_name(self) -> str:
@@ -629,7 +763,7 @@ class Dependency:
         return Path(self.project_dir).resolve().stem
 
     # def normalize(self) -> str:
-    #     package_name = self.source
+    #     package_name = self.install_cmd
     #     return str(normalize_path(package_name.strip().lower().replace("-", "_")))
 
     @property
@@ -638,7 +772,7 @@ class Dependency:
         if self._base is not None:
             return self._base
 
-        package_name = str(self.source)
+        package_name = str(self.install_cmd)
 
         if package_name.startswith("git+"):
             parts = package_name.split("@")
@@ -675,7 +809,7 @@ class Dependency:
 
     def getconditions(self) -> list[str]:
         """Get the package conditions from a package name."""
-        package_name = self.source
+        package_name = self.install_cmd
         if ";" not in package_name:
             return []
         return package_name.split(";")[1:]
@@ -685,7 +819,7 @@ class Dependency:
         """Get the version string from a package name."""
         if self.version_str:
             return self.version_str
-        self.version_str = self.getversion(self.source)
+        self.version_str = self.getversion(self.install_cmd)
         return self.version_str
     
     @staticmethod
@@ -712,9 +846,9 @@ class Dependency:
     def __post_init__(self):
         if not TYPE_CHECKING:
             re = smart_import("re")
-        if isinstance(self.source, Dependency):
-            dep = self.source
-            self.source = dep.source
+        if isinstance(self.install_cmd, Dependency):
+            dep = self.install_cmd
+            self.install_cmd = dep.install_cmd
             self.version_str = dep.version_str
             self.extras = dep.extras
             self.conditions = dep.conditions
@@ -736,20 +870,20 @@ class Dependency:
             self.env = dep.env
             self.author = dep.author
             return
-        self.source = str(self.source)
-        self.editable = iseditable(self.source)
-        self.git = isgit(self.source)
-        self.at = isatformat(self.source)
+
+        self.editable = iseditable(self.install_cmd)
+        self.git = isgit(self.install_cmd)
+        self.at = isatformat(self.install_cmd)
 
 
         if self.git:
-            org,repo = org_and_repo(self.source)
+            org,repo = org_and_repo(self.install_cmd)
             self._base = repo
             self.author = org
         
 
 
-        self.extras = self.extras or self.getextras(self.source)
+        self.extras = self.extras or self.getextras(self.install_cmd)
         self.conditions = self.conditions or  ";".join(self.getconditions())
 
         self.min_version = self.getversion(self.min_version)
@@ -758,7 +892,7 @@ class Dependency:
         if self.git:
             pass
         else:
-            match = re.search(r"\[([^\]]+)\]", self.source)
+            match = re.search(r"\[([^\]]+)\]", self.install_cmd)
             self.extras = self.extras or (match.group(1) if match else "")
 
     async def _async_post_init(self):
@@ -864,7 +998,7 @@ class Dependency:
         editable = editable if editable is not None else self.editable
         requirements = requirements if requirements is not None else False
         # Use pip_install_cmd instead of install_cmd for git repos that have been cloned
-        install_cmd = self.source
+        install_cmd = self.install_cmd
         name = self.base
         extras = self.extras
         version = self.version
@@ -910,7 +1044,7 @@ class Dependency:
         sys = smart_import("sys")
 
         try:
-            has_dep = importlib.util.find_spec(self.source) is not None
+            has_dep = importlib.util.find_spec(self.install_cmd) is not None
             if not has_dep:
                 return False
         except ModuleNotFoundError:
@@ -921,7 +1055,7 @@ class Dependency:
         if not self.has():
             return False
         return _version_check(
-            pkg=self.source,
+            pkg=self.install_cmd,
             v=self.version,
             min_v=min_version,
             max_v=max_version,
@@ -940,7 +1074,7 @@ class Dependency:
             ModuleNotFoundError: If the package is not installed.
         """
         if not self.has():
-            raise ModuleNotFoundError(f"{self.source} is required {why}.") from None
+            raise ModuleNotFoundError(f"{self.install_cmd} is required {why}.") from None
 
     def require_at_version(
         self,
@@ -951,7 +1085,7 @@ class Dependency:
         self.require(why)
 
         _version_check(
-            pkg=self.source,
+            pkg=self.install_cmd,
             v=self.version,
             min_v=min_version,
             max_v=max_version,
@@ -964,7 +1098,7 @@ class Dependency:
         max_version: str | None = None,
     ) -> bool:
         return _version_check(
-            pkg=self.source,
+            pkg=self.install_cmd,
             v=self.version,
             min_v=min_version,
             max_v=max_version,
@@ -976,7 +1110,7 @@ class Dependency:
         max_version: str | None = None,
     ) -> None:
         _version_check(
-            pkg=self.source,
+            pkg=self.install_cmd,
             v=self.version,
             min_v=min_version,
             max_v=max_version,
@@ -1077,7 +1211,6 @@ if __name__ == "__main__":
     import sys
     import mbpy
     import logging
-    from typing import List, Dict, Optional
     logging.basicConfig(level=logging.DEBUG,force=True)
     loop = asyncio.get_event_loop()
     # Graceful shutdown handler

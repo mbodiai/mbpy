@@ -136,6 +136,9 @@ class AsyncGroup(click.RichGroup):
 
     def invoke(self, ctx: click.Context) -> Any:
         """Override the invoke method to handle async commands."""
+        if ctx.invoked_subcommand is not None and "-h" in ctx.params or "--help" in ctx.params:
+            SPINNER = smart_import('mbpy.helpers._display.SPINNER')()
+            SPINNER.stop()
         coro = super().invoke(ctx)
         if asyncio.iscoroutine(coro):
             return run_async(coro)
@@ -363,21 +366,77 @@ def cli(ctx: click.RichContext, env, debug):
 
 
 
-
-def base_args(cmd: click.Command) -> click.Command:
+@overload
+def base_args(env=True,debug=True,help=True) -> click.Command:...
+@overload
+def base_args(func) -> click.Command:...
+def base_args(*args,**kwargs):
     """Add base arguments to a command."""
-    return click.option(
-        "-e",
-        "--env",
-        default=None,
-        help="Specify the python, hatch, conda, or mbnix environment",
-    )(
-        click.option("-d", "--debug", is_flag=True, help="Enable debug logging")(
-        click.help_option("-h", "--help")(
-            cmd,
-        ),
-        ),
-    )
+        
+    if TYPE_CHECKING:
+        from mbpy.collect import wraps
+        from more_itertools import first
+        from functools import partial
+    else:
+        wraps = smart_import('mbpy.collect.wraps')
+        first = smart_import('more_itertools.first')
+        partial = smart_import('functools.partial')
+
+    if len(args) == 1 and callable(args[0]):
+        args = list(args)
+        func = args.pop(0)
+        def decorator(func,*args,**kwargs):
+            @wraps(func)
+            def wrapper(*args,env=None,debug=None,**kwargs):
+                if debug:
+                    log = smart_import('mbpy.log')
+                    log.debug().set()
+                return func(*args,**kwargs)
+            return wrapper
+        return click.option(
+            "-e",
+            "--env",
+            default=None,
+            help="Specify the python, hatch, conda, or mb environment",
+        )(
+            click.option("-d", "--debug", is_flag=True, help="Enable debug logging")(
+            click.help_option("-h", "--help")(
+                decorator(partial(func,*args,**kwargs))
+            )
+            ),
+        )
+    args = list(args)
+    env = kwargs.get('env',args.pop(0) if args else True)
+    debug = kwargs.get('debug',args.pop(0) if args else True)
+    help = kwargs.get('help',args.pop(0) if args else True)
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args,env=None,debug=None,**kwargs):
+            if debug:
+                log = smart_import('mbpy.log')
+                log.debug().set()
+            return func(*args,**kwargs)
+
+        if env:
+            env_wrapper =  click.option(
+            "-e",
+            "--env",
+            default=None,
+            help="Specify the python, hatch, conda, or mb environment",
+        )
+        else:
+            env_wrapper = lambda x: x
+        if debug:
+            debug_wrapper = click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
+        else:
+            debug_wrapper = lambda x: x
+        if help:
+            help_wrapper = click.help_option("-h", "--help")
+        else:
+            help_wrapper = lambda x: x
+        return help_wrapper(debug_wrapper(env_wrapper(wrapper)))
+    return decorator
+    
 
 
 
