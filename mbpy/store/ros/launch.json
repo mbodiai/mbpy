@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ros2.org/schemas/launch.json",
+  "title": "ROS2 Launch File Schema",
+  "description": "JSON Schema for ROS2 launch files supporting substitutions and dynamic configurations",
+  "$defs": {
+    "substitutionPattern": {
+      "type": "string",
+      "pattern": "^\\$\\((find|exec|env|var|eval|command|find_executable|find_package_share|here|log|var|python|command_line)\\s+[^)]+\\)$"
+    },
+    "substitutableString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/substitutionPattern"
+        }
+      ]
+    },
+    "parameter": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/substitutionPattern"
+              }
+            ]
+          }
+        },
+        {
+          "$ref": "#/$defs/substitutableString"
+        }
+      ]
+    },
+    "remapping": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "to": {
+          "$ref": "#/$defs/substitutableString"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ]
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "unless",
+                "if"
+              ]
+            },
+            {
+              "$ref": "#/$defs/substitutableString"
+            }
+          ]
+        },
+        "actions": {
+          "$ref": "#/$defs/launchElements"
+        }
+      },
+      "required": [
+        "condition"
+      ]
+    },
+    "node": {
+      "$dynamicAnchor": "node",
+      "type": "object",
+      "properties": {
+        "package": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "executable": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "name": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "namespace": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "exec_name": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "respawn": {
+          "type": "boolean"
+        },
+        "respawn_delay": {
+          "type": "number",
+          "minimum": 0
+        },
+        "remappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/remapping"
+          }
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        },
+        "extra_arguments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/substitutableString"
+          }
+        },
+        "ros_arguments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/substitutableString"
+          }
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/substitutableString"
+          }
+        }
+      },
+      "required": [
+        "package",
+        "executable"
+      ]
+    },
+    "includeFile": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "pass_all_arguments": {
+          "type": "boolean"
+        },
+        "arg": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/substitutableString"
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ]
+          }
+        }
+      },
+      "required": [
+        "file"
+      ]
+    },
+    "argument": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "default": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/substitutionPattern"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "group": {
+      "type": "object",
+      "properties": {
+        "scoped": {
+          "type": "boolean"
+        },
+        "actions": {
+          "$ref": "#/$defs/launchElements"
+        }
+      }
+    },
+    "setEnv": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/substitutableString"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "setRemap": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/substitutableString"
+        },
+        "to": {
+          "$ref": "#/$defs/substitutableString"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ]
+    },
+    "let": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/substitutableString"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "launchElements": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/node"
+          },
+          {
+            "$ref": "#/$defs/includeFile"
+          },
+          {
+            "$ref": "#/$defs/argument"
+          },
+          {
+            "$ref": "#/$defs/group"
+          },
+          {
+            "$ref": "#/$defs/setEnv"
+          },
+          {
+            "$ref": "#/$defs/setRemap"
+          },
+          {
+            "$ref": "#/$defs/let"
+          },
+          {
+            "$ref": "#/$defs/condition"
+          }
+        ]
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "launch": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "elements": {
+          "$ref": "#/$defs/launchElements"
+        }
+      },
+      "required": [
+        "elements"
+      ]
+    }
+  },
+  "required": [
+    "launch"
+  ]
+}

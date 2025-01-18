@@ -1,0 +1,56 @@
+{
+  "title": "Target",
+  "type": "object",
+  "properties": {
+    "dependencies": {
+      "title": "Dependencies",
+      "description": "Additional dependencies to install in the environment",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#dependencies"
+        }
+      },
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "require-runtime-dependencies": {
+      "title": "Require runtime dependencies",
+      "description": "Whether to install the project\u2019s runtime dependencies",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#dependencies"
+        }
+      },
+      "type": "boolean",
+      "default": false
+    },
+    "require-runtime-features": {
+      "title": "Required runtime features",
+      "description": "A list of the project\u2019s runtime features to install",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#dependencies"
+        }
+      },
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "versions": {
+      "title": "Versions",
+      "description": "List of versions to build",
+      "x-taplo": {
+        "links": {
+          "key": "https://hatch.pypa.io/latest/config/build/#versions"
+        }
+      },
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

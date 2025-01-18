@@ -1,0 +1,13 @@
+{
+  "title": "Hooks",
+  "description": "Build hooks",
+  "x-taplo": {
+    "links": {
+      "key": "https://hatch.pypa.io/latest/config/build/#build-hooks"
+    }
+  },
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/definitions/Hook"
+  }
+}

@@ -1,0 +1,37 @@
+[project]
+name = "example_project"
+
+[tool.mb.workspace]
+env = { MY_ENV_VAR = "example_value", CUSTOM_VAR = "custom_value" }
+cpp = 20
+gcc = "12"
+cmake = "3.24"
+python = "3.11"
+
+[tool.mb.workspace.deps]
+numpy = "pip"
+scipy = "pip"
+pandas = "conda"
+example_repo = { git = "example/repo@main" }
+arch_dep = { git = "arch-specific/arm_dep@v1.0" }
+local_cpp = { local = "./local_cpp_project" }
+
+
+[tool.mb.build]
+project_name = "TreeSitterDemo"
+cpp_standard = "17"
+output_name = "tree_sitter_demo"
+
+[sources]
+files = [
+    "src/main.cpp",
+    "tree_sitter/src/parser.c",
+    "tree_sitter_cpp/src/parser.c",
+    "tree_sitter_cpp/src/scanner.cc"
+]
+
+[includes]
+directories = [
+    "tree_sitter/src",
+    "tree_sitter_cpp/src"
+]

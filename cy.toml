@@ -1,0 +1,19 @@
+# pyproject.toml  
+[build-system]  
+requires = ["setuptools", "wheel", "Cython"]  
+build-backend = "setuptools.build_meta"  
+
+[project]  
+name = "cli_app"  
+version = "0.1.0"  
+description = "A CLI application to run shell commands with rich output."  
+dependencies = [  
+    "click",  
+    "rich",  
+    "rich_click"  
+]  
+
+[tool.cython]  
+language_level = "3"  # You have this correctly set
+[tool.setuptools]
+packages = ["testcmd"]

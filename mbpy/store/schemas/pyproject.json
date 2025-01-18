@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "pyproject.toml",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "readme": {
+          "type": "string"
+        },
+        "requires-python": {
+          "type": "string"
+        },
+        "license": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ]
+        },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              }
+            },
+            "required": [
+              "name",
+              "email"
+            ]
+          }
+        },
+        "classifiers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional-dependencies": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "entry-points": {
+          "type": "object",
+          "properties": {
+            "console_scripts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "urls": {
+          "type": "object",
+          "properties": {
+            "Documentation": {
+              "type": "string",
+              "format": "uri"
+            },
+            "Repository": {
+              "type": "string",
+              "format": "uri"
+            },
+            "Changelog": {
+              "type": "string",
+              "format": "uri"
+            },
+            "Issues": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "description",
+        "readme",
+        "requires-python",
+        "license",
+        "authors",
+        "classifiers"
+      ]
+    },
+    "build-system": {
+      "type": "object",
+      "properties": {
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "build-backend": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "requires",
+        "build-backend"
+      ]
+    }
+  },
+  "required": [
+    "project",
+    "build-system"
+  ]
+}

@@ -1,0 +1,42 @@
+[package]
+name = "example_project"
+authors = ["John Doe", "Jane Doe"]
+
+[system]
+locale = "en_US.UTF-8"
+dependencies = [
+"cpp==17",
+"python==3.8",
+"python==3.9; sys_platform == 'win32'",
+"pypi==3.10",
+"ros==jazzy; sys_platform == 'linux'",
+]
+managers = ["apt", "brew", "uv"]
+preference = ["brew", "apt"]
+
+
+[python.311]
+dependencies = [
+    "numpy==1.21.0; sys_platform == 'win32'",
+    "pandas"
+]
+
+[sources]
+compiler="clang++"
+files = [
+    "src/main.cpp",
+    "tree_sitter/src/parser.c",
+    "tree_sitter_cpp/src/parser.c",
+    "tree_sitter_cpp/src/scanner.cc"
+]
+
+[sources.includes]
+dirs = [
+    "tree_sitter/src",
+    "tree_sitter_cpp/src"
+]
+
+[env]
+MY_ENV_VAR = "my_env_var"
+MY_ENV_VAR2 = "my_env_var2"
+

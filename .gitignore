@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2024 Johann Klähn <johann@jklaehn.de>
+#
+# SPDX-License-Identifier: MIT
+
+.cache/
+.clangd/
+.direnv/
+.envrc
+.lit_test_times.txt
+.pytest_cache/
+build/
+compile_commands.json
+dist/
+install/
+**/*build/
+**/*install/
+build/
+install/
+tmp/
+**/*.egg-info/**/*
+*.egg/
+*.pyc
+*.pyo
+*.so
+*.swp
+thirdparty/
+
+

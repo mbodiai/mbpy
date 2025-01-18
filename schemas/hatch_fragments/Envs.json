@@ -1,0 +1,13 @@
+{
+  "title": "Envs",
+  "description": "Dictionary of environments",
+  "x-taplo": {
+    "links": {
+      "key": "https://hatch.pypa.io/latest/config/environment/overview/"
+    }
+  },
+  "type": "object",
+  "additionalProperties": {
+    "$ref": "#/definitions/Env"
+  }
+}

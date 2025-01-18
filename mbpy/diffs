@@ -1,0 +1,747 @@
+diff --git a/mbpy/pkg/dependency.py b/mbpy/pkg/dependency.py
+index ec3e95e..c6b746a 100644
+--- a/mbpy/pkg/dependency.py
++++ b/mbpy/pkg/dependency.py
+@@ -8,11 +8,13 @@ import re
+ import sys
+ from collections.abc import Callable
+ from pathlib import Path
+-from typing import TYPE_CHECKING, Any, Dict, List, TypedDict
++from typing import TYPE_CHECKING, AbstractSet, Any, Dict, Iterable, List, TypedDict, cast,Generic, TypeVar
+ from urllib.parse import unquote, urlparse
++from mbpy.collect import PathLike
+ from mbpy.import_utils import smart_import
+ import tomlkit
+ 
++
+ from mbpy.collect import PathType
+ from functools import lru_cache
+ from mbpy.pkg.toml import find_toml_file
+@@ -22,6 +24,11 @@ from dataclasses import dataclass, field
+ 
+ import logging
+ 
++if TYPE_CHECKING:
++    from asyncio.taskgroups import TaskGroup
++    import asyncio
++
++
+ class UploadInfo(TypedDict, total=False):
+     version: str | None
+     upload_time: str
+@@ -54,9 +61,12 @@ def normalize_path(path_str: PathType) -> Path:
+     if path_str.startswith("file://"):
+         # Parse the URI
+         url = urlparse(path_str)
+-        # URL-decode the path and create a Path object
+-        return Path(unquote(url.path))
+-
++        # Handle Windows drive letters
++        if os.name == 'nt' and re.match(r'^/[a-zA-Z]:', url.path):
++            path = url.path.lstrip('/')
++        else:
++            path = url.path
++        return Path(unquote(path))
+     return Path(path_str)
+ 
+ 
+@@ -81,14 +91,14 @@ def _version_check(
+         msg = f"Mismatched version of {pkg}: expected >={min_v}, got {v}"
+         if raise_error:
+             raise RuntimeError(msg)
+-        sys.stderr.write(f"{msg}. Some features may not work correctly.")
++        logging.warning(f"{msg}. Some features may not work correctly.")
+         return False
+ 
+     if parsed_max_version is not None and parsed_v >= parsed_max_version:
+         msg = f"Mismatched version of {pkg}: expected <{max_v}, got {v}"
+         if raise_error:
+             raise RuntimeError(msg)
+-        sys.stderr.write(f"{msg}. Some features may not work correctly.")
++        logging.warning(f"{msg}. Some features may not work correctly.")
+         return False
+ 
+     return True
+@@ -125,27 +135,107 @@ class Condition:
+         if self.platforms and platform not in self.platforms:
+             return False
+ 
+-        return all(not (env_key not in env or env[env_key] != env_val) for env_key, env_val in self.env_vars.items())
++        return all(env.get(env_key) == env_val for env_key, env_val in self.env_vars.items())
+ 
+-def isgit(package_name: PathType) -> bool:
+-    package_name = str(package_name)
+-    return package_name.startswith(("git+", "hg+", "svn+", "bzr+"))\
+-    or package_name.startswith("http") and "github.com" in package_name
+-def iseditable(package_name: str) -> bool:
+-    return package_name.startswith("-e")
+-@lru_cache
+-def exists(package_name: str) -> bool:
+-   return Path(package_name[:100]).exists()
++def isgit(source: PathType) -> bool:
++    source = str(source)
++    return (
++        source.startswith(("git+", "hg+", "svn+", "bzr+")) or
++        (source.startswith("http") and "github.com" in source) or
++        ("/" in source and not Path(source[:100]).exists())
++    )
++
++def iseditable(source: str) -> bool:
++    return source.startswith("-e")
++
++@lru_cache(maxsize=None)
++def exists(source: str) -> bool:
++   return Path(source[:100]).exists()
++
++@lru_cache(maxsize=None)
++def isatformat(source: str) -> bool:
++    import re
++    return re.match(r"^[a-zA-Z0-9_\-]+ @ [a-zA-Z0-9_\-:/\.]+$", source) is not None
++
++@lru_cache(maxsize=None)
++def extract_name_source_from_editable(source: str) -> tuple[str, str]:
++    """
++    Extracts the name and source from an editable package string in the format '-e <source>'.
++
++    Args:
++        source (str): The input string in the format '-e <source>'.
++
++    Returns:
++        Tuple[str, str]: A tuple containing the name and source.
++    """
++    name = source[3:].strip()
++    return name, source
+ 
+ @lru_cache
+-def _handle_editable(package_name: "PathType", name: str | None = None,requirements=False) -> str:
+-    """Handle editable installs."""
+-    from mbpy.collect import PathLike, PathType
++def extract_name_and_source_from_git(source: str) -> tuple[str, str]:
++    """
++    Extracts the name and source from a Git URL.
++
++    Args:
++        source (str): The input string in the format 'git+<source>'.
++
++    Returns:
++        Tuple[str, str]: A tuple containing the name and source.
++    """
++    try:
++        repo_part = source.split("git+https://github.com/")[1].split(".git")[0]
++        repo_name = repo_part.split("/")[-1] if "/" in repo_part else repo_part
++        return repo_name, source
++    except (IndexError, ValueError):
++        logging.warning(f"Unable to extract repository name from Git source: {source}")
++        return "unknown_repo", source
++
++@lru_cache(maxsize=None)
++def extract_name_and_source_from_at(source: str) -> tuple[str, str] | None:
++    """
++    Extracts the name and source from a string in the format 'name @ source'.
++
++    Args:
++        source (str): The input string in the format 'name @ source'.
++
++    Returns:
++        Optional[Tuple[str, str]]: A tuple containing the name and source if the pattern matches, otherwise None.
++    """
++    match = re.match(r"^([a-zA-Z0-9_\-]+) @ ([a-zA-Z0-9_\-:/\.]+)$", source)
++    if match:
++        return match.group(1), match.group(2)
++    return None
++
++@lru_cache(maxsize=None)
++def extract_name_and_source(source: str) -> tuple[str, str] | None:
++    """
++    Extracts the name and source from a package string.
++
++    Args:
++        source (str): The input string in one of the following formats:
++            - '-e <source>'
++            - 'git+<source>'
++            - 'name @ source'
++
++    Returns:
++        Optional[Tuple[str, str]]: A tuple containing the name and source if the pattern matches, otherwise None.
++    """
++    if iseditable(source):
++        return extract_name_source_from_editable(source)
++    if isgit(source):
++        return extract_name_and_source_from_git(source)
++    if isatformat(source):
++        return extract_name_and_source_from_at(source)
++    return None
++
++@lru_cache(maxsize=None)
++def validate_editable(command: "PathType", name: str | None = None, requirements=False) -> str:
++    if requirements:
++        return str(command)
++    package_name = str(command)
+     if not isgit(package_name):
+         package_name = package_name[3:].strip() if package_name.startswith("-e ") else package_name
+-        package_name = str(PathLike(package_name).resolve())
+-    if requirements:
+-        return f"-e {str(package_name)}"
++
+     base_path = package_name[3:].strip() if package_name.startswith("-e ") else package_name
+ 
+     package_name = name or Path(base_path).stem
+@@ -156,31 +246,34 @@ def _handle_editable(package_name: "PathType", name: str | None = None,requireme
+         base_path = base_path.split("subdirectory=")
+         if len(base_path) > 1:
+             path_dir = str(Path(base_path[1].strip()).resolve())
++
+     package_name = package_name or name
+     if Path(base_path).exists():
+         path_dir = Path(base_path).resolve()
+-    elif Path(*base_path).exists():
+-        path_dir = Path(*base_path).resolve()
++    elif Path(*base_path.split("/")).exists():
++        path_dir = Path(*base_path.split("/")).resolve()
+     elif not path_dir:
+         path_dir = base_path
+ 
+     return f"{package_name} @ file://{path_dir}"
+ 
+ 
++
+ @lru_cache
+-def _to_string(package_name: str,name: str, extras: str, version: str, conditions: str, min_version: str, max_version: str,requirements=False) -> str:
++def _to_string(install_cmd: str, name: str, extras: str, version: str, conditions: str,requirements=False,editable=None) -> str:
+     # For Git/VCS URLs or editable installs
+-    if package_name.startswith(("git+", "hg+", "svn+", "bzr+")):
++    editable = editable or False
++    if any( c in install_cmd for c in ("git+", "hg+", "svn+", "bzr+")) and not editable:
+         # Keep original URL for requirements.txt
+         if requirements:
+-            return package_name
++            return install_cmd
+         # Extract the repository name from the URL
+-        repo_name = package_name.split("git+https://github.com/")[-1].split(".git")[0].split("/")[-1]
+-        return f"{repo_name} @ {package_name}"
++        repo_name = install_cmd.split("git+https://github.com/")[-1].split(".git")[0].split("/")[-1]
++        return f"{repo_name} @ {install_cmd}"
+ 
+ 
+-    if package_name.startswith("-e"):
+-        return _handle_editable(package_name, name, requirements)
++    if editable:
++        return validate_editable(install_cmd, name, requirements)
+ 
+ 
+     # Handle version
+@@ -190,38 +283,77 @@ def _to_string(package_name: str,name: str, extras: str, version: str, condition
+     conditions_str = f"; {conditions}" if conditions else ""
+ 
+ 
+-    return f"{package_name}{extras}{version_str}{conditions_str}"
++    return f"{name}{extras}{version_str}{conditions_str}"
++
++@dataclass
++class Workspace:
++    name: str
++    packages: list[str] = field(default_factory=list)
++    package_info: dict[str, PackageInfo] = field(default_factory=dict)
++    subpackages: dict[str, list[str]] = field(default_factory=dict)
++T = TypeVar("T")
++from contextvars import Context
++
++
++class AsyncTreeNode(TypedDict,Generic[T]):
++    name: str
++    value: T
++    children: dict[str, AsyncTreeNode[T]] | None
++    context: Context | None
++
++def with_async_init(async_init: Callable) -> Callable:
++    def decorator(func: Callable) -> Callable:
++        async def wrapper(self, *args, **kwargs):
++            if self._async_init_done:
++                return await func(self, *args, **kwargs)
++            await async_init(self)
++            self._async_init_done = True
++            return await func(self, *args, **kwargs)
++        return wrapper
++    return decorator
+ @dataclass
+ class Dependency:
+     """Handles dependency operations to ensure consistent formatting."""
+ 
+-    package_name: str
++    install_cmd: str
+     version_str: str = ""
+     extras: list[str] | str = ""
+-    conditions: str = ""
++    conditions: list[Condition] | str = ""
+     min_version: str = ""
+     max_version: str=""
+-    pypi_info: PackageInfo = field(default_factory=PackageInfo)
++    pypi_info: PackageInfo = field(default_factory=lambda: PackageInfo())
+     editable: bool = False
+     upgrade: bool = False
+-    git: bool = False
+-    pip_install_name: str | None = None
++    source: str | None = None
++    pip_install_cmd: str | None = None
++    project_install_cmd: str | None = None
+     _base: str | None = None
++    _pyproject_name: str | None = None
++    dependencies: Dependencies = field(default_factory=lambda: Dependencies())
++    _groups: "dict[str, TaskGroup | dict[str, TaskGroup]]" = field(default_factory=dict)
++    _async_init_done: bool = False
++    git: bool = False
++    at: bool = False
++
+     def __eq__(self, value: object) -> bool:
+-        return isinstance(value, Dependency) and self.base == value.base and self.version == value.version
++        if not isinstance(value, Dependency):
++            return False
++        return self.syncbase == value.syncbase and self.version == value.version
+ 
+     def __hash__(self) -> int:
+-        return int(hash((self.package_name,  self.version)))
+-    
++        return hash((self.install_cmd, self.version))
++
+     @property
+-    async def requirements_name(self) -> str:
+-        return await self.to_string(requirements=True)
++    def requirements_name(self) -> str:
++        return self.to_string(requirements=True)
+     
+     @property
+-    async def pyproject_name(self) -> str:
+-        return await self.to_string()
++    def pyproject_name(self) -> str:
++        if self._pyproject_name is None:
++            self._pyproject_name = self.to_string()
++        return self._pyproject_name
+ 
+-    async def find(self,project_dir) -> str:
++    async def find(self, project_dir: PathType) -> str:
+         """Find the package name in a string."""
+         project_dir = normalize_path(project_dir) 
+         toml = await find_toml_file(cwd=project_dir)
+@@ -231,19 +363,16 @@ class Dependency:
+                 return pyproject["project"]["name"]
+         return Path(project_dir).resolve().stem
+ 
+-    async def normalize(self) -> str:
+-        package_name = self.package_name
++    def normalize(self) -> str:
++        package_name = self.install_cmd
+         return str(normalize_path(package_name.strip().lower().replace("-", "_")))
+-    
+-    def syncnormalize(self) -> str:
+-        package_name = self.package_name
+-        return self.syncgetbase(package_name.strip().lower().replace("-", "_"))
+-    
+-    @staticmethod
+-    def syncgetbase(package_name:str,default: str | None = None) -> str:
++
++    @property
++    def base(self) -> str:
+         """Get the base name from a package name."""
+-        if default is not None:
+-            return default
++        if self._base is not None:
++            return self._base
++        package_name = self.install_cmd
+         if package_name.startswith("/"):
+             raise ValueError(f"Absolute paths are not supported: {package_name}")
+         package_name = package_name.strip()
+@@ -252,10 +381,12 @@ class Dependency:
+             parts = package_name.split("@")
+             if len(parts) > 1:
+                 base = parts[-1].split("#")[0].split("/")[-1].split(".git")[0]
++                self._base = base if base else ""
+                 return base if base else ""
+             return ""
+     
+         if package_name.count("/") > 1:
++            self._base = package_name.split("/")[-1]
+             return package_name.split("/")[-1]
+ 
+         # Remove '-e' for base extraction
+@@ -269,19 +400,21 @@ class Dependency:
+         # Handle URLs with '@'
+         if "@" in package_name:
+             base, _ = package_name.split("@", 1)
++            self._base = base.strip()
++            
+             return base.strip()
+ 
+         # Extract base name by removing version specifiers
+         for operator in ["==", ">=", "<=", ">", "<", "~=", "!="]:
+             if operator in package_name:
+                 return package_name.split(operator)[0].strip()
+-
++        self._base = package_name
+         return package_name
+ 
+ 
+     def getconditions(self) -> list[str]:
+         """Get the package conditions from a package name."""
+-        package_name = self.package_name
++        package_name = self.install_cmd
+         if ";" not in package_name:
+             return []
+         return package_name.split(";")[1:]
+@@ -291,7 +424,7 @@ class Dependency:
+         """Get the version string from a package name."""
+         if self.version_str:
+             return self.version_str
+-        self.version_str = self.getversion(self.package_name)
++        self.version_str = self.getversion(self.install_cmd)
+         return self.version_str
+     @staticmethod
+     def getversion(package_name:str,default=None) -> str:
+@@ -320,36 +453,73 @@ class Dependency:
+         self.version_str = value
+     
+     def __post_init__(self):
+-        if "/" in self.package_name and not exists(self.package_name):
+-            self.git = True
+-            import asyncio
+-            self.gitready = asyncio.create_task(self.clone_install(),name="clone_install")
+-        else:
+-            self.pip_install_name = self.package_name
+-        self.extras = self.extras or self.getextras(self.package_name)  
++        self.editable = iseditable(self.install_cmd)
++        self.git = isgit(self.install_cmd)
++        self.at = isatformat(self.install_cmd)
++       
++        if self.editable:
++            self.install_cmd = validate_editable(self.install_cmd, name=self.base, requirements=False)
++        self.pip_install_cmd = self.install_cmd
++        self.extras = self.extras or self.getextras(self.install_cmd)  
+         self.conditions = self.conditions or  ";".join(self.getconditions())
+       
+         self.min_version = self.getversion(self.min_version)
+         self.max_version = self.getversion(self.max_version)
+         
+-        if self.package_name.startswith(("git+", "hg+", "svn+", "bzr+")):
+-            self.base = self.package_name
++        if self.git:
++            pass
+         else:
+-            match = re.search(r"\[([^\]]+)\]", self.package_name)
++            match = re.search(r"\[([^\]]+)\]", self.install_cmd)
+             self.extras = self.extras or (match.group(1) if match else "")
+ 
+-    async def install(self, executable: str | None = None, editable: bool | None = None, upgrade: bool | None = None, group: str | None = None):
+-        editable = editable or self.editable
+-        upgrade = upgrade or self.upgrade
+-        executable = executable or f"sys.executable"
++    async def _async_post_init(self):
++        """Handles asynchronous tasks post-initialization."""
++        if not TYPE_CHECKING:
+ 
+-        result = await arun(f"{executable} -m pip install {'-e' if editable else ''} {'--upgrade' if upgrade else ''} {self.pip_install_name}")
+-        if "error" in result:
++            self._groups["root"] = smart_import("asyncio.taskgroups.TaskGroup")()
++        if self.git:
++            async with self._groups["root"] as group:
++                group.create_task(self.clone_install())
++
++    @with_async_init(_async_post_init)
++    async def install(self, executable: str | None = None, editable: bool | None = None, upgrade: bool | None = None, group: str | None = None):
++        editable = editable if editable is not None else self.editable
++        upgrade = upgrade if upgrade is not None else self.upgrade
++        executable = executable or sys.executable
++
++        cmd = f"{executable} -m pip install {'-e' if editable else ''} {'--upgrade' if upgrade else ''} {self.pip_install_cmd}".strip()
++        logging.info(f"Running install command: {cmd}")
++        result = await arun(cmd)
++        if "error" in result.lower():
+             logging.error(result)
+         return self
+ 
++    @with_async_init(_async_post_init)
++    async def to_string(self, requirements: bool = False, editable: bool | None = None) -> str:
++        """Construct the package string for dependencies."""
++        editable = editable or self.editable
++        install_cmd = self.install_cmd
++        name = self.base
++        extras = self.extras
++        version = self.version
++        conditions = self.conditions
++        min_version = self.min_version
++        max_version = self.max_version
++        print(
++            f"package_name: {install_cmd}, name: {name}, extras: {extras}, version: {version}, conditions: {conditions}, min_version: {min_version}, max_version: {max_version}"
++        )
++        return _to_string(
++            install_cmd,
++            name,
++            extras=extras,
++            version=version,
++            conditions=conditions,
++            requirements=requirements,
++            editable=editable,
++        )
++
+     async def clone_install(self):
+-        package_name = self.package_name.replace(":", "/")
++        package_name = self.install_cmd.replace(":", "/")
+         package_name = package_name.replace("git+", "")
+         package_name = package_name.replace("https://", "")
+         package_name = package_name.replace("http://", "")
+@@ -358,67 +528,48 @@ class Dependency:
+         package_name = package_name.replace("bitbucket.org/", "")
+         package_name = package_name.replace("gitlab.com/", "")
+ 
+-        if package_name.startswith("git+"):
+-            package_name = package_name[4:]
+         if package_name.startswith("git@"):
+             package_name = package_name.replace("git@", "https://")
+         if package_name.endswith(".git"):
+             package_name = package_name[:-4]
+         
++        clone_path = Path.cwd() / "tmp" / package_name
++        clone_path.parent.mkdir(parents=True, exist_ok=True)
++        logging.info(f"Cloning repository {self.install_cmd} into {clone_path}")
+         from mbpy.pkg.git import clone_repo
+-        async for line in clone_repo(self.package_name, Path.cwd() / "tmp" /package_name):
+-            pass
+-        print(f"base: {self.base}, package_name: {package_name}")
+-        self.base = package_name
+-        self.pip_install_name = f"-e {Path.cwd() / 'tmp'}"
+-        result = await self.install(editable=True)
+-
+-        return result
++        async for line in clone_repo(self.install_cmd, clone_path):
++            logging.debug(line)
++        logging.info(f"Clone completed for {self.install_cmd}")
+ 
++        self.base = package_name.split("/")[-1] if "/" in package_name else package_name
++        self.pip_install_cmd = f"-e {clone_path}"
++        await self.install(editable=True)
+     
+     @staticmethod
+-    async def getbase(package_name:str,default: str | None = None) -> str:
+-        """Get the base name from a package name."""
+-        return Dependency.syncgetbase(package_name,default)
+-
+-    @property
+-    async def base(self) -> str:
+-        """Get the base name from a package name."""
+-        if self._base:
+-            return self._base
+-        return await self.getbase(self.package_name)
+-    
+-    @base.setter
+-    def base(self, value: str):
+-        self._base = value
+-    
+-    @property
+-    def syncbase(self) -> str:
+-        """Get the base name from a package name."""
+-        return self.syncgetbase(self.package_name)
+-    
+-    @property
+-    def extras_str(self) -> str:
+-        """Get the extras string from a package name."""
+-        return f"[{', '.join(self.extras)}]" if isinstance(self.extras, list) else f"[{self.extras}]" if self.extras else ""
+-
+-    async def to_string(self, requirements: bool = False) -> str:
+-        """Construct the package string for dependencies."""
+-      
+-  
+-        package_name = self.package_name
+-        name = await self.base
+-        extras = self.extras_str
+-        version = self.version
+-        conditions = self.conditions
+-        min_version = self.min_version
+-        max_version = self.max_version
+-        print(f"package_name: {package_name}, name: {name}, extras: {extras}, version: {version}, conditions: {conditions}, min_version: {min_version}, max_version: {max_version}")
+-        return _to_string(package_name,name, extras, version, conditions, min_version, max_version,requirements=requirements)
++    def getversion(package_name: str, default: str | None = None) -> str:
++        """Get the version string from a package name."""
++        package_name = package_name.strip()
++        package_name = package_name.split(";")[0]
++        if "[" in package_name:
++            package_name = package_name.split("[")[0]
++        if default is not None:
++            return default
++        if package_name.startswith("git+"):
++            # Extract version from URL if present
++            parts = package_name.split("@")
++            if len(parts) > 1:
++                version_part = parts[-1].split("#")[0]
++                return version_part if version_part else ""
++            return ""
++        for operator in ["==", ">=", "<=", ">", "<", "~=", "!="]:
++            if operator in package_name:
++                return package_name.split(operator)[1].strip()
++        return ""
+ 
+     async def handle_editable(self):
+         """Format the package string for installation."""
+-        return _handle_editable(self.package_name, await self.base)
++        return validate_editable(self.install_cmd, self.base)
++
+     @staticmethod
+     def getextras(package_name) -> list[str] | str:
+         """Get the package extras from a package name."""
+@@ -429,11 +580,11 @@ class Dependency:
+         extras = package_name[l + 1 : r].split(",")
+         return [extra.strip() for extra in extras] if extras != [""] else ""
+ 
+-
++    
+     def has(self) -> bool:
+         """Return True if the dependency is installed."""
+         try:
+-            has_dep = importlib.util.find_spec(self.package_name) is not None
++            has_dep = importlib.util.find_spec(self.install_cmd) is not None
+             if not has_dep:
+                 return False
+         except ModuleNotFoundError:
+@@ -448,14 +599,14 @@ class Dependency:
+         if not self.has():
+             return False
+         return _version_check(
+-            pkg=self.package_name,
++            pkg=self.install_cmd,
+             v=self.version,
+             min_v=min_version,
+             max_v=max_version,
+         )
+ 
+     def imported(self) -> bool:
+-        return self.package_name in sys.modules
++        return self.syncbase in sys.modules
+ 
+     def require(self, why: str) -> None:
+         """Raise an ModuleNotFoundError if the package is not installed.
+@@ -465,7 +616,7 @@ class Dependency:
+ 
+         """
+         if not self.has():
+-            raise ModuleNotFoundError(f"{self.package_name} is required {why}.") from None
++            raise ModuleNotFoundError(f"{self.install_cmd} is required {why}.") from None
+ 
+     def require_at_version(
+         self,
+@@ -477,14 +628,12 @@ class Dependency:
+         self.require(why)
+ 
+         _version_check(
+-            pkg=self.package_name,
++            pkg=self.install_cmd,
+             v=self.version,
+             min_v=min_version,
+             max_v=max_version,
+             raise_error=True,
+         )
+-
+-
+       
+     def warn_if_mismatch_version(
+         self,
+@@ -492,7 +641,7 @@ class Dependency:
+         max_version: str | None = None,
+     ) -> bool:
+         return _version_check(
+-            pkg=self.package_name,
++            pkg=self.install_cmd,
+             v=self.version,
+             min_v=min_version,
+             max_v=max_version,
+@@ -505,9 +654,89 @@ class Dependency:
+         max_version: str | None = None,
+     ) -> None:
+         _version_check(
+-            pkg=self.package_name,
++            pkg=self.install_cmd,
+             v=self.version,
+             min_v=min_version,
+             max_v=max_version,
+             raise_error=True,
+         )
++
++
++
++
++    @base.setter
++    def base(self, value: str):
++        self._base = value
++
++ 
++    @property
++    def extras_str(self) -> str:
++        """Get the extras string from a package name."""
++        if isinstance(self.extras, list):
++            return f"[{', '.join(self.extras)}]" if self.extras else ""
++        elif isinstance(self.extras, str):
++            return f"[{self.extras}]" if self.extras else ""
++        return ""
++
++class Dependencies:
++    def __init__(self, *items_or_path: Dependency | Iterable[Dependency] | str | Iterable[str]):
++        if len(items_or_path) == 1 and isinstance(items_or_path[0], str):
++            items = Path(items_or_path[0]).read_text().splitlines()
++        else:
++            items = items_or_path
++        from more_itertools import collapse
++        self.items = sorted((Dependency(x) if not isinstance(x, Dependency) else x for x in collapse(items)), key=lambda x: x.syncbase)
++    def __post_init__(self):
++        self.items = [Dependency(item) if isinstance(item, str) else Dependency(*item) if isinstance(item, tuple) else Dependency(**cast(dict,item)) for item in self.items]
++
++    def __iter__(self):
++        return iter(self.items)
++    
++    @property
++    async def pyproject(self) -> list[str]:
++        return [dep.pyproject_name for dep in self.items]
++    
++    @property
++    async def requirements(self) -> list[str]:
++        return [dep.requirements_name for dep in self.items]
++
++def register_signal_handlers(loop: asyncio.AbstractEventLoop):
++    """Register signal handlers for graceful shutdown."""
++    import signal
++    for sig in (signal.SIGINT, signal.SIGTERM):
++        try:
++            loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(handle_signal(s)))
++        except NotImplementedError:
++            # Signal handlers are not implemented on some platforms (e.g., Windows)
++            logging.warning(f"Signal {sig} not supported on this platform.")
++
++async def handle_signal(sig: signal.Signals):
++    """Handle received signals."""
++    logging.info(f"Received exit signal {sig.name}...")
++    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
++    [task.cancel() for task in tasks]
++    logging.info("Cancelling outstanding tasks")
++    await asyncio.gather(*tasks, return_exceptions=True)
++    logging.info("Shutdown complete.")
++    asyncio.get_event_loop().stop()
++
++if __name__ == "__main__":
++    import asyncio
++
++    async def test():
++        dep = Dependency("mbodiai/.mb")
++        logging.info(await dep.to_string())
++        logging.info(dep.pip_install_cmd)
++        logging.info(dep.pyproject_name)
++
++    async def main():
++        loop = asyncio.get_event_loop()
++        register_signal_handlers(loop)
++        try:
++            await test()
++        except asyncio.CancelledError:
++            logging.info("Main task was cancelled.")
++        except Exception as e:
++            logging.error(f"An error occurred: {e}")
++
++    asyncio.run(test())
+\ No newline at end of file
+
+
+Ok which of your changes should I keep or change
