@@ -5,36 +5,33 @@ from mbpy.import_utils import smart_import
 from typing import TYPE_CHECKING
 
 
-from mbpy.expect.spawnbase import SpawnBase
-from mbpy.expect.expect import Expecter
-from mbpy.expect.asyncspawn import AsyncSpawn
+
 if TYPE_CHECKING:
     from mbpy.helpers._cmd import Command, AsyncCommand
     from typing import Any, Generator, Optional, Tuple, Union, AsyncGenerator
     from pathlib import Path
     from more_itertools import collapse
+    from mbpy.expect.expect import Expecter
+    from mbpy.expect.asyncspawn import AsyncSpawn
+    from mbpy.expect.spawn import spawn as Spawn
 
 
-async def run_command(
+def run_command(
     command: str,
     cwd: str | None = None,
     timeout: int = 10,
     *,
     show=False,
-) -> str:
-    spawn = Spawn(command, cwd=cwd)
-    await spawn.start()
-    expecter = Expecter(spawn, [r".*"])
-    output = []
-    try:
-        while spawn.is_running():
-            index, data = await expecter.expect(timeout=timeout)
-            output.append(data)
-            if show:
-                print(data, end='')
-        return ''.join(output)
-    finally:
-        await spawn.terminate()
+) -> Command | Generator[str, str, None]:
+    """Run command and return Command object."""
+    if not TYPE_CHECKING:
+        Command = smart_import("mbpy.helpers._cmd.Command")
+        collapse = smart_import("more_itertools.more.collapse")
+    else:
+        from mbpy.helpers._cmd import Command
+        from more_itertools import collapse
+
+    return Command(command, cwd=cwd, show=show)
 
 def as_exec_args(cmd: str | list[str]) -> tuple[str, list[str]]:
     shlex = smart_import("shlex")
@@ -58,19 +55,25 @@ async def arun_command(
     cwd: str | None = None,
     *,
     show=False,
-) -> AsyncGenerator[str, None]:
-    """Run command and yield output lines."""
-    collapse = smart_import("more_itertools.collapse")
-    AsyncSpawn = smart_import("mbpy.expect.asyncspawn.AsyncSpawn")
-    SPINNER = smart_import("mbpy.helpers._display.SPINNER")()
-    console = smart_import("mbpy.helpers._display.getconsole")()
+) -> AsyncCommand | AsyncGenerator[str]:
+    """Run command and return AsyncCommand object."""
+    if not TYPE_CHECKING:
+        collapse = smart_import("more_itertools.collapse")
+        AsyncSpawn = smart_import("mbpy.expect.asyncspawn.AsyncSpawn")
+        SPINNER = smart_import("mbpy.helpers._display.SPINNER")()
+        console = smart_import("mbpy.helpers._display.getconsole")()
+    else:
+        from more_itertools import collapse
+        from mbpy.expect.asyncspawn import AsyncSpawn
+        from mbpy.helpers._display import SPINNER as s
+        from mbpy.helpers._display import console as c
+        SPINNER = s()
+        console = c()
+        
     async with AsyncSpawn(" ".join(collapse([command], str)),
                           cwd=cwd,
                           show=show) as p:
-        async for line in p.streamlines():
-            SPINNER.stop()
-            yield line
-
+        return p
 
 
 def run(
@@ -83,8 +86,15 @@ def run(
     """Run command and return output as a string."""
     if not TYPE_CHECKING:
         Command = smart_import("mbpy.helpers._cmd.Command")
-    collapse = smart_import("more_itertools.collapse")
-    return Command(" ".join(collapse([command], str)), cwd=cwd, show=show).readtext()
+        collapse = smart_import("more_itertools.more.collapse")
+    else:
+        from mbpy.helpers._cmd import Command
+        from more_itertools import collapse
+
+    return Command(command, cwd=cwd, show=show).readtext()
+
+
+
 
 async def arun(cmd: str | list[str], show=False, shell=True, **kwargs) -> str:
     """Run a command asynchronously and return its output."""
@@ -97,6 +107,9 @@ async def arun(cmd: str | list[str], show=False, shell=True, **kwargs) -> str:
         except ValueError:
             # If splitting fails, use shell mode
             shell = True
+    if not TYPE_CHECKING:
+        AsyncSpawn = smart_import("mbpy.expect.asyncspawn.AsyncSpawn")
+
     async with AsyncSpawn(cmd, show=show, shell=shell, **kwargs) as proc:
         return await proc.readtext()
 

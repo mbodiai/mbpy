@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Iterable, Literal, TypeVar, cast,overload
 from mbpy.cli import cli,base_args,process_tasks
 import rich_click as click
-
+import mbpy
 from mbpy.import_utils import smart_import
 
 if TYPE_CHECKING:
@@ -117,6 +117,8 @@ async def install_pip(
     if requirements:
         requirements = await aget_requirements_file(requirements)
         requirements = await aget_requirements_packages(requirements=requirements)
+    if requirements is None:
+        raise ValueError("No requirements file provided.")
     requirements = requirements or []
     packages = packages or []
 
@@ -1047,11 +1049,11 @@ async def _clean_command(env: str | None = None, debug: bool = False, all: bool 
         clean_script = files('mbpy') / 'scripts' / 'clean.sh'
         await arun(f"bash {clean_script} {env or ''} {'--all' if all else ''} {logs}", show=True)
 
-    except Exception:
+    except Exception as e:
         if debug:
             traceback.print_exc()
         else:
-            console.print("Error: Failed to clean project.", style="bold red")
+            console.print(f"Error: Failed to clean project: {str(e)}", style="bold red")
 
 @cli.command("sync")
 @click.option("--env", default=None, help="Specify the Hatch environment to use")
@@ -1249,11 +1251,8 @@ async def add_uvcommand(packages, dev, editable, env, group, upgrade, requiremen
         console = smart_import('mbpy.helpers._display.getconsole')()
         console.print(f"[red]Error installing packages: {str(e)}[/red]")
 
-@cli.command("conan", no_args_is_help=True)
+@cli.command("ask", no_args_is_help=True)
 @click.argument("packages", nargs=-1)
-@click.option("--env", default=None, help="Specify the python, hatch, conda, or mbnix environment")
-@click.option("-g", "--group", default=None, help="Specify the dependency group to use")
-@click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
 async def conan_install_command(packages, env, group, debug) -> None:
     """Install packages using Conan."""
     if TYPE_CHECKING:

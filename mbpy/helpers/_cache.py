@@ -201,7 +201,7 @@ class AFuncP(Protocol[P, R_co]):
 FuncT = TypeVar("FuncT", bound=FuncP | AFuncP)
 
 
-class cache(defaultdict, Generic[FuncT, P, R]):
+class cache(defaultdict, Generic[P, R]):
     if not TYPE_CHECKING:
         cast = smart_import("typing.cast")
         asyncio = smart_import("asyncio")
@@ -284,7 +284,7 @@ class cache(defaultdict, Generic[FuncT, P, R]):
         fn(self, k)  # Call the method with self and key
         return self
 
-    def cache_info(self, key: _HashedSeq|None=None) -> dict[_HashedSeq, _CacheInfo]:
+    def cache_info(self, key: _HashedSeq|None=None) -> dict[_HashedSeq, CacheInfo]:
         if key is not None:
             return self._info.by_key.get(key)
         return self._info
@@ -302,26 +302,22 @@ class cache(defaultdict, Generic[FuncT, P, R]):
         instance.__doc__ = func.__doc__
         return instance
 
-    @overload
-    async def acall(self: cache[P,R], *args: P.args, **kwargs: P.kwargs) -> R: ...
-    @overload
-    async def acall(self: cache[P,AR[R]], *args: P.args, **kwargs: P.kwargs) -> AR[R]: ...
-    async def acall(self: cache[P,R] | cache[P,AR[R]], *args: P.args, **kwargs: P.kwargs) -> R | AR[R]:
-        return self(*args, **kwargs)
 
-    @overload
-    def __init__(self, func: Callable[P, R]) -> None: ...
-    @overload
-    def __init__(self, func: Callable[P, AR[R]]) -> None: ...
-    @overload
-    def __init__(self, func: Callable[P, CR[R]]) -> None: ...
-    @overload
-    def __init__(self, func: Callable[P, GR[R]]) -> None: ...
-    def __init__(self, func: FuncTs) -> None:
 
-        self.func = func
-        self._info = FunctionCacheInfo()
-        self._pending = Queue()
+    if not TYPE_CHECKING:
+        @overload
+        def __init__(self, func: Callable[P, R]) -> None: ...
+        @overload
+        def __init__(self, func: Callable[P, AR[R]]) -> None: ...
+        @overload
+        def __init__(self, func: Callable[P, CR[R]]) -> None: ...
+        @overload
+        def __init__(self, func: Callable[P, GR[R]]) -> None: ...
+        def __init__(self, func: FuncTs) -> None:
+
+            self.func = func
+            self._info = FunctionCacheInfo()
+            self._pending = Queue()
 
     @overload
     def __call__(self: Callable[P,R], *args: P.args, **kwargs: P.kwargs) -> R: ...
@@ -387,6 +383,8 @@ class cache(defaultdict, Generic[FuncT, P, R]):
 
 
 class acache(cache[P, R]):
+    @overload
+    async def __call__(self: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R: ...
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R | AR[R] | GR[R]:
         key = _make_key(args, kwargs, False, func=self.func)
         if key in _cache:

@@ -1,4 +1,5 @@
 # Copied and modified from rich
+import functools
 import inspect
 import linecache
 import os
@@ -166,6 +167,7 @@ def install(
         value: BaseException,
         traceback: Optional[TracebackType],
     ) -> None:
+
         traceback_console.print(
             Traceback.from_exception(
                 type_,
@@ -271,8 +273,141 @@ class Trace:
     stacks: List[Stack]
 
 
+
 class PathHighlighter(RegexHighlighter):
     highlights = [r"(?P<dim>.*/)(?P<bold>.+)"]
+
+_ALWAYS_SAFE = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ" b"abcdefghijklmnopqrstuvwxyz" b"0123456789" b"_.-~")
+_ALWAYS_SAFE_BYTES = bytes(_ALWAYS_SAFE)
+class _Quoter(dict):
+    """A mapping from bytes numbers (in range(0,256)) to strings.
+
+    String values are percent-encoded byte values, unless the key < 128, and
+    in either of the specified safe set, or the always safe set.
+    """
+
+    # Keeps a cache internally, via __missing__, for efficiency (lookups
+    # of cached keys don't call Python code at all).
+    def __init__(self, safe):
+        """safe: bytes object."""
+        self.safe = _ALWAYS_SAFE.union(safe)
+
+    def __repr__(self):
+        return f"<Quoter {dict(self)!r}>"
+
+    def __missing__(self, b):
+        # Handle a cache miss. Store quoted string in cache and return.
+        res = chr(b) if b in self.safe else "%{:02X}".format(b)
+        self[b] = res
+        return res
+    
+@functools.lru_cache
+def _byte_quoter_factory(safe):
+    return _Quoter(safe).__getitem__
+
+
+def quote_from_bytes(bs, safe="/"):
+    r"""Like quote(), but accepts a bytes object rather than a str, and does
+    not perform string-to-bytes encoding.  It always returns an ASCII string.
+    quote_from_bytes(b'abc def\x3f') -> 'abc%20def%3f'.
+    """  # noqa: D205
+    if not isinstance(bs, (bytes, bytearray)):
+        raise TypeError("quote_from_bytes() expected bytes")
+    if not bs:
+        return ""
+    if isinstance(safe, str):  # noqa: SIM108
+        # Normalize 'safe' by converting to bytes and removing non-ASCII chars
+        safe = safe.encode("ascii", "ignore")
+    else:
+        # List comprehensions are faster than generator expressions.
+        safe = bytes([c for c in safe if c < 128])
+    if not bs.rstrip(_ALWAYS_SAFE_BYTES + safe):
+        return bs.decode()
+    quoter = _byte_quoter_factory(safe)
+    return "".join([quoter(char) for char in bs])
+
+def quote(string, safe="/", encoding=None, errors=None):
+    """quote('abc def') -> 'abc%20def'.
+
+    Each part of a URL, e.g. the path info, the query, etc., has a
+    different set of reserved characters that must be quoted. The
+    quote function offers a cautious (not minimal) way to quote a
+    string for most of these parts.
+
+    RFC 3986 Uniform Resource Identifier (URI): Generic Syntax lists
+    the following (un)reserved characters.
+
+    unreserved    = ALPHA / DIGIT / "-" / "." / "_" / "~"
+    reserved      = gen-delims / sub-delims
+    gen-delims    = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+    sub-delims    = "!" / "$" / "&" / "'" / "(" / ")"
+                  / "*" / "+" / "," / ";" / "="
+
+    Each of the reserved characters is reserved in some component of a URL,
+    but not necessarily in all of them.
+
+    The quote function %-escapes all characters that are neither in the
+    unreserved chars ("always safe") nor the additional chars set via the
+    safe arg.
+
+    The default for the safe arg is '/'. The character is reserved, but in
+    typical usage the quote function is being called on a path where the
+    existing slash characters are to be preserved.
+
+    Python 3.7 updates from using RFC 2396 to RFC 3986 to quote URL strings.
+    Now, "~" is included in the set of unreserved characters.
+
+    string and safe may be either str or bytes objects. encoding and errors
+    must not be specified if string is a bytes object.
+
+    The optional encoding and errors parameters specify how to deal with
+    non-ASCII characters, as accepted by the str.encode method.
+    By default, encoding='utf-8' (characters are encoded with UTF-8), and
+    errors='strict' (unsupported characters raise a UnicodeEncodeError).
+    """  # noqa: D402
+    if isinstance(string, str):
+        if not string:
+            return string
+        if encoding is None:
+            encoding = "utf-8"
+        if errors is None:
+            errors = "strict"
+        string = string.encode(encoding, errors)
+    else:
+        if encoding is not None:
+            raise TypeError("quote() doesn't support 'encoding' for bytes")
+        if errors is not None:
+            raise TypeError("quote() doesn't support 'errors' for bytes")
+    return quote_from_bytes(string, safe)
+
+
+def link_fp(line: str | Any, fn: str | Path, lineno: int | str,render=True) -> Text | str:
+    """Create a clickable file link with line number."""
+    stem = Path(fn).name  # Gets the filename with extension
+    resolved_path = Path(fn).resolve()
+
+    # URL-encode the file path to handle spaces and special characters
+    line = str(line) if not isinstance(line, str) else line
+    fn = str(fn) if not isinstance(fn, str) else fn
+    lineno = int(lineno) if not isinstance(lineno, int) else lineno
+    encoded_path = quote(str(resolved_path))
+    uri = "vscode://file//" if any("VSCODE" in name for name in os.environ) else "file://"
+
+    if lineno:
+        # Ensure three slashes after file:// for absolute paths
+        file_url = f"{uri}{encoded_path}:{lineno}"
+        display_text = f"{stem}:{lineno}"
+    else:
+        file_url = f"{uri}{encoded_path}"
+        display_text = stem
+    
+
+    markup = f"{line}[bold blue underline] [link={file_url}]{display_text}[/link][/bold blue underline] "
+    return markup 
+    if not render:
+        return markup
+    # Assemble the line with the clickable link
+    return Text.from_markup(markup)
 
 
 def link_fp(line, fn, lineno) -> str | Text:
@@ -297,6 +432,27 @@ def link_fp(line, fn, lineno) -> str | Text:
     # return f"[link=file://{str(fn) + ':' + str(lineno)}]" + str(line) + "[/link]" + "\n" + f"{fn}:{lineno}"
 
 
+def safe_text(*strs: str | Text) -> Text:
+        """Handle ANSI and markup in text by combining them into a Text object.
+        
+        Args:
+            *strs: Variable number of strings or Text objects to combine
+            
+        Returns:
+            Text: A combined Text object with preserved styling
+        """
+        out = []
+        for s in strs:
+            if isinstance(s, Text):
+                out.append(s)
+            elif "\x1b[" in s:  # ANSI escape sequence
+                out.append(Text.from_ansi(s))
+            elif "[" in s and "]" in s:  # Rich markup
+                out.append(Text.from_markup(s)) 
+            else:
+                out.append(Text(s))
+        
+        return Text.assemble(*out)
 class Traceback:
     """A Console renderable that renders a traceback.
 
@@ -382,12 +538,12 @@ class Traceback:
         cls,
         exc_type: Type[Any],
         exc_value: BaseException,
-        traceback: Optional[TracebackType],
+        traceback: TracebackType | None,
         *,
-        width: Optional[int] = 120,
-        code_width: Optional[int] = 120,
+        width: int | None = 120,
+        code_width: int | None = 120,
         extra_lines: int = 3,
-        theme: Optional[str] = None,
+        theme: str | None = None,
         word_wrap: bool = False,
         show_locals: bool = False,
         locals_max_length: int = LOCALS_MAX_LENGTH,
@@ -395,7 +551,7 @@ class Traceback:
         locals_hide_dunder: bool = True,
         locals_hide_sunder: bool = False,
         indent_guides: bool = True,
-        suppress: Iterable[Union[str, ModuleType]] = (),
+        suppress: Iterable[str | ModuleType] = (),
         max_frames: int = 100,
     ) -> "Traceback":
         """Create a traceback from exception info.
@@ -455,7 +611,7 @@ class Traceback:
         cls,
         exc_type: Type[BaseException],
         exc_value: BaseException,
-        traceback: Optional[TracebackType],
+        traceback: TracebackType | None,
         *,
         show_locals: bool = False,
         locals_max_length: int = LOCALS_MAX_LENGTH,
@@ -491,6 +647,33 @@ class Traceback:
             except Exception:
                 return "<exception str() failed>"
 
+
+        
+        # Try to handle custom frame first
+        if hasattr(exc_value, 'caller_frame'):
+            stack = Stack(
+                exc_type=safe_str(exc_type.__name__),
+                exc_value=safe_str(exc_value.message),
+                is_cause=is_cause,
+            )
+            
+            caller_frame = exc_value.caller_frame
+            lines = linecache.getlines(caller_frame.f_code.co_filename)
+            line = lines[caller_frame.f_lineno - 1].rstrip() if 0 <= caller_frame.f_lineno - 1 < len(lines) else ""
+            
+            frame = Frame(
+                filename=caller_frame.f_code.co_filename,
+                lineno=caller_frame.f_lineno,
+                name=caller_frame.f_code.co_name,
+                line=line,
+                locals=None,  # We don't need locals for this case
+            )
+            
+            stack.frames.append(frame)
+            stacks.append(stack)
+            if frame.filename and frame.lineno:  # Only return if we have valid frame info
+                return Trace(stacks=stacks)
+    
         while True:
             stack = Stack(
                 exc_type=safe_str(exc_type.__name__),
@@ -525,7 +708,7 @@ class Traceback:
             for frame_summary, line_no in walk_tb(traceback):
                 filename = frame_summary.f_code.co_filename
 
-                last_instruction: Optional[Tuple[Tuple[int, int], Tuple[int, int]]]
+                last_instruction: Tuple[Tuple[int, int], Tuple[int, int]] | None
                 last_instruction = None
                 if sys.version_info >= (3, 11):
                     instruction_index = frame_summary.f_lasti // 2
@@ -632,11 +815,16 @@ class Traceback:
         )
 
         highlighter = ReprHighlighter()
+
         for last, stack in loop_last(reversed(self.trace.stacks)):
             if stack.frames:
                 stack_renderable: ConsoleRenderable = Panel(
                     self._render_stack(stack),
-                    title="[traceback.title]Traceback [dim](most recent call last)",
+                    title=link_fp(
+                        "Traceback (most recent call last):",
+                        stack.frames[-1].filename,
+                        stack.frames[-1].lineno,
+                    ),
                     style=background_style,
                     border_style="none",
                     expand=True,
@@ -666,7 +854,7 @@ class Traceback:
             elif stack.exc_value:
                 yield Text.assemble(
                     (f"{stack.exc_type}: ", "traceback.exc_type"),
-                    highlighter(stack.exc_value),
+                    highlighter(safe_text(stack.exc_value)),
                 )
             else:
                 yield Text.assemble((f"{stack.exc_type}", "traceback.exc_type"))

@@ -173,8 +173,7 @@ def info(*args, **kwargs) -> None:
     if getlevel() > logging.INFO:
         return Log["info"]
     if args or kwargs:
-        logging.info(*args, **kwargs, stack_info=kwargs.get("stack_info", False) or getlevel() == logging.DEBUG)
-        return Log["info"]
+        logging.info(*args, **kwargs, stack_info=kwargs.get("stack_info", False))
 @overload
 @wraps(logging.warning)
 def warning(*args, **kwargs):...

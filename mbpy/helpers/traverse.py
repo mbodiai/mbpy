@@ -2,19 +2,21 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from mbpy.collect import PathLike, PathType
 from mbpy.helpers._cache import acache, cache
 from mbpy.import_utils import smart_import
 
 if TYPE_CHECKING:
-    from mbpy.collect import PathLike, PathType
+    from pathlib import Path
+    from typing import Union
+    PathType = Union[str, Path]
+    
 
 @cache
 def search_parents_for_file(
-    file_name: PathType,
+    file_name: "PathType",
     max_levels=3,
-    cwd: "PathType | None" = None,
-) -> "PathLike":
+    cwd: "Path | str | None | None" = None,
+) -> "Path | str | None":
     """Search parent directories for a file."""
     file_name = PathLike(file_name)
     logging.debug(f"exists ? {file_name.exists()}")
@@ -38,7 +40,7 @@ def search_parents_for_file(
 async def asearch_parents_for_file(
     file_name: "PathType",
     max_levels=3,
-    cwd: "PathType | None" = None,
+    cwd: "Path| str | None" = None,
 ) -> "PathLike":
     """Search parent directories for a file."""
     if TYPE_CHECKING:
@@ -51,8 +53,8 @@ async def asearch_parents_for_file(
 async def asearch_children_for_file(
     file_name: "PathType",
     max_levels=3,
-    cwd: "PathType | None" = None,
-) -> "PathLike":
+    cwd: "Path | str| None" = None,
+) -> "Path | str":
     """Search parent directories for a file."""
     if TYPE_CHECKING:
         from asyncio.threads import to_thread
@@ -65,7 +67,7 @@ def search_children_for_file(
     file_name: "PathType",
     max_levels=3,
     cwd: "PathType | None" = None,
-) -> "PathLike":
+) -> "Path | str":
     """Search parent directories for a file."""
     if TYPE_CHECKING:
         from typing import cast

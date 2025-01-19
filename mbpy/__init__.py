@@ -32,4 +32,6 @@ THEME = {
 
 
 from mbpy.log import setup_logging
+from mbpy.helpers._traceback import install
+install()
 setup_logging()

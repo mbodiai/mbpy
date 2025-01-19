@@ -1,0 +1,4 @@
+[2025-01-19 11:55:53] WARNING Package not found: nixos (pypi.py:457)
+[2025-01-19 11:55:59] WARNING Package not found: nix-py (pypi.py:457)
+[2025-01-19 11:56:04] WARNING Package not found: nix python (pypi.py:457)
+[2025-01-19 12:00:32] WARNING Package not found: ucset (pypi.py:457)

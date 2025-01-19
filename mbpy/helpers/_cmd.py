@@ -27,7 +27,7 @@ except ImportError:
     pass
 
 from mbpy.expect.exceptions import ExceptionPexpect as PexpectException
-from mbpy.expect.spawn import EOF, TIMEOUT, SpawnBase, aspawn, spawn
+from mbpy.expect.spawn import EOF, TIMEOUT, aspawn, spawn
 from mbpy.import_utils import smart_import
 
 P = ParamSpec("P")
@@ -53,7 +53,7 @@ else:
 
 
 
-SpawnT = TypeVar("SpawnT", bound=SpawnBase)
+SpawnT = TypeVar("SpawnT", bound=spawn)
 
 
 class BaseCommand(Generic[SpawnT]):
@@ -80,7 +80,7 @@ class BaseCommand(Generic[SpawnT]):
                                                           timeout=timeout,
                                                           **kwargs)
         self.args = args or []
-
+        self.spinner = smart_import("mbpy.helpers._display.SPINNER")()
         cwd = Path(str(cwd)).resolve() if cwd else Path.cwd()
         self.cwd = cwd if cwd.is_dir() else cwd.parent if cwd.exists(
         ) else Path.cwd()
@@ -190,6 +190,7 @@ class Command(BaseCommand[spawn]):
             return None
         line = self.process.before.decode("utf-8")
         if show:
+            self.spinner.stop()
             self.console.print(Text.from_ansi(line.rstrip("\n")))
         return line
 
@@ -215,7 +216,7 @@ class Command(BaseCommand[spawn]):
             [str(Text.from_ansi(line.rstrip("\n"))) for line in lines])
 
     def __iter__(self):
-        yield from self.streamlines()
+        return self.streamlines()
 
     def __str__(self):
         return self.readtext()
@@ -263,8 +264,7 @@ class AsyncCommand(BaseCommand[aspawn]):
         Yields:
             AsyncIterator[str]: Lines from the asynchronous process.
         """
-        async for line in self.astreamlines():
-            yield line
+        return self.astreamlines()
 
     async def areadtext(self, show: bool | None = None) -> str:
         """Reads all lines from the asynchronous process and concatenates them into a single string.
@@ -372,6 +372,15 @@ class AsyncCommand(BaseCommand[aspawn]):
             ])
         except RuntimeError as e:
             raise e
+    def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        for thread in self._threads:
+            with suppress(Exception):
+                thread.join(timeout=1)
+        if self.process:
+            self.process.close()
 
 
 if __name__ == "__main__":

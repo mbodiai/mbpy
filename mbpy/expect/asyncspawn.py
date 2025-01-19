@@ -158,6 +158,9 @@ class AsyncSpawn:
     async def sendline(self, data: str = '') -> None:
         await self.send(data + '\n')
 
+    def __aiter__(self):
+        return self.streamlines()
+
 # Example usage:
 async def check_repo(repo: str) -> bool:
     async with AsyncSpawn(f"gh repo view {repo} --json name") as proc:

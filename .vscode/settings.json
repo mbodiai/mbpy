@@ -78,6 +78,11 @@
 
     "python.analysis.logLevel": "Trace",
     "python.analysis.logTypeEvaluationTime": true,
-    "python.analysis.typeEvaluationTimeThreshold": 1000
+    "python.analysis.typeEvaluationTimeThreshold": 1000,
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 
 }

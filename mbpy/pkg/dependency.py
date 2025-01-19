@@ -386,20 +386,6 @@ def isatformat(source: "str| Dependency") -> bool:
         return re.match(r"^[a-zA-Z0-9_\-]+ @ [a-zA-Z0-9_\-:/\.]+$", source) is not None
     return False
 
-# @cache
-# def extract_name_source_from_editable(source: str) -> tuple[str, str]:
-#     """Extracts the name and source from an editable package string in the format '-e <source>'.
-
-#     Args:
-#         source (str): The input string in the format '-e <source>'.
-
-#     Returns:
-#         Tuple[str, str]: A tuple containing the name and source.
-#     """
-#     if isgit(source):
-#         return extract_name_and_source_from_git(source)
-#     name = source[3:].strip()
-#     return name, source
 
 def get_url(source: str) -> str:
     """Get the URL from a source string."""
@@ -444,64 +430,6 @@ def org_and_repo(source: str) -> tuple[str, str]:
     if len(src) != 2:
         raise ValueError(f"Invalid source format: {src}")
     return src[0], src[1]
-# @cache
-# def extract_name_and_source_from_git(source: str) -> tuple[str, str]:
-#     """Modified to consistently return name, org, source"""
-#     org,name  = org_and_repo(source)
-#     return name, get_vcs(source)
-
-
-# @cache
-# def extract_name_and_source_from_at(source: str) -> "tuple[str, str]":
-#     """Extracts the name and source from a string in the format 'name @ source'."""
-#     # Don't process paths containing potentially dangerous commands
-#     if any(cmd in source.lower() for cmd in ['rm ', 'rmdir', 'del ']):
-#         logging.warning(f"Potentially dangerous command detected in path: {source}")
-#         msg = f"Potentially dangerous command detected in path: {source}"
-#         raise ValueError(msg)
-        
-#     match = re.match(r"^([a-zA-Z0-9_\-]+) @ ([a-zA-Z0-9_\-:/\.]+)$", source)
-#     if match:
-#         path = match.group(2)
-#         # Validate it's a real path/URL
-#         if path.startswith(('http://', 'https://', 'git://', 'file://')):
-#             return match.group(1), path
-#         if Path(path).exists():
-#             return match.group(1), path
-#     return source, source
-
-# @cache
-# def extract_name_and_source(source: str) -> "tuple[str, str]":
-#     """Extracts the name and source from a package string.
-
-#     Args:
-#         source (str): The input string in one of the following formats:
-#             - '-e <source>'
-#             - 'git+<source>'
-#             - 'name @ source'
-
-#     Returns:
-#         Optional[Tuple[str, str]]: A tuple containing the name and source if the pattern matches, otherwise None.
-#     """
-#     dangerous_commands = ['rm ', 'rmdir', 'del ', ';', '&&', '||']
-#     cmd_lower = source.lower()
-    
-#     # Check for dangerous commands using word boundaries
-#     if any(
-#         cmd in cmd_lower.split() or  # Check for whole words
-#         f" {cmd} " in f" {cmd_lower} "  # Check with spaces
-#         for cmd in dangerous_commands
-#     ):
-#         raise ValueError("Potentially dangerous command detected")
-
-#     if iseditable(source):
-#         return extract_name_source_from_editable(source)
-#     if isgit(source):
-#         return extract_name_and_source_from_git(source)
-#     if isatformat(source):
-#         return extract_name_and_source_from_at(source)
-#     return source, source
-
 
 
 def validate_editable(command: "PathType", name: str | None = None, requirements=False) -> str:
@@ -586,20 +514,7 @@ def _to_string(install_cmd: str, name: str, extras: str, version: str, condition
     # print(f"_to_str:{install_cmd=}, {name=}, {extras=}, {version=}, {conditions=}, {requirements=}, {editable=}")
     return install_cmd
 
-@dataclass
-class Workspace:
-    name: str
-    packages: list[str] = field(default_factory=list)
-    package_info: dict[str, Project] = field(default_factory=dict)
-    subpackages: dict[str, list[str]] = field(default_factory=dict)
-if TYPE_CHECKING:
-    T = TypeVar("T")
-    ParentT = Generic[T]
-else:
-    Generic = smart_import("typing.Generic")
-    TypeVar = smart_import("typing.TypeVar")
-    T = TypeVar("T")
-    ParentT = Generic[T]
+
 
 class Task(TypedDict, ParentT):
     name: str
@@ -673,49 +588,6 @@ class Dependency:
     _async_init_condition: "asyncio.Condition" = field(default_factory=asyncio.Condition,repr=False,init=False)
     _requirements_name: str | None = field(default=None, init=False, repr=False)
 
-    def __getstate__(self):
-        """Return state for pickling."""
-        state = self.__dict__.copy()
-        # Remove unpicklable entries
-        state.pop('_groups', None)
-        state.pop('dependencies', None)
-        state.pop('_async_init_done', None)
-        state.pop('pypi_info', None)
-        return state
-
-    def __setstate__(self, state):
-        """Set state when unpickling."""
-        self.__dict__.update(state)
-        # Reinitialize unpicklable attributes
-        self._groups = {}
-        self.dependencies = []
-        self._async_init_done = False
-        self.pypi_info = PyPackageInfo()
-
-    def __deepcopy__(self, memo):
-        """Support deep copying."""
-        copy = smart_import("copy")
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if k not in ('_groups', 'dependencies', '_async_init_done', 'pypi_info'):
-                setattr(result, k, copy.deepcopy(v, memo))
-        # Reinitialize special attributes
-        result._groups = {}
-        result.dependencies = []
-        result._async_init_done = False
-        result.pypi_info = PyPackageInfo()
-        return result
-
-    def __eq__(self, value: object) -> bool:
-        if not isinstance(value, Dependency):
-            return False
-        return self.base == value.base and self.version == value.version
-
-    def __hash__(self) -> int:
-        return hash((self.install_cmd, self.version))
-
     @property
     async def requirements_name(self) -> str:
         if self._requirements_name is None:
@@ -762,9 +634,9 @@ class Dependency:
                 return pyproject["project"]["name"]
         return Path(self.project_dir).resolve().stem
 
-    # def normalize(self) -> str:
-    #     package_name = self.install_cmd
-    #     return str(normalize_path(package_name.strip().lower().replace("-", "_")))
+    def normalize(self) -> str:
+        package_name = self.install_cmd
+        return str(normalize_path(package_name.strip().lower().replace("-", "_")))
 
     @property
     def base(self) -> str:
@@ -1129,6 +1001,49 @@ class Dependency:
         if isinstance(self.extras, str):
             return f"[{self.extras}]" if self.extras else ""
         return ""
+
+    def __getstate__(self):
+        """Return state for pickling."""
+        state = self.__dict__.copy()
+        # Remove unpicklable entries
+        state.pop('_groups', None)
+        state.pop('dependencies', None)
+        state.pop('_async_init_done', None)
+        state.pop('pypi_info', None)
+        return state
+
+    def __setstate__(self, state):
+        """Set state when unpickling."""
+        self.__dict__.update(state)
+        # Reinitialize unpicklable attributes
+        self._groups = {}
+        self.dependencies = []
+        self._async_init_done = False
+        self.pypi_info = PyPackageInfo()
+
+    def __deepcopy__(self, memo):
+        """Support deep copying."""
+        copy = smart_import("copy")
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k not in ('_groups', 'dependencies', '_async_init_done', 'pypi_info'):
+                setattr(result, k, copy.deepcopy(v, memo))
+        # Reinitialize special attributes
+        result._groups = {}
+        result.dependencies = []
+        result._async_init_done = False
+        result.pypi_info = PyPackageInfo()
+        return result
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Dependency):
+            return False
+        return self.base == value.base and self.version == value.version
+
+    def __hash__(self) -> int:
+        return hash((self.install_cmd, self.version))
 
 def register_signal_handlers(loop: "asyncio.AbstractEventLoop"):
     """Register signal handlers for graceful shutdown."""

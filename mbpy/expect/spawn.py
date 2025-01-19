@@ -693,8 +693,9 @@ if sys.platform != "win32":
     #                 self.__interact_writen(self.child_fd, data)
 
     # # Add this line to alias 'spawn' as 'Spawn'
-    # Spawn = spawn
+
     spawn = PopenSpawn
+    Spawn = spawn
 
 else:
     class Spawn:
@@ -885,7 +886,7 @@ class aspawn(spawn): # noqa
         self._running = False
 
 
-class udpspawn(SpawnBase):
+class udpspawn(spawn):
     """This is like :mod:`pexpect.fdpexpect` but uses the cross-platform python socket api,
     rather than the unix-specific file descriptor api. Thus, it works with
     remote connections on both unix and windows.
