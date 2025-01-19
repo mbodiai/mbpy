@@ -146,7 +146,7 @@ def categorize_commit(message: str) -> tuple[str, str]:
             
     return categories.get(type_str, '🔍 Other Changes'), description
 
-async def get_diff_stats(commit_hash: str = None) -> Dict[str, int]:
+async def get_diff_stats(commit_hash: str = None, include_unstaged: bool = False) -> Dict[str, int]:
     """Get number of changed lines per file."""
     if commit_hash:
         # Use a more specific git show command to get stats
@@ -158,7 +158,12 @@ async def get_diff_stats(commit_hash: str = None) -> Dict[str, int]:
             commit_hash
         ]
     else:
-        cmd = ['git', 'diff', '--cached', '--numstat']
+        if include_unstaged:
+            # Include both staged and unstaged changes
+            cmd = ['git', 'diff', '--numstat']
+        else:
+            # Only staged changes
+            cmd = ['git', 'diff', '--cached', '--numstat']
     
     output = await arun(cmd)
     changes = {}
@@ -547,7 +552,7 @@ async def generate_changelog(
     min_lines: int = 1,
     file_patterns: List[str] |  None = None
 ) -> str:
-    """Generate a formatted changelog with metrics."""
+    console = smart_import("mbpy.helpers._display.getconsole")()
     cmd = ['git', 'rev-parse', 'HEAD'] if days == -1 else None
     if days == -1:
         commit_hash = await arun(cmd)
@@ -692,7 +697,11 @@ async def generate_changelog(
             
             lines.append("")  # Add spacing between types
     
-    return "\n".join(lines).strip()
+    try:
+        return "\n".join(lines).strip()
+    except Exception as e:
+        console.print(f"[red]Error generating changelog: {str(e)}[/red]")
+        return ""
 
 async def undo_last_commit() -> bool:
     """Undo the last commit but keep the changes staged."""
@@ -713,70 +722,175 @@ async def undo_last_commit() -> bool:
         console.print(f"[red]Failed to undo last commit: {str(e)}[/red]")
         return False
 
-async def generate_short_commit_message() -> str:
+async def get_git_status() -> Dict[str, str]:
+    """Get current git status including staged and unstaged changes."""
+    status = {}
+    try:
+        # Get status in porcelain format for easy parsing
+        cmd = ['git', 'status', '--porcelain']
+        output = await arun(cmd)
+        
+        for line in output.splitlines():
+            if not line:
+                continue
+            index_status, work_tree_status = line[:2]
+            filepath = line[3:].strip().split(' -> ')[-1].strip('"')
+            
+            # Parse status codes
+            if index_status == 'R':  # Renamed
+                old_path = line[3:].split(' -> ')[0].strip()
+                status[old_path] = 'remove'
+                status[filepath] = 'rename'
+            elif index_status == 'A':  # Added
+                status[filepath] = 'add'
+            elif index_status == 'M':  # Modified
+                status[filepath] = 'modify'
+            elif index_status == 'D':  # Deleted
+                status[filepath] = 'remove'
+            
+    except Exception as e:
+        console = smart_import("mbpy.helpers._display.getconsole")()
+        console.print(f"[red]Failed to get git status: {str(e)}[/red]")
+    return status
+
+async def add_untracked(branch: str = None, dry_run: bool = False) -> Dict[str, str]:
+    """Add untracked files and return a dict of {filepath: status}."""
+    try:
+        # First get current status
+        file_status = await get_git_status()
+        
+        if dry_run:
+            cmd = ['git', 'add', '--dry-run', '.']
+        else:
+            cmd = ['git', 'add', '.']
+        
+        output = await arun(cmd)
+        console = smart_import("mbpy.helpers._display.getconsole")()
+        if output:
+            console.print(output)
+
+        # Add new files from add output
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith(("add '", "remove '", "rename ")):
+                if line.startswith("add '"):
+                    filepath = line.split("add '", 1)[-1].rstrip("'")
+                    if filepath not in file_status:
+                        file_status[filepath] = 'add'
+                elif line.startswith("remove '"):
+                    filepath = line.split("remove '", 1)[-1].rstrip("'")
+                    file_status[filepath] = 'remove'
+                elif line.startswith("rename "):
+                    _, paths = line.split(" ", 1)
+                    old_path, new_path = paths.split(" -> ")
+                    old_path = old_path.strip("'")
+                    new_path = new_path.strip("'")
+                    file_status[old_path] = 'remove'
+                    file_status[new_path] = 'rename'
+
+        return file_status
+    except Exception as e:
+        console = smart_import("mbpy.helpers._display.getconsole")()
+        console.print(f"[red]Failed to add untracked files: {str(e)}[/red]")
+        return {}
+
+async def get_status_summary(file_status: Dict[str, str]) -> Dict[str, List[str]]:
+    """Convert file status dict into a summary by operation."""
+    summary = collections.defaultdict(list)
+    for file, status in file_status.items():
+        summary[status].append(os.path.basename(file))
+    return summary
+
+async def generate_short_commit_message(*, dry_run: bool = False) -> str:
     """Generate a brief, meaningful commit message based on current changes."""
     try:
-        # Get diff stats for staged/modified files
-        changes = await get_diff_stats()
-        if not changes:
+        file_status = await add_untracked(dry_run=dry_run)
+        if not file_status:
             return "No changes to commit"
 
-        # Group changes by file type
-        file_groups = collections.defaultdict(list)
-        for filepath, lines in changes.items():
-            ext = os.path.splitext(filepath)[1] or 'other'
-            file_groups[ext].append((filepath, lines))
-
-        # Generate concise summary
-        parts = []
+        # Group changes by type
+        replacements = []  # setup.py -> gen_setup.py type changes
+        package_changes = []  # pyproject.toml, setup.py etc
+        code_changes = []  # python files
+        other_changes = []  # everything else
         
-        # Handle Python files specially
-        if '.py' in file_groups:
-            py_files = file_groups['.py']
-            total_py_lines = sum(lines for _, lines in py_files)
-            if len(py_files) == 1:
-                basename = os.path.basename(py_files[0][0])
-                parts.append(f"Update {basename} ({total_py_lines} lines)")
+        # First pass - identify replacements
+        files = list(file_status.items())
+        for i, (filepath, status) in enumerate(files):
+            base = os.path.basename(filepath)
+            if status == 'remove':
+                # Look for a corresponding add of a similar file
+                for other_path, other_status in files[i+1:]:
+                    if other_status == 'add' and other_path.endswith(filepath.split('.')[-1]):
+                        replacements.append(f"Replace {base} with {os.path.basename(other_path)}")
+                        # Mark both files as handled
+                        file_status[filepath] = 'handled'
+                        file_status[other_path] = 'handled'
+                        break
+
+        # Second pass - categorize remaining files
+        for filepath, status in file_status.items():
+            if status == 'handled':
+                continue
+                
+            base = os.path.basename(filepath)
+            if filepath.endswith(('pyproject.toml', 'setup.py', 'setup.cfg')):
+                package_changes.append(f"{status} {base}")
+            elif filepath.endswith('.py'):
+                try:
+                    if status != 'remove':  # Can't analyze removed files
+                        module_changes = await analyze_module_changes(filepath)
+                        if module_changes['classes'] or module_changes['functions']:
+                            msg = base
+                            if module_changes['classes']:
+                                msg += f" (classes: {', '.join(module_changes['classes'])})"
+                            if module_changes['functions']:
+                                changed_funcs = module_changes['functions']
+                                if len(changed_funcs) <= 3:
+                                    msg += f" (functions: {', '.join(changed_funcs)})"
+                                else:
+                                    msg += f" ({len(changed_funcs)} function changes)"
+                            code_changes.append(f"{status} {msg}")
+                        else:
+                            code_changes.append(f"{status} {base}")
+                    else:
+                        code_changes.append(f"{status} {base}")
+                except Exception:
+                    code_changes.append(f"{status} {base}")
             else:
-                parts.append(f"Update {len(py_files)} Python files ({total_py_lines} lines)")
+                other_changes.append(f"{status} {base}")
 
-        # Summarize other changes
-        other_groups = {k: v for k, v in file_groups.items() if k != '.py'}
-        if other_groups:
-            for ext, files in other_groups.items():
-                if ext == 'other':
-                    continue
-                parts.append(f"{len(files)} {ext[1:]} files")
+        # Build message prioritizing the changes
+        parts = []
+        if replacements:
+            parts.extend(replacements)
+        if package_changes:
+            parts.append(f"Update package configuration: {', '.join(package_changes)}")
+        if code_changes:
+            parts.append(f"Code changes: {'; '.join(code_changes)}")
+        if other_changes:
+            parts.append(f"Other changes: {'; '.join(other_changes)}")
 
-        message = " and ".join(parts)
-        return message or "Update project files"
+        return " && ".join(parts) if parts else "Update project files"
 
     except Exception as e:
         return f"Update project files ({str(e)})"
 
 async def check_diverging_changes(branch: str = None) -> tuple[bool, str]:
-    """Check if there are diverging changes between local and remote."""
     try:
-        # First check if we have any commits
         has_commits = await arun(['git', 'rev-parse', '--verify', 'HEAD'], debug=False)
         if not has_commits:
             return False, ""
 
-        # Get current branch if none specified
         if not branch:
             branch = await arun(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
         
-        # Check if remote branch exists
         remote_exists = await arun(['git', 'ls-remote', '--heads', 'origin', branch])
         if not remote_exists:
             return False, ""
             
-        # Fetch latest changes
         await arun(['git', 'fetch', 'origin', branch])
-        
-        # Compare with remote
-        diff_cmd = ['git', 'diff', f'origin/{branch}...']
-        diff = await arun(diff_cmd)
+        diff = await arun(['git', 'diff', f'origin/{branch}...'])
         
         return bool(diff.strip()), diff
         
@@ -814,32 +928,11 @@ async def git_pull(branch: str = None) -> bool:
         console.print(f"[red]Failed to pull changes: {str(e)}[/red]")
         return False
 
-async def add_untracked(branch: str = None, dry_run: bool = False) -> bool:
-    """Add untracked files to the staging area.
-    
-    Args:
-        branch: Optional branch name (unused currently)
-        dry_run: If True, show what would be added without actually adding files
-    """
-    try:
-        if dry_run:
-            cmd = ['git', 'add', '--dry-run', '.']
-        else:
-            cmd = ['git', 'add', '.']
-            
-        output = await arun(cmd)
-        console = smart_import("mbpy.helpers._display.getconsole")()
-        console.print(output)
-        return True
-    except Exception as e:
-            console = smart_import("mbpy.helpers._display.getconsole")()
-            console.print(f"[red]Failed to add untracked files: {str(e)}[/red]")
-            return False
-
 async def git_add_commit_push(branch: str = None, dry_run: bool = False) -> bool:
+    """Add, commit and push changes with proper error handling."""
+    console = smart_import("mbpy.helpers._display.getconsole")()
     try:
         # Check for diverging changes first
-        console = smart_import("mbpy.helpers._display.getconsole")()
         has_diverged, diff = await check_diverging_changes(branch)
         if has_diverged:
             console.print("[yellow]Warning: Your branch has diverged from origin[/yellow]")
@@ -848,50 +941,70 @@ async def git_add_commit_push(branch: str = None, dry_run: bool = False) -> bool
             if not dry_run:
                 if not click.confirm("Do you want to pull changes first?"):
                     if not click.confirm("Continue with push anyway? This may fail"):
-                        return
+                        return False
                 else:
                     if not await git_pull(branch):
                         console.print("[red]Pull failed. Please resolve conflicts manually[/red]")
-                        return
+                        return False
 
-        # Add untracked files
-        await add_untracked(branch, dry_run=dry_run)
+        # Add untracked files and verify status
+        file_status = await add_untracked(branch, dry_run=dry_run)
+        if not file_status and not dry_run:
+            console.print("[yellow]No changes to commit[/yellow]")
+            return False
 
-        if not dry_run:
-            # Commit with a temporary message
-            commit_cmd = ['git', 'commit', '-m', 'updates']
-            out = await arun(commit_cmd)
-
-            # Generate the commit message after the commit
-            cl = await generate_short_commit_message()
-            console.print(f"\n[blue]Commit Message:[/blue] \n{cl}")
-
-            # Amend the commit with the generated message
-            amend_success = await amend_commit_message(out.strip(), cl)
-            if amend_success:
-                console.print(f"[green]✓ Successfully amended commit with new message[/green]")
-            else:
-                console.print(f"[red]✗ Failed to amend commit message[/red]")
-
-            # Push the changes
-            push_cmd = ['git', 'push']
-            if branch:
-                push_cmd.extend(['origin', branch])
-            
-            out = await arun(push_cmd)
-            
-            if "error" in out.lower() or "fail" in out.lower():
-                console.print(f"[red]Failed to push changes: {out}[/red]")
-            elif "everything up-to-date" in out.lower():
-                console.print("[yellow]No changes to push[/yellow]")
-            else:
-                console.print("[green]Successfully pushed changes[/green]")
-        else:
+        if dry_run:
             console.print("[yellow]Dry run enabled. No changes were pushed.[/yellow]")
-    except Exception as e:
-            console.print(f"[red]Push failed: {str(e)}[/red]")
-            console.print("[yellow]Hint: Try pulling changes first with 'git pull'[/yellow]")
+            if file_status:
+                by_status = collections.defaultdict(list)
+                for file, status in file_status.items():
+                    by_status[status].append(file)
+                
+                for status, files in by_status.items():
+                    console.print(f"[blue]Files that would be {status}ed:[/blue]")
+                    for f in files:
+                        console.print(f"  - {f}")
+                        
+            cl = await generate_short_commit_message(dry_run=True)
+            console.print(f"[blue]Dry run commit message:[/blue] {cl}")
             return True
+
+        # Attempt commit
+        commit_cmd = ['git', 'commit', '-m', 'updates']
+        try:
+            commit_result = await arun(commit_cmd)
+        except Exception as e:
+            if "nothing to commit" in str(e).lower():
+                console.print("[yellow]No changes to commit[/yellow]")
+                return False
+            raise
+
+        # Generate and amend commit message
+        cl = await generate_short_commit_message()
+        console.print(f"\n[blue]Commit Message:[/blue] \n{cl}")
+
+        if not await amend_commit_message(commit_result.strip(), cl):
+            console.print("[red]Failed to amend commit message[/red]")
+            return False
+
+        # Push changes
+        push_cmd = ['git', 'push']
+        if branch:
+            push_cmd.extend(['origin', branch])
+        
+        try:
+            push_result = await arun(push_cmd)
+            console.print("[green]Successfully pushed changes[/green]")
+            return True
+        except Exception as e:
+            console.print(f"[red]Failed to push changes: {str(e)}[/red]")
+            return False
+
+    except Exception as e:
+        console.print(f"[red]Push failed: {str(e)}[/red]")
+        console.print("[yellow]Hint: Try pulling changes first with 'git pull'[/yellow]")
+        return False
+
 @click.command("git",no_args_is_help=True)
 @click.option('-cl','--change-log',is_flag=True,help='Generate changelog')
 @click.option('--days', type=int, default=30, help='Number of days to look back')
