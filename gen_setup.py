@@ -18,11 +18,13 @@ try:
 
     def find_pyx_modules():
         """Dynamically find all .pyx files in the discovered packages."""
-        packages = find_packages()  # Dynamically find all packages
+        packages = [get_package_name()]
         extensions = []
         for package in packages:
             package_dir = package.replace('.', '/')
             for pyx_file in Path(package_dir).rglob("*.pyx"):
+                if pyx_file.stem == "__init__":
+                    continue
                 module_name = f"{package}.{pyx_file.stem}"
                 extensions.append(
                     Extension(
