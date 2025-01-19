@@ -210,6 +210,7 @@ def SPINNER():
                     sleep(0.1)
                     self._live.update(self._spinner)
                 self.spinning = False
+
             # self._live.console.print("")
 
         async def astart(self) -> None:
@@ -236,6 +237,10 @@ def SPINNER():
                 self._thread = None
             self._live.stop()
             self.spinning = False
+            self._spinner = None
+            global _spinner
+            _spinner = None
+
 
         def cleanup(self, signum: int | None = None, frame=None) -> None:
             self.stop()

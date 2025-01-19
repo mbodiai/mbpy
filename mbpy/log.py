@@ -120,7 +120,6 @@ class Log(Generic[LevelT]):
     
     @classmethod
     def __bool__(cls):
-        print(f"is {cls.level} enabled? {getlevel()} <= {getattr(logging, cls.level.upper())}")
         return getlevel() <= getattr(logging, cls.level.upper())
     
 DEBUG=Literal["DEBUG"]
