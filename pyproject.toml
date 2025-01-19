@@ -1,8 +1,8 @@
 [build-system]
-requires = ["hatchling>=1.18.0", "Cython>=0.29.30", "toml>=0.10.2", "hatch-cython", "setuptools"]
-build-backend = "hatchling.build"
-# requires = ["setuptools", "wheel", "Cython"]  
-# build-backend = "setuptools.build_meta"  
+# requires = ["hatchling>=1.18.0"]
+# build-backend = "hatchling.build"
+requires = ["setuptools", "wheel", "Cython", "toml"]
+build-backend = "setuptools.build_meta"
 [project]
 
 classifiers = [
@@ -210,27 +210,27 @@ all = [
   "rich>=13.9.4",
 ]
 [tool.setuptools]
-
 packages = ["mbpy"]
-[tool.hatch.metadata]
-allow-direct-references = true
-[tool.hatch.build.targets.wheel.hooks.cython]
-dependencies = ["hatch-cython"]
+# package-dir = { "mbpy" = "tmp/mbpy" }
+# [tool.hatch.metadata]
+# allow-direct-references = true
+# [tool.hatch.build.targets.wheel.hooks.cython]
+# dependencies = ["hatch-cython"]
 
-includes = ["mbpy"]
-packages = ["mbpy"]
-parallel = true
-source-files = ["./**/*.pyx"]
-src = "."
+# includes = ["./tmp/mbpy"]
+# packages = ["./tmp/mbpy"]
+# parallel = true
+# source-files = ["./tmp/mbpy/**/*.pyx"]
+# src = "./tmp/mbpy"
 
 
-[tool.hatch.build.targets.wheel.hooks.cython.options.directives]
-binding = true
-boundscheck = false
-languagelvl = 3
-nonecheck = false
-[tool.hatch.envs.default]
-dependencies = ["pytest", "pytest-cov"]
+# [tool.hatch.build.targets.wheel.hooks.cython.options.directives]
+# binding = true
+# boundscheck = false
+# language_level = 3
+# nonecheck = false
+# [tool.hatch.envs.default]
+# dependencies = ["pytest", "pytest-cov"]
 [tool.ruff]
 fixable = ["ALL"]
 ignore = [

@@ -734,7 +734,7 @@ async def get_git_status() -> Dict[str, str]:
             if not line:
                 continue
             index_status, work_tree_status = line[:2]
-            filepath = line[3:].strip().split(' -> ')[-1].strip('"')
+            filepath = line[3:].trip().split(' -> ')[-1].strip('"')
             
             # Parse status codes
             if index_status == 'R':  # Renamed
@@ -756,49 +756,51 @@ async def get_git_status() -> Dict[str, str]:
 async def add_untracked(branch: str = None, dry_run: bool = False) -> Dict[str, str]:
     """Add untracked files and return a dict of {filepath: status}."""
     try:
-        # First get current status
-        file_status = await get_git_status()
-        
-        if dry_run:
-            cmd = ['git', 'add', '--dry-run', '.']
-        else:
-            cmd = ['git', 'add', '.']
-        
+        file_status = {}
+        cmd = ['git', 'status', '--porcelain']
         output = await arun(cmd)
-        console = smart_import("mbpy.helpers._display.getconsole")()
-        if output:
-            console.print(output)
-
-        # Add new files from add output
+        
         for line in output.splitlines():
-            line = line.strip()
-            if line.startswith(("add '", "remove '", "rename ")):
-                if line.startswith("add '"):
-                    filepath = line.split("add '", 1)[-1].rstrip("'")
-                    if filepath not in file_status:
-                        file_status[filepath] = 'add'
-                elif line.startswith("remove '"):
-                    filepath = line.split("remove '", 1)[-1].rstrip("'")
-                    file_status[filepath] = 'remove'
-                elif line.startswith("rename "):
-                    _, paths = line.split(" ", 1)
-                    old_path, new_path = paths.split(" -> ")
-                    old_path = old_path.strip("'")
-                    new_path = new_path.strip("'")
-                    file_status[old_path] = 'remove'
-                    file_status[new_path] = 'rename'
-
+            if not line:
+                continue
+            status, filepath = line[0:2], line[3:].strip()
+            
+            # Clean up filepath (handle quotes and renames)
+            if ' -> ' in filepath:
+                _, filepath = filepath.split(' -> ')
+            filepath = filepath.strip('"')
+            
+            # Only track files that actually exist
+            if not os.path.exists(filepath) and status[0] != 'D':
+                continue
+                
+            # Map git status to our simplified status
+            if status[0] == 'M' or status[1] == 'M':
+                file_status[filepath] = 'modify'
+            elif status[0] == 'A':
+                file_status[filepath] = 'add'
+            elif status[0] == 'D':
+                file_status[filepath] = 'remove'
+            elif status[0] == '?' and not dry_run:
+                file_status[filepath] = 'add'
+        
+        if not dry_run:
+            await arun(['git', 'add', '.'])
+            
         return file_status
+
     except Exception as e:
         console = smart_import("mbpy.helpers._display.getconsole")()
-        console.print(f"[red]Failed to add untracked files: {str(e)}[/red]")
+        console.print(f"Failed to process files: {str(e)}")
         return {}
 
 async def get_status_summary(file_status: Dict[str, str]) -> Dict[str, List[str]]:
     """Convert file status dict into a summary by operation."""
-    summary = collections.defaultdict(list)
-    for file, status in file_status.items():
-        summary[status].append(os.path.basename(file))
+    summary = {}
+    for filepath, status in file_status.items():
+        if status not in summary:
+            summary[status] = []
+        summary[status].append(filepath)
     return summary
 
 async def generate_short_commit_message(*, dry_run: bool = False) -> str:
@@ -889,10 +891,18 @@ async def check_diverging_changes(branch: str = None) -> tuple[bool, str]:
         if not remote_exists:
             return False, ""
             
+        # Fetch latest changes from remote
         await arun(['git', 'fetch', 'origin', branch])
-        diff = await arun(['git', 'diff', f'origin/{branch}...'])
         
-        return bool(diff.strip()), diff
+        # Check if branches have diverged
+        local_commit = await arun(['git', 'rev-parse', 'HEAD'])
+        remote_commit = await arun(['git', 'rev-parse', f'origin/{branch}'])
+        
+        if local_commit != remote_commit:
+            diff = await arun(['git', 'diff', f'origin/{branch}...'])
+            return True, diff
+        
+        return False, ""
         
     except Exception as e:
         if "does not have any commits yet" in str(e):
@@ -901,8 +911,8 @@ async def check_diverging_changes(branch: str = None) -> tuple[bool, str]:
         console.print(f"[red]Error checking diverging changes: {str(e)}[/red]")
         return False, ""
 
-async def git_pull(branch: str = None) -> bool:
-    """Pull latest changes from remote."""
+async def git_pull(branch: str = None, rebase: bool = False) -> bool:
+    """Pull latest changes from remote with optional rebase."""
     try:
         # Check if we have any commits first
         has_commits = await arun(['git', 'rev-parse', '--verify', 'HEAD'], debug=False)
@@ -917,15 +927,29 @@ async def git_pull(branch: str = None) -> bool:
                 pass  # Ignore if remote branch doesn't exist yet
         
         cmd = ['git', 'pull']
+        if rebase:
+            cmd.append('--rebase')
         if branch:
             cmd.extend(['origin', branch])
+        
         output = await arun(cmd)
-        return True
+        return "Already up to date" in output or not output
     except Exception as e:
         if "does not have any commits yet" in str(e):
             return True
         console = smart_import("mbpy.helpers._display.getconsole")()
         console.print(f"[red]Failed to pull changes: {str(e)}[/red]")
+        return False
+
+async def create_new_branch(base_branch: str, new_branch: str) -> bool:
+    """Create a new branch from the specified base branch."""
+    try:
+        # Create and checkout new branch
+        await arun(['git', 'checkout', '-b', new_branch, base_branch])
+        return True
+    except Exception as e:
+        console = smart_import("mbpy.helpers._display.getconsole")()
+        console.print(f"[red]Failed to create new branch: {str(e)}[/red]")
         return False
 
 async def git_add_commit_push(branch: str = None, dry_run: bool = False) -> bool:
@@ -938,23 +962,72 @@ async def git_add_commit_push(branch: str = None, dry_run: bool = False) -> bool
             console.print("[yellow]Warning: Your branch has diverged from origin[/yellow]")
             console.print("\n[blue]Diverging changes:[/blue]")
             console.print(diff)
+            
             if not dry_run:
-                if not click.confirm("Do you want to pull changes first?"):
-                    if not click.confirm("Continue with push anyway? This may fail"):
+                console.print("\nYou have several options:")
+                console.print("1. Pull and rebase (recommended)")
+                console.print("2. Create a new branch")
+                console.print("3. Force push (not recommended)")
+                console.print("4. Cancel")
+                
+                choice = click.prompt(
+                    "How would you like to proceed?",
+                    type=click.Choice(['1', '2', '3', '4']),
+                    default='1'
+                )
+                
+                if choice == '1':
+                    console.print("\nAttempting to pull and rebase...")
+                    try:
+                        await arun(['git', 'pull', '--rebase', 'origin', branch])
+                    except Exception as e:
+                        console.print(f"[red]Failed to rebase: {str(e)}[/red]")
+                        console.print("[yellow]Please resolve conflicts manually and try again[/yellow]")
+                        return False
+                elif choice == '2':
+                    new_branch = click.prompt("Enter new branch name")
+                    try:
+                        await arun(['git', 'checkout', '-b', new_branch])
+                        branch = new_branch
+                        console.print(f"[green]Created and switched to new branch: {new_branch}[/green]")
+                    except Exception as e:
+                        console.print(f"[red]Failed to create new branch: {str(e)}[/red]")
+                        return False
+                elif choice == '3':
+                    if not click.confirm("[red]WARNING: Force push will overwrite remote changes. Continue?[/red]"):
                         return False
                 else:
-                    if not await git_pull(branch):
-                        console.print("[red]Pull failed. Please resolve conflicts manually[/red]")
-                        return False
+                    console.print("Operation cancelled")
+                    return False
 
         # Add untracked files and verify status
         file_status = await add_untracked(branch, dry_run=dry_run)
-        if not file_status and not dry_run:
+        
+        if dry_run:
+            console.print("[yellow]DRY RUN - No changes will be made[/yellow]\n")
+            if file_status:
+                by_status = collections.defaultdict(list)
+                for filepath, status in file_status.items():
+                    by_status[status].append(filepath)
+                
+                for status, files in by_status.items():
+                    if files:
+                        console.print(f"\nFiles to be {status}ed:")
+                        for f in files:
+                            console.print(f"  - {f}")
+                
+                msg = await generate_short_commit_message(dry_run=True)
+                console.print(f"\nCommit message would be:\n{msg}")
+            else:
+                console.print("No changes detected")
+            return True
+
+        if not file_status:
             console.print("[yellow]No changes to commit[/yellow]")
             return False
 
         if dry_run:
-            console.print("[yellow]Dry run enabled. No changes were pushed.[/yellow]")
+            console.print("[yellow]Dry run enabled. No changes will be pushed.[/yellow]")
             if file_status:
                 by_status = collections.defaultdict(list)
                 for file, status in file_status.items():
@@ -970,22 +1043,16 @@ async def git_add_commit_push(branch: str = None, dry_run: bool = False) -> bool
             return True
 
         # Attempt commit
-        commit_cmd = ['git', 'commit', '-m', 'updates']
+        cl = await generate_short_commit_message()
+        commit_cmd = ['git', 'commit', '-m', cl]
         try:
-            commit_result = await arun(commit_cmd)
+            await arun(commit_cmd)
+            console.print(f"\n[blue]Commit Message:[/blue] \n{cl}")
         except Exception as e:
             if "nothing to commit" in str(e).lower():
                 console.print("[yellow]No changes to commit[/yellow]")
                 return False
             raise
-
-        # Generate and amend commit message
-        cl = await generate_short_commit_message()
-        console.print(f"\n[blue]Commit Message:[/blue] \n{cl}")
-
-        if not await amend_commit_message(commit_result.strip(), cl):
-            console.print("[red]Failed to amend commit message[/red]")
-            return False
 
         # Push changes
         push_cmd = ['git', 'push']
@@ -993,16 +1060,19 @@ async def git_add_commit_push(branch: str = None, dry_run: bool = False) -> bool
             push_cmd.extend(['origin', branch])
         
         try:
-            push_result = await arun(push_cmd)
+            await arun(push_cmd)
             console.print("[green]Successfully pushed changes[/green]")
             return True
         except Exception as e:
-            console.print(f"[red]Failed to push changes: {str(e)}[/red]")
+            if "non-fast-forward" in str(e):
+                console.print("[red]Push failed: Remote contains work you do not have locally[/red]")
+                console.print("[yellow]Hint: Try pulling changes first or create a new branch[/yellow]")
+            else:
+                console.print(f"[red]Push failed: {str(e)}[/red]")
             return False
 
     except Exception as e:
-        console.print(f"[red]Push failed: {str(e)}[/red]")
-        console.print("[yellow]Hint: Try pulling changes first with 'git pull'[/yellow]")
+        console.print(f"[red]Error during git operations: {str(e)}[/red]")
         return False
 
 @click.command("git",no_args_is_help=True)

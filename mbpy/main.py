@@ -744,15 +744,15 @@ async def build_command(path: Path = ".") -> None:
                     "binding": True,
                 },
                 "source-files": pyx_files,  # Use discovered files directly
-                "compile_args": [
-                    "-v",
-                    {"platforms": ["linux", "darwin"], "arg": "-Wcpp"},
-                    {"platforms": "darwin", "arch": "x86_64", "arg": "-arch x86_64"},
-                    {"platforms": ["darwin"], "arch": "arm64", "arg": "-arch arm64"},
-                ],
-                "compile_kwargs": {
-                    "language_level": 3
-                },
+                # "compile_args": [
+                #     "-v",
+                #     {"platforms": ["linux", "darwin"], "arg": "-Wcpp"},
+                #     {"platforms": "darwin", "arch": "x86_64", "arg": "-arch x86_64"},
+                #     {"platforms": ["darwin"], "arch": "arm64", "arg": "-arch arm64"},
+                # ],
+                # "compile_kwargs": {
+                #     "language_level": 3
+                # },
             }
             
             # Write configuration
@@ -1441,7 +1441,7 @@ async def _build_command(path: Path = ".",env=None) -> None:
                     if y == "y":
                         await configure_cython(pyproject, project_name, path, out)
                     
-                await arun("hatch build", show=True)
+        await arun("hatch build", show=True)
 
     except Exception:
         import traceback
